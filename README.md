@@ -1,8 +1,8 @@
-# Epidemic Control as Partiall Observable Domain
+# Epidemic Control as Partially Observable Domain
 
 ## Prerequisites
 
-*   Python 3.13
+*   Python 3.13+
 *   pip
 
 ## Installation
@@ -20,25 +20,24 @@
 
 ## Usage
 
-To run the SIR model simulation execute the following command in your terminal:
+To run the SIR model simulation with different intervention strategies:
 
 ```sh
-python sir_model.py
+python main.py
 ```
 
-This will run the simulation with the default parameters defined in the script and display a plot showing the number of susceptible, infected, and recovered individuals over time.
+Or alternatively:
+
+```sh
+python -m src
+```
+
+This will run simulations comparing four intervention levels (No, Mild, Moderate, Severe) and display plots showing the SIR curves for each strategy.
 
 ## Running Tests
 
-The project includes tests to verify the correctness of the SIR model implementation. To run the tests, execute the following command:
-
-```sh
-pytest
-```
-
-or
+The project includes tests for the SIR model and intervention actions:
 
 ```sh
 python -m pytest
 ```
-

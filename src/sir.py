@@ -1,8 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 
-def run_sir_model(N, I0, R0, beta, gamma, days):
+def run_sir_model(N: int, I0: int, R0: int, beta: float, gamma: float, days: int):
     """
     Runs a simple SIR model simulation.
 
@@ -35,23 +34,3 @@ def run_sir_model(N, I0, R0, beta, gamma, days):
         R.append(R_next)
 
     return t, np.array(S), np.array(I), np.array(R)
-
-
-if __name__ == "__main__":
-    N = 1000  # Total population
-    I0, R0 = 1, 0  # Initial number of infected and recovered individuals
-    beta, gamma = 0.4, 0.1  # Transmission and recovery rates
-    days = 160  # Number of days to simulate
-
-    t, S, I, R = run_sir_model(N, I0, R0, beta, gamma, days)
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(t, S, "b", label="Susceptible (S)")
-    plt.plot(t, I, "r", label="Infected (I)")
-    plt.plot(t, R, "g", label="Recovered (R)")
-    plt.title("SIR Model Simulation")
-    plt.xlabel("Time (days)")
-    plt.ylabel("Number of people")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
