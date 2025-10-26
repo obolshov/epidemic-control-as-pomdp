@@ -1,28 +1,28 @@
-from typing import Dict
+from typing import Dict, List
 import numpy as np
 from .actions import InterventionAction
+from .sir import EpidemicState, run_sir_step
+from .agents import Agent
 
 
 class SimulationResult:
-    """
-    Container for a single simulation run results.
-    """
-
     def __init__(
         self,
-        action: InterventionAction,
-        beta: float,
+        agent: Agent,
         t: np.ndarray,
         S: np.ndarray,
         I: np.ndarray,
         R: np.ndarray,
+        actions: List[InterventionAction],
+        action_timesteps: List[int],
     ):
-        self.action = action
-        self.beta = beta
+        self.agent = agent
         self.t = t
         self.S = S
         self.I = I
         self.R = R
+        self.actions = actions
+        self.action_timesteps = action_timesteps
 
     @property
     def peak_infected(self) -> float:
@@ -37,53 +37,67 @@ class SimulationResult:
         days_above_one = np.where(self.I >= 1.0)[0]
         return days_above_one[-1] if len(days_above_one) > 0 else 0
 
+    @property
+    def agent_name(self) -> str:
+        return self.agent.__class__.__name__
 
-class EpidemicPolicy:
+
+def run_simulation(
+    agent: Agent,
+    initial_state: EpidemicState,
+    beta_0: float,
+    gamma: float,
+    total_days: int,
+    action_interval: int = 7,
+) -> SimulationResult:
     """
-    Base class for epidemic control policies.
+    Runs epidemic simulation with an agent that selects actions at regular intervals.
+
+    :param agent: Agent that selects actions based on state
+    :param initial_state: Initial epidemic state
+    :param beta_0: Base transmission rate (without interventions)
+    :param gamma: Recovery rate
+    :param total_days: Total simulation period
+    :param action_interval: Number of days between agent decisions (default: 7)
+    :return: SimulationResult with complete trajectory
     """
+    current_state = initial_state
 
-    def select_action(self, state: Dict) -> InterventionAction:
-        """
-        Selects an intervention action based on the current epidemic state.
+    all_S = [current_state.S]
+    all_I = [current_state.I]
+    all_R = [current_state.R]
 
-        :param state: Dictionary with epidemic state (e.g., S, I, R values)
-        :return: Selected intervention action
-        """
-        raise NotImplementedError("Subclasses must implement select_action")
+    actions_taken = []
+    action_timesteps = []
 
+    current_day = 0
 
-class StaticPolicy(EpidemicPolicy):
-    """
-    A policy that always returns the same action.
-    """
+    while current_day < total_days:
+        action = agent.select_action(current_state)
+        actions_taken.append(action)
+        action_timesteps.append(current_day)
 
-    def __init__(self, action: InterventionAction):
-        self.action = action
+        beta = action.apply_to_beta(beta_0)
 
-    def select_action(self, state: Dict) -> InterventionAction:
-        return self.action
+        days_to_simulate = min(action_interval, total_days - current_day)
 
+        S, I, R = run_sir_step(current_state, beta, gamma, days_to_simulate)
 
-class ThresholdPolicy(EpidemicPolicy):
-    """
-    A simple rule-based policy that selects actions based on infection thresholds.
-    """
+        all_S.extend(S[1:])
+        all_I.extend(I[1:])
+        all_R.extend(R[1:])
 
-    def __init__(self, thresholds: Dict[str, float]):
-        """
-        :param thresholds: Dict with 'mild', 'moderate', 'severe' infection thresholds
-        """
-        self.thresholds = thresholds
+        current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
+        current_day += days_to_simulate
 
-    def select_action(self, state: Dict) -> InterventionAction:
-        infected_pct = state["I"] / state["N"]
+    t = np.arange(len(all_S))
 
-        if infected_pct >= self.thresholds.get("severe", 0.3):
-            return InterventionAction.SEVERE
-        elif infected_pct >= self.thresholds.get("moderate", 0.15):
-            return InterventionAction.MODERATE
-        elif infected_pct >= self.thresholds.get("mild", 0.05):
-            return InterventionAction.MILD
-        else:
-            return InterventionAction.NO
+    return SimulationResult(
+        agent=agent,
+        t=t,
+        S=np.array(all_S),
+        I=np.array(all_I),
+        R=np.array(all_R),
+        actions=actions_taken,
+        action_timesteps=action_timesteps,
+    )

@@ -1,28 +1,31 @@
+from dataclasses import dataclass
 import numpy as np
 
 
-def run_sir_model(N: int, I0: int, R0: int, beta: float, gamma: float, days: int):
-    """
-    Runs a simple SIR model simulation.
+@dataclass
+class EpidemicState:
+    N: int  # Total population
+    S: float  # Susceptible
+    I: float  # Infected
+    R: float  # Recovered
 
-    :param N: Total population
-    :param I0: Initial number of infected individuals
-    :param R0: Initial number of recovered individuals
+
+def run_sir_step(state: EpidemicState, beta: float, gamma: float, days: int):
+    """
+    Runs SIR model simulation for a given number of days from current state.
+
+    :param state: Current epidemic state (DTO)
     :param beta: Transmission rate
     :param gamma: Recovery rate
     :param days: Number of days to simulate
-    :return: A tuple of (t, S, I, R) arrays
+    :return: Arrays of (S, I, R) for each day (including initial state)
     """
-    S0 = N - I0 - R0
-
-    S, I, R = [S0], [I0], [R0]
-
-    t = np.linspace(0, days, days + 1)
+    S, I, R = [state.S], [state.I], [state.R]
 
     for _ in range(days):
         S_current, I_current, R_current = S[-1], I[-1], R[-1]
 
-        new_infections = (beta * S_current * I_current) / N
+        new_infections = (beta * S_current * I_current) / state.N
         new_recoveries = gamma * I_current
 
         S_next = S_current - new_infections
@@ -33,4 +36,21 @@ def run_sir_model(N: int, I0: int, R0: int, beta: float, gamma: float, days: int
         I.append(I_next)
         R.append(R_next)
 
-    return t, np.array(S), np.array(I), np.array(R)
+    return np.array(S), np.array(I), np.array(R)
+
+
+def run_sir_model(state: EpidemicState, beta: float, gamma: float, days: int):
+    """
+    Runs a simple SIR model simulation from initial conditions.
+    Legacy function for backward compatibility.
+
+    :param state: Initial epidemic state
+    :param beta: Transmission rate
+    :param gamma: Recovery rate
+    :param days: Number of days to simulate
+    :return: A tuple of (t, S, I, R) arrays
+    """
+    S, I, R = run_sir_step(state, beta, gamma, days)
+    t = np.linspace(0, days, days + 1)
+
+    return t, S, I, R

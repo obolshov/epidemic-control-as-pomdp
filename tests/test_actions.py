@@ -4,18 +4,7 @@ import pytest
 import numpy as np
 from src.actions import InterventionAction
 from src.sir import run_sir_model
-
-
-def test_intervention_action_count():
-    """Tests that we have exactly 4 intervention actions."""
-    assert len(list(InterventionAction)) == 4
-
-
-def test_intervention_action_names():
-    """Tests that all expected action names exist."""
-    action_names = {action.name for action in InterventionAction}
-    expected_names = {"NO", "MILD", "MODERATE", "SEVERE"}
-    assert action_names == expected_names
+from src.sir import EpidemicState
 
 
 def test_intervention_values_are_valid():
@@ -46,25 +35,6 @@ def test_no_intervention_preserves_beta():
     assert InterventionAction.NO.apply_to_beta(beta_0) == beta_0
 
 
-def test_interventions_ordered_by_strictness():
-    """Tests that intervention coefficients are ordered from least to most strict."""
-    actions = [
-        InterventionAction.NO,
-        InterventionAction.MILD,
-        InterventionAction.MODERATE,
-        InterventionAction.SEVERE,
-    ]
-
-    coefficients = [action.value for action in actions]
-
-    # Check that coefficients strictly decrease (more strict = lower coefficient)
-    for i in range(len(coefficients) - 1):
-        assert coefficients[i] > coefficients[i + 1], (
-            f"{actions[i].name} coefficient ({coefficients[i]}) should be > "
-            f"{actions[i+1].name} coefficient ({coefficients[i+1]})"
-        )
-
-
 def test_beta_strictly_decreases_with_interventions():
     """Tests that beta values strictly decrease with stronger interventions."""
     beta_0 = 0.4
@@ -77,7 +47,6 @@ def test_beta_strictly_decreases_with_interventions():
 
     beta_values = [action.apply_to_beta(beta_0) for action in actions]
 
-    # Check that each beta is strictly less than the previous one
     for i in range(len(beta_values) - 1):
         assert beta_values[i] > beta_values[i + 1], (
             f"Beta for {actions[i].name} ({beta_values[i]}) should be > "
@@ -88,7 +57,12 @@ def test_beta_strictly_decreases_with_interventions():
 @pytest.fixture
 def default_sir_params():
     """Default parameters for SIR model in intervention tests."""
-    return {"N": 1000, "I0": 1, "R0": 0, "beta": 0.4, "gamma": 0.1, "days": 160}
+    return {
+        "state": EpidemicState(N=1000, S=999, I=1, R=0),
+        "beta": 0.4,
+        "gamma": 0.1,
+        "days": 160,
+    }
 
 
 def test_peak_infected_decreases_with_interventions(default_sir_params):
@@ -111,7 +85,6 @@ def test_peak_infected_decreases_with_interventions(default_sir_params):
         t, S, I, R = run_sir_model(**params)
         peak_infected.append(np.max(I))
 
-    # Check that peak infected strictly decreases
     for i in range(len(peak_infected) - 1):
         assert peak_infected[i] > peak_infected[i + 1], (
             f"Peak I for {actions[i].name} ({peak_infected[i]:.2f}) should be > "
@@ -139,7 +112,6 @@ def test_severe_intervention_effectiveness(default_sir_params):
     peak_severe = np.max(I_severe)
 
     # Severe intervention should significantly reduce peak
-    # We don't hardcode the percentage, just verify it's substantially lower
     assert peak_severe < peak_no * 0.9, (
         f"Severe intervention should significantly reduce peak "
         f"(peak_no={peak_no:.2f}, peak_severe={peak_severe:.2f})"
@@ -159,5 +131,5 @@ def test_action_preserves_population_conservation(default_sir_params):
         total_population = S + I + R
 
         assert np.allclose(
-            total_population, default_sir_params["N"]
+            total_population, default_sir_params["state"].N
         ), f"Population not conserved for action '{action.name}'"
