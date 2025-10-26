@@ -1,6 +1,13 @@
 import random
-from src.actions import InterventionAction
 from src.sir import EpidemicState
+from enum import Enum
+
+
+class InterventionAction(Enum):
+    NO = 1.0
+    MILD = 0.75
+    MODERATE = 0.5
+    SEVERE = 0.25
 
 
 class Agent:

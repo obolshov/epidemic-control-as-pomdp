@@ -39,11 +39,22 @@ def plot_comparison(results: List[SimulationResult]) -> None:
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        info_text = f"Peak I: {result.peak_infected:.1f}"
+        peak_infected_text = f"Peak I: {result.peak_infected:.1f}"
         ax.text(
             0.98,
             0.98,
-            info_text,
+            peak_infected_text,
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
+        total_reward_text = f"Total Reward: {result.total_reward:.2f}"
+        ax.text(
+            0.98,
+            0.92,
+            total_reward_text,
             transform=ax.transAxes,
             ha="right",
             va="top",

@@ -1,8 +1,7 @@
-from typing import Dict, List
+from typing import List
 import numpy as np
-from .actions import InterventionAction
-from .sir import EpidemicState, run_sir_step
-from .agents import Agent
+from .agents import InterventionAction, Agent, StaticAgent
+from .sir import EpidemicState, SIR
 
 
 class SimulationResult:
@@ -15,6 +14,7 @@ class SimulationResult:
         R: np.ndarray,
         actions: List[InterventionAction],
         action_timesteps: List[int],
+        rewards: List[float],
     ):
         self.agent = agent
         self.t = t
@@ -23,6 +23,7 @@ class SimulationResult:
         self.R = R
         self.actions = actions
         self.action_timesteps = action_timesteps
+        self.rewards = rewards
 
     @property
     def peak_infected(self) -> float:
@@ -39,65 +40,127 @@ class SimulationResult:
 
     @property
     def agent_name(self) -> str:
+        if isinstance(self.agent, StaticAgent):
+            return self.agent.__class__.__name__ + " - " + self.agent.action.name
+
         return self.agent.__class__.__name__
 
+    @property
+    def total_reward(self) -> float:
+        return sum(self.rewards)
 
-def run_simulation(
-    agent: Agent,
-    initial_state: EpidemicState,
-    beta_0: float,
-    gamma: float,
-    total_days: int,
-    action_interval: int = 7,
-) -> SimulationResult:
-    """
-    Runs epidemic simulation with an agent that selects actions at regular intervals.
 
-    :param agent: Agent that selects actions based on state
-    :param initial_state: Initial epidemic state
-    :param beta_0: Base transmission rate (without interventions)
-    :param gamma: Recovery rate
-    :param total_days: Total simulation period
-    :param action_interval: Number of days between agent decisions (default: 7)
-    :return: SimulationResult with complete trajectory
-    """
-    current_state = initial_state
+class Simulation:
+    def __init__(
+        self,
+        agent: Agent,
+        initial_state: EpidemicState,
+        beta_0: float,
+        gamma: float,
+        total_days: int,
+        action_interval: int,
+        w_I: float,
+        w_S: float,
+        growth_exponent: float,
+    ):
+        self.agent = agent
+        self.initial_state = initial_state
+        self.beta_0 = beta_0
+        self.gamma = gamma
+        self.total_days = total_days
+        self.action_interval = action_interval
+        self.w_I = w_I
+        self.w_S = w_S
+        self.growth_exponent = growth_exponent
+        
+    def run(self) -> SimulationResult:
+        """
+        Runs epidemic simulation with an agent that selects actions at regular intervals.
 
-    all_S = [current_state.S]
-    all_I = [current_state.I]
-    all_R = [current_state.R]
+        :param agent: Agent that selects actions based on state
+        :param initial_state: Initial epidemic state
+        :param beta_0: Base transmission rate (without interventions)
+        :param gamma: Recovery rate
+        :param total_days: Total simulation period
+        :param action_interval: Number of days between agent decisions (default: 7)
+        :return: SimulationResult with complete trajectory
+        """
+        current_state = self.initial_state
 
-    actions_taken = []
-    action_timesteps = []
+        all_S = [current_state.S]
+        all_I = [current_state.I]
+        all_R = [current_state.R]
 
-    current_day = 0
+        actions_taken = []
+        action_timesteps = []
+        rewards = []
 
-    while current_day < total_days:
-        action = agent.select_action(current_state)
-        actions_taken.append(action)
-        action_timesteps.append(current_day)
+        current_day = 0
 
-        beta = action.apply_to_beta(beta_0)
+        sir = SIR()
 
-        days_to_simulate = min(action_interval, total_days - current_day)
+        while current_day < self.total_days:
+            action = self.agent.select_action(current_state)
+            actions_taken.append(action)
+            action_timesteps.append(current_day)
 
-        S, I, R = run_sir_step(current_state, beta, gamma, days_to_simulate)
+            beta = self.apply_action_to_beta(action)
 
-        all_S.extend(S[1:])
-        all_I.extend(I[1:])
-        all_R.extend(R[1:])
+            days_to_simulate = min(self.action_interval, self.total_days - current_day)
 
-        current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
-        current_day += days_to_simulate
+            I_before = current_state.I
 
-    t = np.arange(len(all_S))
+            S, I, R = sir.run_interval(
+                current_state, beta, self.gamma, days_to_simulate
+            )
 
-    return SimulationResult(
-        agent=agent,
-        t=t,
-        S=np.array(all_S),
-        I=np.array(all_I),
-        R=np.array(all_R),
-        actions=actions_taken,
-        action_timesteps=action_timesteps,
-    )
+            all_S.extend(S[1:])
+            all_I.extend(I[1:])
+            all_R.extend(R[1:])
+
+            current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
+
+            I_after = current_state.I
+            reward = self.calculate_reward(I_before, I_after, action)
+            rewards.append(reward)
+
+            current_day += days_to_simulate
+
+        t = np.arange(len(all_S))
+
+        return SimulationResult(
+            agent=self.agent,
+            t=t,
+            S=np.array(all_S),
+            I=np.array(all_I),
+            R=np.array(all_R),
+            actions=actions_taken,
+            action_timesteps=action_timesteps,
+            rewards=rewards,
+        )
+
+    def calculate_reward(
+        self, I_t: float, I_t1: float, action: InterventionAction
+    ) -> float:
+        """
+        :param I_t: Infected count at time t
+        :param I_t1: Infected count at time t+1
+        :param action: Action taken
+        :return: Reward value
+        """
+        if I_t > 0:
+            growth_ratio = (max(0.0, np.log(I_t1 / I_t)) ** self.growth_exponent)
+        else:
+            growth_ratio = 0.0
+
+        action_stringency = (1 - action.value) ** 2
+
+        infection_penalty = self.w_I * growth_ratio
+        stringency_penalty = self.w_S * action_stringency
+
+        reward = -(infection_penalty + stringency_penalty)
+
+        return reward
+
+    def apply_action_to_beta(self, action: InterventionAction) -> float:
+        return self.beta_0 * action.value
