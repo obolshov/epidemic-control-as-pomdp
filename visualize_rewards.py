@@ -9,8 +9,8 @@ def calculate_reward_components(
     I_t: float,
     I_t1: float,
     action: InterventionAction,
-    w_I: float = 1.0,
-    w_S: float = 0.1,
+    w_I: float,
+    w_S: float,
 ):
     """
     Calculate reward components separately for visualization.
@@ -20,8 +20,8 @@ def calculate_reward_components(
     else:
         growth_ratio = 0.0
 
-    infection_penalty = w_I * growth_ratio
-    stringency_penalty = w_S * (1 - action.value)
+    infection_penalty = w_I * (growth_ratio)
+    stringency_penalty = w_S * ((1 - action.value) ** 2)
     reward = -(infection_penalty + stringency_penalty)
 
     return infection_penalty, stringency_penalty, reward
@@ -75,7 +75,11 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
         I_after = current_state.I
 
         inf_penalty, str_penalty, reward = calculate_reward_components(
-            I_before, I_after, action, simulation.w_I, simulation.w_S
+            I_before,
+            I_after,
+            action,
+            simulation.w_I,
+            simulation.w_S,
         )
 
         rewards.append(reward)
@@ -107,10 +111,12 @@ def plot_reward_components():
     N = 1000
     I0, R0 = 1, 0
     S0 = N - I0 - R0
-    beta_0 = 0.4
+    beta_0 = 0.133
     gamma = 0.1
     days = 160
     action_interval = 7
+    w_I = 1.0
+    w_S = 0.1
 
     initial_state = EpidemicState(N=N, S=S0, I=I0, R=R0)
 
@@ -125,6 +131,8 @@ def plot_reward_components():
             gamma=gamma,
             total_days=days,
             action_interval=action_interval,
+            w_I=w_I,
+            w_S=w_S,
         )
         result = run_simulation_with_reward_tracking(simulation)
         results.append(result)
@@ -218,12 +226,14 @@ def plot_reward_components():
             fontsize=9,
         )
 
+    R_0 = beta_0 / gamma
+
     plt.tight_layout()
     plt.suptitle(
-        "Reward Components Over Time for All Actions",
+        f"Reward Components Over Time for All Actions, R_0 = {R_0:.2f}",
         fontsize=14,
         fontweight="bold",
-        y=1.002,
+        y=1.001,
     )
 
     plt.show()
