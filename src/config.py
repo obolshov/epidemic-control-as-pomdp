@@ -16,7 +16,6 @@ class DefaultConfig:
         # Reward function parameters
         self.w_I = 1.0
         self.w_S = 0.5
-        self.growth_exponent = 2
 
 
 def get_config(name: str):

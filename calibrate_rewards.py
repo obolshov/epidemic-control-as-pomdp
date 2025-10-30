@@ -1,5 +1,5 @@
 """
-Calibration script for reward function parameters (w_I, w_S, growth_exponent).
+Calibration script for reward function parameters (w_I, w_S).
 
 The goal is to find parameters such that for different R0 values, the optimal action
 (one that gives the highest total reward) matches the expected action based on:
@@ -16,7 +16,7 @@ import seaborn as sns
 from typing import Dict, List, Tuple
 from src.simulation import Simulation
 from src.agents import StaticAgent, InterventionAction
-from src.sir import EpidemicState
+from src.config import DefaultConfig
 from itertools import product
 
 RESULTS_DIR = "results/calibration"
@@ -39,40 +39,26 @@ def get_expected_action(r0: float) -> InterventionAction:
 
 
 def run_simulations_for_r0(
-    r0: float,
-    gamma: float,
-    w_I: float,
-    w_S: float,
-    growth_exponent: float,
-    N: int = 1000,
-    I0: int = 10,
-    days: int = 160,
-    action_interval: int = 7,
+    r0: float, gamma: float, w_I: float, w_S: float
 ) -> Dict[InterventionAction, float]:
     """
     Run simulations for all actions with a given R0 and return total rewards.
     """
     beta_0 = r0 * gamma
-    S0 = N - I0
-    R0 = 0
-
-    initial_state = EpidemicState(N=N, S=S0, I=I0, R=R0)
 
     rewards_by_action = {}
 
     for action in InterventionAction:
         agent = StaticAgent(action)
-        simulation = Simulation(
-            agent=agent,
-            initial_state=initial_state,
-            beta_0=beta_0,
-            gamma=gamma,
-            total_days=days,
-            action_interval=action_interval,
-            w_I=w_I,
-            w_S=w_S,
-            growth_exponent=growth_exponent,
-        )
+
+        # Create config for this simulation
+        config = DefaultConfig()
+        config.beta_0 = beta_0
+        config.gamma = gamma
+        config.w_I = w_I
+        config.w_S = w_S
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
         rewards_by_action[action] = result.total_reward
 
@@ -82,7 +68,6 @@ def run_simulations_for_r0(
 def evaluate_parameters(
     w_I: float,
     w_S: float,
-    growth_exponent: float,
     test_r0_values: List[float],
     gamma: float = 0.1,
     verbose: bool = False,
@@ -99,13 +84,11 @@ def evaluate_parameters(
     total = len(test_r0_values)
 
     if verbose:
-        print(
-            f"\nEvaluating: w_I={w_I:.3f}, w_S={w_S:.3f}, growth_exp={growth_exponent:.3f}"
-        )
+        print(f"\nEvaluating: w_I={w_I:.3f}, w_S={w_S:.3f}")
         print("-" * 70)
 
     for r0 in test_r0_values:
-        rewards = run_simulations_for_r0(r0, gamma, w_I, w_S, growth_exponent)
+        rewards = run_simulations_for_r0(r0, gamma, w_I, w_S)
 
         # Find action with highest reward
         optimal_action = max(rewards, key=rewards.get)
@@ -132,7 +115,6 @@ def evaluate_parameters(
 def grid_search_calibration(
     w_I_range: np.ndarray,
     w_S_range: np.ndarray,
-    growth_exp_range: np.ndarray,
     test_r0_values: List[float],
     gamma: float = 0.1,
 ) -> Tuple[Dict, np.ndarray]:
@@ -141,45 +123,36 @@ def grid_search_calibration(
 
     Returns:
         - Best parameters dictionary
-        - Accuracy grid for heat map (averaged over growth_exponent)
+        - Accuracy grid for heat map
     """
     best_accuracy = 0
     best_params = None
 
-    # Store accuracy for each (w_I, w_S) combination (averaged over growth_exponent)
+    # Store accuracy for each (w_I, w_S) combination
     accuracy_grid = np.zeros((len(w_I_range), len(w_S_range)))
-    count_grid = np.zeros((len(w_I_range), len(w_S_range)))
 
-    total_combinations = len(w_I_range) * len(w_S_range) * len(growth_exp_range)
+    total_combinations = len(w_I_range) * len(w_S_range)
     print(f"Testing {total_combinations} parameter combinations...")
-    print(
-        f"w_I: {len(w_I_range)} values, w_S: {len(w_S_range)} values, "
-        f"growth_exp: {len(growth_exp_range)} values\n"
-    )
+    print(f"w_I: {len(w_I_range)} values, w_S: {len(w_S_range)} values\n")
 
-    for i, (w_I_idx, w_S_idx, growth_exp_idx) in enumerate(
-        product(
-            range(len(w_I_range)), range(len(w_S_range)), range(len(growth_exp_range))
-        )
+    for i, (w_I_idx, w_S_idx) in enumerate(
+        product(range(len(w_I_range)), range(len(w_S_range)))
     ):
         w_I = w_I_range[w_I_idx]
         w_S = w_S_range[w_S_idx]
-        growth_exp = growth_exp_range[growth_exp_idx]
 
         correct, total, accuracy = evaluate_parameters(
-            w_I, w_S, growth_exp, test_r0_values, gamma, verbose=False
+            w_I, w_S, test_r0_values, gamma, verbose=False
         )
 
         # Update accuracy grid
-        accuracy_grid[w_I_idx, w_S_idx] += accuracy
-        count_grid[w_I_idx, w_S_idx] += 1
+        accuracy_grid[w_I_idx, w_S_idx] = accuracy
 
         if accuracy > best_accuracy:
             best_accuracy = accuracy
             best_params = {
                 "w_I": w_I,
                 "w_S": w_S,
-                "growth_exponent": growth_exp,
                 "accuracy": accuracy,
             }
 
@@ -189,9 +162,6 @@ def grid_search_calibration(
                 f"({100 * (i + 1) / total_combinations:.1f}%) - "
                 f"Best accuracy so far: {best_accuracy:.1%}"
             )
-
-    # Average accuracy over growth_exponent dimension
-    accuracy_grid = accuracy_grid / count_grid
 
     return best_params, accuracy_grid
 
@@ -223,8 +193,8 @@ def plot_heatmap(
     plt.ylabel("w_I (Infection Growth Weight)", fontsize=12)
     plt.title(
         f"Calibration Heat Map: Accuracy of Optimal Actions\n"
-        f'Best: w_I={best_params["w_I"]:.3f}, w_S={best_params["w_S"]:.3f}, '
-        f'growth_exp={best_params["growth_exponent"]:.3f} (Accuracy: {best_params["accuracy"]:.1%})',
+        f'Best: w_I={best_params["w_I"]:.3f}, w_S={best_params["w_S"]:.3f} '
+        f'(Accuracy: {best_params["accuracy"]:.1%})',
         fontsize=14,
         pad=20,
     )
@@ -258,7 +228,6 @@ def plot_reward_comparison(
             gamma,
             best_params["w_I"],
             best_params["w_S"],
-            best_params["growth_exponent"],
         )
 
         actions = list(rewards.keys())
@@ -293,8 +262,7 @@ def plot_reward_comparison(
 
     plt.suptitle(
         f"Reward Comparison Across R0 Values\n"
-        f'w_I={best_params["w_I"]:.3f}, w_S={best_params["w_S"]:.3f}, '
-        f'growth_exp={best_params["growth_exponent"]:.3f}',
+        f'w_I={best_params["w_I"]:.3f}, w_S={best_params["w_S"]:.3f}',
         fontsize=14,
         y=1.00,
     )
@@ -333,20 +301,18 @@ if __name__ == "__main__":
     # Define parameter search space
     w_I_range = np.linspace(0.5, 3.0, 11)  # 11 values
     w_S_range = np.linspace(0.1, 2.0, 11)  # 11 values
-    growth_exp_range = np.linspace(1.0, 3.0, 7)  # 7 values
 
     # Grid search
     best_params, accuracy_grid = grid_search_calibration(
-        w_I_range, w_S_range, growth_exp_range, test_r0_values, gamma
+        w_I_range, w_S_range, test_r0_values, gamma
     )
 
     print("\n" + "=" * 70)
     print("BEST PARAMETERS FOUND")
     print("=" * 70)
-    print(f"w_I:             {best_params['w_I']:.4f}")
-    print(f"w_S:             {best_params['w_S']:.4f}")
-    print(f"growth_exponent: {best_params['growth_exponent']:.4f}")
-    print(f"Accuracy:        {best_params['accuracy']:.1%}")
+    print(f"w_I:      {best_params['w_I']:.4f}")
+    print(f"w_S:      {best_params['w_S']:.4f}")
+    print(f"Accuracy: {best_params['accuracy']:.1%}")
     print("=" * 70)
 
     # Detailed evaluation with best parameters
@@ -356,7 +322,6 @@ if __name__ == "__main__":
     evaluate_parameters(
         best_params["w_I"],
         best_params["w_S"],
-        best_params["growth_exponent"],
         test_r0_values,
         gamma,
         verbose=True,
@@ -375,5 +340,4 @@ if __name__ == "__main__":
     print("\nYou can now use these parameters in your simulation:")
     print(f"  w_I = {best_params['w_I']:.4f}")
     print(f"  w_S = {best_params['w_S']:.4f}")
-    print(f"  growth_exponent = {best_params['growth_exponent']:.4f}")
     print()

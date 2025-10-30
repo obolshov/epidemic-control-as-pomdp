@@ -66,7 +66,6 @@ class Simulation:
         self.action_interval = config.action_interval
         self.w_I = config.w_I
         self.w_S = config.w_S
-        self.growth_exponent = config.growth_exponent
 
     def run(self) -> SimulationResult:
         """
@@ -144,7 +143,7 @@ class Simulation:
         :return: Reward value
         """
         if I_t > 0:
-            growth_ratio = max(0.0, np.log(I_t1 / I_t)) ** self.growth_exponent
+            growth_ratio = max(0.0, np.log(I_t1 / I_t))
         else:
             growth_ratio = 0.0
 
