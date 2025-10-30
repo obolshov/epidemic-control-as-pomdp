@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from src.simulation import Simulation
 from src.agents import StaticAgent, InterventionAction
 from src.sir import EpidemicState
+from src.config import get_config
 
 
 def calculate_reward_components(
@@ -108,36 +109,20 @@ def plot_reward_components():
     Visualize reward components (infection_penalty, stringency_penalty, reward)
     for all 4 actions.
     """
-    N = 1000
-    I0, R0 = 1, 0
-    S0 = N - I0 - R0
-    beta_0 = 0.133
-    gamma = 0.1
-    days = 160
-    action_interval = 7
-    w_I = 1.0
-    w_S = 0.1
+    config = get_config("default")
 
-    initial_state = EpidemicState(N=N, S=S0, I=I0, R=R0)
+    config.beta_0 = 0.4
+    config.gamma = 0.1
 
     static_agents = [StaticAgent(action) for action in InterventionAction]
 
     results = []
     for static_agent in static_agents:
-        simulation = Simulation(
-            agent=static_agent,
-            initial_state=initial_state,
-            beta_0=beta_0,
-            gamma=gamma,
-            total_days=days,
-            action_interval=action_interval,
-            w_I=w_I,
-            w_S=w_S,
-        )
+        simulation = Simulation(agent=static_agent, config=config)
         result = run_simulation_with_reward_tracking(simulation)
         results.append(result)
 
-    # First, collect all values to find global min and max
+    # Collect all values to find global min and max
     all_values = []
     for result in results:
         infection_penalties = result["infection_penalties"]
@@ -226,7 +211,7 @@ def plot_reward_components():
             fontsize=9,
         )
 
-    R_0 = beta_0 / gamma
+    R_0 = config.beta_0 / config.gamma
 
     plt.tight_layout()
     plt.suptitle(
@@ -240,6 +225,4 @@ def plot_reward_components():
 
 
 if __name__ == "__main__":
-    print("Visualizing reward components...")
     plot_reward_components()
-    print("Done!")

@@ -3,18 +3,7 @@ import numpy as np
 from src.sir import EpidemicState
 from src.simulation import Simulation
 from src.agents import StaticAgent, InterventionAction
-
-
-@pytest.fixture
-def default_state():
-    """Default initial epidemic state."""
-    return EpidemicState(N=1000, S=999, I=1, R=0)
-
-
-@pytest.fixture
-def simulation_params():
-    """Default simulation parameters."""
-    return {"beta_0": 0.4, "gamma": 0.1, "total_days": 100, "action_interval": 7}
+from src.config import DefaultConfig
 
 
 class TestStaticPolicy:
@@ -33,72 +22,65 @@ class TestStaticPolicy:
 class TestRunSimulation:
     """Tests for run_simulation function."""
 
-    def test_policy_simulation_basic(self, default_state, simulation_params):
+    def test_policy_simulation_basic(self):
         """Test basic policy simulation execution."""
         agent = StaticAgent(InterventionAction.NO)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
-        expected_length = simulation_params["total_days"] + 1
+        expected_length = config.days + 1
         assert len(result.t) == expected_length
         assert len(result.S) == expected_length
         assert len(result.I) == expected_length
         assert len(result.R) == expected_length
 
-    def test_policy_simulation_action_count(self, default_state, simulation_params):
+    def test_policy_simulation_action_count(self):
         """Test that correct number of actions are recorded."""
         agent = StaticAgent(InterventionAction.MILD)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
         # Should have ceiling(total_days / action_interval) actions
-        expected_actions = (
-            simulation_params["total_days"] // simulation_params["action_interval"]
-        ) + 1
+        expected_actions = (config.days // config.action_interval) + 1
         assert len(result.actions) == expected_actions
         assert len(result.action_timesteps) == expected_actions
 
-    def test_policy_simulation_action_timesteps(self, default_state, simulation_params):
+    def test_policy_simulation_action_timesteps(self):
         """Test that action timesteps are at correct intervals."""
         agent = StaticAgent(InterventionAction.NO)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
-        interval = simulation_params["action_interval"]
+        interval = config.action_interval
         for i, timestep in enumerate(result.action_timesteps[:-1]):
             assert timestep == i * interval
 
-    def test_policy_simulation_static_all_same_action(
-        self, default_state, simulation_params
-    ):
+    def test_policy_simulation_static_all_same_action(self):
         """Test that static policy uses same action throughout."""
         action = InterventionAction.MODERATE
         agent = StaticAgent(action)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
         assert all(a == action for a in result.actions)
 
-    def test_policy_simulation_severe_reduces_infections(self, default_state):
+    def test_policy_simulation_severe_reduces_infections(self):
         """Test that severe intervention reduces infections more than no intervention."""
-        params = {"beta_0": 0.5, "gamma": 0.1, "total_days": 100, "action_interval": 7}
-
         agent_no = StaticAgent(InterventionAction.NO)
-        simulation = Simulation(agent=agent_no, initial_state=default_state, **params)
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent_no, config=config)
         result_no = simulation.run()
 
         agent_severe = StaticAgent(InterventionAction.SEVERE)
-        simulation_severe = Simulation(
-            agent=agent_severe, initial_state=default_state, **params
-        )
+        simulation_severe = Simulation(agent=agent_severe, config=config)
         result_severe = simulation_severe.run()
 
         assert (
@@ -108,14 +90,12 @@ class TestRunSimulation:
             result_severe.total_infected < result_no.total_infected
         ), "Severe intervention should reduce total infections"
 
-    def test_policy_simulation_result_properties(
-        self, default_state, simulation_params
-    ):
+    def test_policy_simulation_result_properties(self):
         """Test that result properties are calculated correctly."""
         agent = StaticAgent(InterventionAction.MODERATE)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
         # Test peak_infected
@@ -124,25 +104,25 @@ class TestRunSimulation:
         # Test total_infected
         assert result.total_infected == result.R[-1] + result.I[-1]
 
-    def test_policy_simulation_has_rewards(self, default_state, simulation_params):
+    def test_policy_simulation_has_rewards(self):
         """Test that simulation result includes rewards."""
         agent = StaticAgent(InterventionAction.NO)
-        simulation = Simulation(
-            agent=agent, initial_state=default_state, **simulation_params
-        )
+        config = DefaultConfig()
+
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
 
         # Should have same number of rewards as actions
         assert len(result.rewards) == len(result.actions)
 
 
+# TODO: Test reward calculation
 class TestRewardCalculation:
     """Tests for reward calculation functions."""
 
     @pytest.fixture
-    def default_simulation(self, default_state, simulation_params) -> Simulation:
+    def default_simulation(self) -> Simulation:
         return Simulation(
             agent=StaticAgent(InterventionAction.NO),
-            initial_state=default_state,
-            **simulation_params
+            config=DefaultConfig(),
         )

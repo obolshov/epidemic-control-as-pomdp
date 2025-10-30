@@ -1,19 +1,17 @@
 import pytest
 import numpy as np
 from src.agents import InterventionAction
-from src.sir import SIR, EpidemicState
+from src.sir import SIR
 from src.simulation import Simulation
 from src.agents import StaticAgent
+from src.config import DefaultConfig
 
 
 @pytest.fixture
 def default_simulation() -> Simulation:
     return Simulation(
         agent=StaticAgent(InterventionAction.NO),
-        initial_state=EpidemicState(N=1000, S=999, I=1, R=0),
-        beta_0=0.4,
-        gamma=0.1,
-        total_days=160,
+        config=DefaultConfig(),
     )
 
 

@@ -2,6 +2,7 @@ from typing import List
 import numpy as np
 from .agents import InterventionAction, Agent, StaticAgent
 from .sir import EpidemicState, SIR
+from .config import DefaultConfig
 
 
 class SimulationResult:
@@ -54,25 +55,19 @@ class Simulation:
     def __init__(
         self,
         agent: Agent,
-        initial_state: EpidemicState,
-        beta_0: float,
-        gamma: float,
-        total_days: int,
-        action_interval: int,
-        w_I: float,
-        w_S: float,
-        growth_exponent: float,
+        config: DefaultConfig,
     ):
         self.agent = agent
-        self.initial_state = initial_state
-        self.beta_0 = beta_0
-        self.gamma = gamma
-        self.total_days = total_days
-        self.action_interval = action_interval
-        self.w_I = w_I
-        self.w_S = w_S
-        self.growth_exponent = growth_exponent
-        
+        S0 = config.N - config.I0 - config.R0
+        self.initial_state = EpidemicState(N=config.N, S=S0, I=config.I0, R=config.R0)
+        self.beta_0 = config.beta_0
+        self.gamma = config.gamma
+        self.total_days = config.days
+        self.action_interval = config.action_interval
+        self.w_I = config.w_I
+        self.w_S = config.w_S
+        self.growth_exponent = config.growth_exponent
+
     def run(self) -> SimulationResult:
         """
         Runs epidemic simulation with an agent that selects actions at regular intervals.
@@ -149,7 +144,7 @@ class Simulation:
         :return: Reward value
         """
         if I_t > 0:
-            growth_ratio = (max(0.0, np.log(I_t1 / I_t)) ** self.growth_exponent)
+            growth_ratio = max(0.0, np.log(I_t1 / I_t)) ** self.growth_exponent
         else:
             growth_ratio = 0.0
 
