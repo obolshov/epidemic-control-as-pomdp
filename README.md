@@ -20,23 +20,17 @@
 
 ## Usage
 
-To run the SIR model simulation with different intervention strategies:
+To run the simulation with different intervention strategies, use the following command:
 
 ```sh
 python main.py
 ```
 
-Or alternatively:
-
-```sh
-python -m src
-```
-
-This will run simulations comparing four intervention levels (No, Mild, Moderate, Severe) and display plots showing the SIR curves for each strategy.
+This will run simulations comparing four intervention levels (No, Mild, Moderate, Severe) and display plots showing the curves for each strategy.
 
 ## Running Tests
 
-The project includes tests for the SIR model and intervention actions:
+To run the tests:
 
 ```sh
 python -m pytest
