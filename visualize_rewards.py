@@ -10,18 +10,16 @@ def calculate_reward_components(
     I_t: float,
     I_t1: float,
     action: InterventionAction,
-    w_I: float,
     w_S: float,
 ):
     """
     Calculate reward components separately for visualization.
     """
     if I_t > 0:
-        growth_ratio = max(0.0, np.log(I_t1 / I_t))
+        infection_penalty = max(0.0, np.log(I_t1 / I_t))
     else:
-        growth_ratio = 0.0
+        infection_penalty = 0.0
 
-    infection_penalty = w_I * (growth_ratio)
     stringency_penalty = w_S * ((1 - action.value) ** 2)
     reward = -(infection_penalty + stringency_penalty)
 
@@ -79,7 +77,6 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
             I_before,
             I_after,
             action,
-            simulation.w_I,
             simulation.w_S,
         )
 

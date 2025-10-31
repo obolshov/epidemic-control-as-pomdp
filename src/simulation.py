@@ -64,7 +64,6 @@ class Simulation:
         self.gamma = config.gamma
         self.total_days = config.days
         self.action_interval = config.action_interval
-        self.w_I = config.w_I
         self.w_S = config.w_S
 
     def run(self) -> SimulationResult:
@@ -143,18 +142,14 @@ class Simulation:
         :return: Reward value
         """
         if I_t > 0:
-            growth_ratio = max(0.0, np.log(I_t1 / I_t))
+            infection_penalty = max(0.0, np.log(I_t1 / I_t))
         else:
-            growth_ratio = 0.0
+            infection_penalty = 0.0
 
         action_stringency = (1 - action.value) ** 2
-
-        infection_penalty = self.w_I * growth_ratio
         stringency_penalty = self.w_S * action_stringency
 
-        reward = -(infection_penalty + stringency_penalty)
-
-        return reward
+        return -(infection_penalty + stringency_penalty)
 
     def apply_action_to_beta(self, action: InterventionAction) -> float:
         return self.beta_0 * action.value

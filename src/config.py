@@ -13,8 +13,7 @@ class DefaultConfig:
         self.days = 160  # Simulation days
         self.action_interval = 7  # Days between decisions
 
-        # Reward function parameters
-        self.w_I = 1.0
+        # Action stringency weight for reward function
         self.w_S = 0.5
 
 
