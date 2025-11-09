@@ -1,29 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from src.simulation import Simulation
-from src.agents import StaticAgent, InterventionAction
+from matplotlib.ticker import MultipleLocator
+from src.simulation import Simulation, calculate_reward
+from src.agents import StaticAgent, RandomAgent, MyopicMaximizer, InterventionAction
 from src.sir import EpidemicState
 from src.config import get_config
+import os
 
 
 def calculate_reward_components(
-    I_t: float,
-    I_t1: float,
-    action: InterventionAction,
-    w_S: float,
+    I_t: float, I_t1: float, action: InterventionAction, action_interval: int
 ):
     """
     Calculate reward components separately for visualization.
     """
-    if I_t > 0:
-        infection_penalty = max(0.0, np.log(I_t1 / I_t))
-    else:
-        infection_penalty = 0.0
+    infection_ratio = I_t1 / I_t if I_t > 0 else 0.0
+    log_infection_ratio = (
+        np.log(infection_ratio) if I_t > 0 and infection_ratio > 0 else 0.0
+    )
+    infection_penalty = max(0.0, log_infection_ratio) if I_t > 0 else 0.0
 
-    stringency_penalty = w_S * ((1 - action.value) ** 2)
-    reward = -(infection_penalty + stringency_penalty)
+    reward = calculate_reward(I_t, I_t1, action, action_interval)
 
-    return infection_penalty, stringency_penalty, reward
+    return (
+        infection_penalty,
+        reward,
+        infection_ratio,
+        log_infection_ratio,
+    )
 
 
 def run_simulation_with_reward_tracking(simulation: Simulation):
@@ -39,8 +43,10 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
     actions_taken = []
     action_timesteps = []
     rewards = []
-    infection_penalties = []
-    stringency_penalties = []
+    max_log_infection_ratios = []
+    infection_ratios = []
+    log_infection_ratios = []
+    action_states = []
 
     current_day = 0
 
@@ -49,6 +55,9 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
     sir = SIR()
 
     while current_day < simulation.total_days:
+        # Store state at decision point
+        action_states.append(current_state)
+
         action = simulation.agent.select_action(current_state)
         actions_taken.append(action)
         action_timesteps.append(current_day)
@@ -73,16 +82,14 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
 
         I_after = current_state.I
 
-        inf_penalty, str_penalty, reward = calculate_reward_components(
-            I_before,
-            I_after,
-            action,
-            simulation.w_S,
+        inf_penalty, reward, inf_ratio, log_inf_ratio = calculate_reward_components(
+            I_before, I_after, action, simulation.action_interval
         )
 
         rewards.append(reward)
-        infection_penalties.append(inf_penalty)
-        stringency_penalties.append(str_penalty)
+        max_log_infection_ratios.append(inf_penalty)
+        infection_ratios.append(inf_ratio)
+        log_infection_ratios.append(log_inf_ratio)
 
         current_day += days_to_simulate
 
@@ -96,75 +103,60 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
         "actions": actions_taken,
         "action_timesteps": action_timesteps,
         "rewards": rewards,
-        "infection_penalties": infection_penalties,
-        "stringency_penalties": stringency_penalties,
+        "max_log_infection_ratios": max_log_infection_ratios,
+        "infection_ratios": infection_ratios,
+        "log_infection_ratios": log_infection_ratios,
+        "action_states": action_states,
     }
 
 
-def plot_reward_components():
-    """
-    Visualize reward components (infection_penalty, stringency_penalty, reward)
-    for all 4 actions.
-    """
+if __name__ == "__main__":
     config = get_config("default")
 
-    config.beta_0 = 0.4
-    config.gamma = 0.1
+    agents = [
+        StaticAgent(InterventionAction.NO),
+        StaticAgent(InterventionAction.SEVERE),
+        MyopicMaximizer(config),
+    ]
 
-    static_agents = [StaticAgent(action) for action in InterventionAction]
+    agent_names = ["No action", "Severe action", "Myopic Maximizer"]
 
     results = []
-    for static_agent in static_agents:
-        simulation = Simulation(agent=static_agent, config=config)
+    for agent in agents:
+        simulation = Simulation(agent=agent, config=config)
         result = run_simulation_with_reward_tracking(simulation)
         results.append(result)
 
-    # Collect all values to find global min and max
     all_values = []
     for result in results:
-        infection_penalties = result["infection_penalties"]
-        stringency_penalties = result["stringency_penalties"]
+        max_log_infection_ratios = result["max_log_infection_ratios"]
         rewards = result["rewards"]
-        all_values.extend(infection_penalties)
-        all_values.extend(stringency_penalties)
+        infection_ratios = result["infection_ratios"]
+        log_infection_ratios = result["log_infection_ratios"]
+        all_values.extend(max_log_infection_ratios)
         all_values.extend(rewards)
+        all_values.extend(infection_ratios)
+        all_values.extend(log_infection_ratios)
 
     global_min = min(all_values)
     global_max = max(all_values)
     padding = (global_max - global_min) * 0.1  # 10% padding
 
-    # Create figure with 4 subplots, one for each action
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    # Create figure with subplots for all agents (3 rows x 2 columns)
+    fig, axes = plt.subplots(1, len(agents), figsize=(7 * len(agents), 6))
     axes = axes.flatten()
 
-    for idx, (result, action) in enumerate(zip(results, InterventionAction)):
+    for idx, (result, agent_name) in enumerate(zip(results, agent_names)):
         ax = axes[idx]
 
         # Extract timesteps and reward components
         action_timesteps = result["action_timesteps"]
-        infection_penalties = result["infection_penalties"]
-        stringency_penalties = result["stringency_penalties"]
+        max_log_infection_ratios = result["max_log_infection_ratios"]
         rewards = result["rewards"]
+        infection_ratios = result["infection_ratios"]
+        log_infection_ratios = result["log_infection_ratios"]
 
         # Plot the three components
-        ax.plot(
-            action_timesteps,
-            infection_penalties,
-            "r-",
-            label="Infection Penalty",
-            linewidth=2,
-            marker="o",
-            markersize=4,
-        )
-        ax.plot(
-            action_timesteps,
-            stringency_penalties,
-            "b-",
-            label="Stringency Penalty",
-            linewidth=2,
-            marker="s",
-            markersize=4,
-        )
         ax.plot(
             action_timesteps,
             rewards,
@@ -174,6 +166,33 @@ def plot_reward_components():
             marker="^",
             markersize=4,
         )
+        ax.plot(
+            action_timesteps,
+            infection_ratios,
+            "m-",
+            label="I_t1 / I_t",
+            linewidth=2,
+            marker="d",
+            markersize=4,
+        )
+        ax.plot(
+            action_timesteps,
+            log_infection_ratios,
+            "c-",
+            label="log(I_t1 / I_t)",
+            linewidth=2,
+            marker="v",
+            markersize=4,
+        )
+        ax.plot(
+            action_timesteps,
+            max_log_infection_ratios,
+            "r-",
+            label="max(0, log(I_t1 / I_t))",
+            linewidth=2,
+            marker="o",
+            markersize=4,
+        )
 
         # Add zero line
         ax.axhline(y=0, color="k", linestyle="--", alpha=0.3, linewidth=1)
@@ -181,7 +200,11 @@ def plot_reward_components():
         # Set same y-axis limits for all subplots
         ax.set_ylim(global_min - padding, global_max + padding)
 
-        title = f"Action: {action.name}\n(beta multiplier = {action.value})"
+        # Set y-axis tick step to 1
+        ax.yaxis.set_major_locator(MultipleLocator(1))
+
+        title = agent_name
+
         ax.set_title(title, fontsize=12, fontweight="bold")
         ax.set_xlabel("Time (days)")
         ax.set_ylabel("Reward component value")
@@ -189,12 +212,15 @@ def plot_reward_components():
         ax.grid(True, alpha=0.3)
 
         # Add stats in a box
-        total_inf_penalty = sum(infection_penalties)
-        total_str_penalty = sum(stringency_penalties)
+
+        total_infection_ratios = sum(infection_ratios)
+        total_log_infection_ratios = sum(log_infection_ratios)
+        total_max_log_infection_ratios = sum(max_log_infection_ratios)
         total_reward = sum(rewards)
 
-        info_text = f"Total Infection P: {total_inf_penalty:.2f}\n"
-        info_text += f"Total Stringency P: {total_str_penalty:.2f}\n"
+        info_text = f"I_t1 / I_t: {total_infection_ratios:.2f}\n"
+        info_text += f"log(I_t1 / I_t): {total_log_infection_ratios:.2f}\n"
+        info_text += f"max(0, log(I_t1 / I_t)): {total_max_log_infection_ratios:.2f}\n"
         info_text += f"Total Reward: {total_reward:.2f}"
 
         ax.text(
@@ -212,14 +238,14 @@ def plot_reward_components():
 
     plt.tight_layout()
     plt.suptitle(
-        f"Reward Components Over Time for All Actions, R_0 = {R_0:.2f}",
+        f"Reward Components Over Time, No stringency penalty, R_0 = {R_0:.2f}",
         fontsize=14,
         fontweight="bold",
         y=1.001,
     )
 
+    os.makedirs("results", exist_ok=True)
+    save_path = "results/reward_components_plot.png"
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
     plt.show()
-
-
-if __name__ == "__main__":
-    plot_reward_components()

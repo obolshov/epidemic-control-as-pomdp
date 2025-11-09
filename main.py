@@ -1,8 +1,8 @@
 import argparse
 
 from src.simulation import Simulation
-from src.agents import StaticAgent, InterventionAction
-from src.visualization import plot_comparison
+from src.agents import StaticAgent, RandomAgent, MyopicMaximizer, InterventionAction
+from src.utils import plot_comparison, log_simulation_results
 from src.config import get_config
 
 
@@ -18,41 +18,17 @@ if __name__ == "__main__":
 
     config = get_config(args.config)
 
-    print(f"\nRunning simulation with '{args.config}' config...")
-    print(f"Static agents will be evaluated every {config.action_interval} days\n")
-
-    static_agents = [StaticAgent(action) for action in InterventionAction]
+    agents = [
+        StaticAgent(InterventionAction.NO),
+        StaticAgent(InterventionAction.SEVERE),
+        MyopicMaximizer(config),
+    ]
 
     results = []
-    for static_agent in static_agents:
-        simulation = Simulation(agent=static_agent, config=config)
+    for agent in agents:
+        simulation = Simulation(agent=agent, config=config)
         result = simulation.run()
         results.append(result)
 
-    print("\n" + "=" * 92)
-    print("SIMULATION RESULTS")
-    print("=" * 92)
-    print(
-        f"\nParameters: N={config.N}, I0={config.I0}, R0={config.R0}, beta_0={config.beta_0}, gamma={config.gamma}"
-    )
-    print(f"Simulation period: {config.days} days")
-    print(f"Action interval: {config.action_interval} days\n")
-
-    print(
-        f"{'Agent':<22} {'Peak I':<10} {'Total Inf':<12} {'Duration':<10} {'Actions':<10} {'Total Reward':<12}"
-    )
-    print("-" * 92)
-    for result in results:
-        num_decisions = len(result.actions)
-        print(
-            f"{result.agent_name:<22} "
-            f"{result.peak_infected:<10.1f} "
-            f"{result.total_infected:<12.1f} "
-            f"{result.epidemic_duration:<10d} "
-            f"{num_decisions:<10d} "
-            f"{result.total_reward:<12.2f}"
-        )
-
-    print("=" * 92 + "\n")
-
-    plot_comparison(results)
+    plot_comparison(results, save_path="results/comparison_plot.png")
+    log_simulation_results(results, log_dir="logs")

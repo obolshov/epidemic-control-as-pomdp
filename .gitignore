@@ -210,5 +210,6 @@ __marimo__/
 # Examples
 examples/
 
-# Results
+# Results and logs
 results/
+logs/

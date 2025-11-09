@@ -5,6 +5,24 @@ from .sir import EpidemicState, SIR
 from .config import DefaultConfig
 
 
+def calculate_reward(I_t: float, I_t1: float, action: InterventionAction, config: DefaultConfig) -> float:
+    """
+    Calculate reward based on infection change and action stringency.
+
+    :param I_t: Infected count at time t
+    :param I_t1: Infected count at time t+1
+    :param action: Action taken
+    :return: Reward value
+    """
+    epislon = 1e-6 * config.N
+    infection_penalty = max(0.0, np.log((I_t1 + epislon) / (I_t + epislon)))
+
+    action_stringency = (1 - action.value) ** 2
+    stringency_penalty = config.w_S * action_stringency
+
+    return -(infection_penalty + stringency_penalty)
+
+
 class SimulationResult:
     def __init__(
         self,
@@ -16,6 +34,7 @@ class SimulationResult:
         actions: List[InterventionAction],
         action_timesteps: List[int],
         rewards: List[float],
+        action_states: List[EpidemicState],
     ):
         self.agent = agent
         self.t = t
@@ -25,6 +44,7 @@ class SimulationResult:
         self.actions = actions
         self.action_timesteps = action_timesteps
         self.rewards = rewards
+        self.action_states = action_states
 
     @property
     def peak_infected(self) -> float:
@@ -58,13 +78,9 @@ class Simulation:
         config: DefaultConfig,
     ):
         self.agent = agent
+        self.config = config
         S0 = config.N - config.I0 - config.R0
         self.initial_state = EpidemicState(N=config.N, S=S0, I=config.I0, R=config.R0)
-        self.beta_0 = config.beta_0
-        self.gamma = config.gamma
-        self.total_days = config.days
-        self.action_interval = config.action_interval
-        self.w_S = config.w_S
 
     def run(self) -> SimulationResult:
         """
@@ -87,24 +103,27 @@ class Simulation:
         actions_taken = []
         action_timesteps = []
         rewards = []
+        action_states = []
 
         current_day = 0
 
         sir = SIR()
 
-        while current_day < self.total_days:
+        while current_day < self.config.days:
+            action_states.append(current_state)
+
             action = self.agent.select_action(current_state)
             actions_taken.append(action)
             action_timesteps.append(current_day)
 
             beta = self.apply_action_to_beta(action)
 
-            days_to_simulate = min(self.action_interval, self.total_days - current_day)
+            days_to_simulate = min(self.config.action_interval, self.config.days - current_day)
 
             I_before = current_state.I
 
             S, I, R = sir.run_interval(
-                current_state, beta, self.gamma, days_to_simulate
+                current_state, beta, self.config.gamma, days_to_simulate
             )
 
             all_S.extend(S[1:])
@@ -114,7 +133,7 @@ class Simulation:
             current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
 
             I_after = current_state.I
-            reward = self.calculate_reward(I_before, I_after, action)
+            reward = calculate_reward(I_before, I_after, action, self.config)
             rewards.append(reward)
 
             current_day += days_to_simulate
@@ -130,26 +149,8 @@ class Simulation:
             actions=actions_taken,
             action_timesteps=action_timesteps,
             rewards=rewards,
+            action_states=action_states,
         )
 
-    def calculate_reward(
-        self, I_t: float, I_t1: float, action: InterventionAction
-    ) -> float:
-        """
-        :param I_t: Infected count at time t
-        :param I_t1: Infected count at time t+1
-        :param action: Action taken
-        :return: Reward value
-        """
-        if I_t > 0:
-            infection_penalty = max(0.0, np.log(I_t1 / I_t))
-        else:
-            infection_penalty = 0.0
-
-        action_stringency = (1 - action.value) ** 2
-        stringency_penalty = self.w_S * action_stringency
-
-        return -(infection_penalty + stringency_penalty)
-
     def apply_action_to_beta(self, action: InterventionAction) -> float:
-        return self.beta_0 * action.value
+        return self.config.beta_0 * action.value

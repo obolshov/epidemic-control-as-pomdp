@@ -10,11 +10,11 @@ class DefaultConfig:
         self.gamma = 0.1  # Recovery rate
 
         # Simulation settings
-        self.days = 160  # Simulation days
+        self.days = 250  # Simulation days
         self.action_interval = 7  # Days between decisions
 
         # Action stringency weight for reward function
-        self.w_S = 0.5
+        self.w_S = 3.5
 
 
 def get_config(name: str):

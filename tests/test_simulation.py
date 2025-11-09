@@ -114,15 +114,3 @@ class TestRunSimulation:
 
         # Should have same number of rewards as actions
         assert len(result.rewards) == len(result.actions)
-
-
-# TODO: Test reward calculation
-class TestRewardCalculation:
-    """Tests for reward calculation functions."""
-
-    @pytest.fixture
-    def default_simulation(self) -> Simulation:
-        return Simulation(
-            agent=StaticAgent(InterventionAction.NO),
-            config=DefaultConfig(),
-        )
