@@ -14,7 +14,9 @@ class DefaultConfig:
         self.action_interval = 7  # Days between decisions
 
         # Action stringency weight for reward function
-        self.w_S = 3.5
+        self.w_S = 1.25
+        self.w_I = 0.25
+        self.epislon = 1e-6 * self.N
 
 
 def get_config(name: str):

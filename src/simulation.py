@@ -5,7 +5,9 @@ from .sir import EpidemicState, SIR
 from .config import DefaultConfig
 
 
-def calculate_reward(I_t: float, I_t1: float, action: InterventionAction, config: DefaultConfig) -> float:
+def calculate_reward(
+    I_t: float, I_t1: float, action: InterventionAction, config: DefaultConfig
+) -> float:
     """
     Calculate reward based on infection change and action stringency.
 
@@ -14,13 +16,10 @@ def calculate_reward(I_t: float, I_t1: float, action: InterventionAction, config
     :param action: Action taken
     :return: Reward value
     """
-    epislon = 1e-6 * config.N
-    infection_penalty = max(0.0, np.log((I_t1 + epislon) / (I_t + epislon)))
+    infection_penalty = max(0, np.log((I_t1 + config.epislon) / (I_t + config.epislon)))
+    stringency_penalty = (1 - action.value) ** 2
 
-    action_stringency = (1 - action.value) ** 2
-    stringency_penalty = config.w_S * action_stringency
-
-    return -(infection_penalty + stringency_penalty)
+    return -(config.w_I * infection_penalty + config.w_S * stringency_penalty)
 
 
 class SimulationResult:
@@ -118,7 +117,9 @@ class Simulation:
 
             beta = self.apply_action_to_beta(action)
 
-            days_to_simulate = min(self.config.action_interval, self.config.days - current_day)
+            days_to_simulate = min(
+                self.config.action_interval, self.config.days - current_day
+            )
 
             I_before = current_state.I
 
