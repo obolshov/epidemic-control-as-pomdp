@@ -1,7 +1,7 @@
 class DefaultConfig:
     def __init__(self):
         # Population and epidemic parameters
-        self.N = 1000  # Total population
+        self.N = 2000  # Total population
         self.I0 = 1  # Initial infected
         self.R0 = 0  # Initial recovered
 
@@ -10,13 +10,13 @@ class DefaultConfig:
         self.gamma = 0.1  # Recovery rate
 
         # Simulation settings
-        self.days = 250  # Simulation days
-        self.action_interval = 7  # Days between decisions
+        self.days = 200  # Simulation days
+        self.action_interval = 5  # Days between decisions
 
-        # Action stringency weight for reward function
-        self.w_S = 1.25
-        self.w_I = 0.25
-        self.epislon = 1e-6 * self.N
+        # Reward function parameters
+        self.w_I = 1
+        self.w_S = 0.1
+        self.infection_peak = 0.25
 
 
 def get_config(name: str):

@@ -20,6 +20,10 @@ if __name__ == "__main__":
 
     agents = [
         StaticAgent(InterventionAction.NO),
+        StaticAgent(InterventionAction.MILD),
+        StaticAgent(InterventionAction.MODERATE),
+        StaticAgent(InterventionAction.SEVERE),
+        RandomAgent(),
         MyopicMaximizer(config),
     ]
 

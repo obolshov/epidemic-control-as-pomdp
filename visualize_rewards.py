@@ -4,29 +4,26 @@ from matplotlib.ticker import MultipleLocator
 from src.simulation import Simulation, calculate_reward
 from src.agents import StaticAgent, RandomAgent, MyopicMaximizer, InterventionAction
 from src.sir import EpidemicState
-from src.config import get_config
+from src.config import get_config, DefaultConfig
 import os
 
 
 def calculate_reward_components(
-    I_t: float, I_t1: float, action: InterventionAction, action_interval: int
+    I_t: float, action: InterventionAction, config: DefaultConfig
 ):
     """
     Calculate reward components separately for visualization.
     """
-    infection_ratio = I_t1 / I_t if I_t > 0 else 0.0
-    log_infection_ratio = (
-        np.log(infection_ratio) if I_t > 0 and infection_ratio > 0 else 0.0
-    )
-    infection_penalty = max(0.0, log_infection_ratio) if I_t > 0 else 0.0
+    infection_ratio = (I_t / config.N) - config.infection_peak
+    infection_penalty = config.w_I * max(0, infection_ratio)
+    stringency_penalty = config.w_S * (1 - action.value)
 
-    reward = calculate_reward(I_t, I_t1, action, action_interval)
+    reward = calculate_reward(I_t, action, config)
 
     return (
-        infection_penalty,
         reward,
-        infection_ratio,
-        log_infection_ratio,
+        infection_penalty,
+        stringency_penalty,
     )
 
 
@@ -43,9 +40,8 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
     actions_taken = []
     action_timesteps = []
     rewards = []
-    max_log_infection_ratios = []
-    infection_ratios = []
-    log_infection_ratios = []
+    infection_penalties = []
+    stringency_penalties = []
     action_states = []
 
     current_day = 0
@@ -54,7 +50,7 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
 
     sir = SIR()
 
-    while current_day < simulation.total_days:
+    while current_day < simulation.config.days:
         # Store state at decision point
         action_states.append(current_state)
 
@@ -65,13 +61,11 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
         beta = simulation.apply_action_to_beta(action)
 
         days_to_simulate = min(
-            simulation.action_interval, simulation.total_days - current_day
+            simulation.config.action_interval, simulation.config.days - current_day
         )
 
-        I_before = current_state.I
-
         S, I, R = sir.run_interval(
-            current_state, beta, simulation.gamma, days_to_simulate
+            current_state, beta, simulation.config.gamma, days_to_simulate
         )
 
         all_S.extend(S[1:])
@@ -80,16 +74,13 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
 
         current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
 
-        I_after = current_state.I
-
-        inf_penalty, reward, inf_ratio, log_inf_ratio = calculate_reward_components(
-            I_before, I_after, action, simulation.action_interval
+        reward, infection_penalty, stringency_penalty = calculate_reward_components(
+            current_state.I, action, simulation.config
         )
 
         rewards.append(reward)
-        max_log_infection_ratios.append(inf_penalty)
-        infection_ratios.append(inf_ratio)
-        log_infection_ratios.append(log_inf_ratio)
+        infection_penalties.append(infection_penalty)
+        stringency_penalties.append(stringency_penalty)
 
         current_day += days_to_simulate
 
@@ -103,9 +94,8 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
         "actions": actions_taken,
         "action_timesteps": action_timesteps,
         "rewards": rewards,
-        "max_log_infection_ratios": max_log_infection_ratios,
-        "infection_ratios": infection_ratios,
-        "log_infection_ratios": log_infection_ratios,
+        "infection_penalties": infection_penalties,
+        "stringency_penalties": stringency_penalties,
         "action_states": action_states,
     }
 
@@ -129,14 +119,12 @@ if __name__ == "__main__":
 
     all_values = []
     for result in results:
-        max_log_infection_ratios = result["max_log_infection_ratios"]
         rewards = result["rewards"]
-        infection_ratios = result["infection_ratios"]
-        log_infection_ratios = result["log_infection_ratios"]
-        all_values.extend(max_log_infection_ratios)
+        infection_penalties = result["infection_penalties"]
+        stringency_penalties = result["stringency_penalties"]
         all_values.extend(rewards)
-        all_values.extend(infection_ratios)
-        all_values.extend(log_infection_ratios)
+        all_values.extend(infection_penalties)
+        all_values.extend(stringency_penalties)
 
     global_min = min(all_values)
     global_max = max(all_values)
@@ -151,10 +139,9 @@ if __name__ == "__main__":
 
         # Extract timesteps and reward components
         action_timesteps = result["action_timesteps"]
-        max_log_infection_ratios = result["max_log_infection_ratios"]
         rewards = result["rewards"]
-        infection_ratios = result["infection_ratios"]
-        log_infection_ratios = result["log_infection_ratios"]
+        infection_penalties = result["infection_penalties"]
+        stringency_penalties = result["stringency_penalties"]
 
         # Plot the three components
         ax.plot(
@@ -168,29 +155,20 @@ if __name__ == "__main__":
         )
         ax.plot(
             action_timesteps,
-            infection_ratios,
+            infection_penalties,
             "m-",
-            label="I_t1 / I_t",
+            label="Infection Penalty",
             linewidth=2,
             marker="d",
             markersize=4,
         )
         ax.plot(
             action_timesteps,
-            log_infection_ratios,
+            stringency_penalties,
             "c-",
-            label="log(I_t1 / I_t)",
+            label="Stringency Penalty",
             linewidth=2,
             marker="v",
-            markersize=4,
-        )
-        ax.plot(
-            action_timesteps,
-            max_log_infection_ratios,
-            "r-",
-            label="max(0, log(I_t1 / I_t))",
-            linewidth=2,
-            marker="o",
             markersize=4,
         )
 
@@ -213,14 +191,12 @@ if __name__ == "__main__":
 
         # Add stats in a box
 
-        total_infection_ratios = sum(infection_ratios)
-        total_log_infection_ratios = sum(log_infection_ratios)
-        total_max_log_infection_ratios = sum(max_log_infection_ratios)
+        total_infection_penalties = sum(infection_penalties)
+        total_stringency_penalties = sum(stringency_penalties)
         total_reward = sum(rewards)
 
-        info_text = f"I_t1 / I_t: {total_infection_ratios:.2f}\n"
-        info_text += f"log(I_t1 / I_t): {total_log_infection_ratios:.2f}\n"
-        info_text += f"max(0, log(I_t1 / I_t)): {total_max_log_infection_ratios:.2f}\n"
+        info_text = f"Infection Penalty: {total_infection_penalties:.2f}\n"
+        info_text += f"Stringency Penalty: {total_stringency_penalties:.2f}\n"
         info_text += f"Total Reward: {total_reward:.2f}"
 
         ax.text(
@@ -238,7 +214,7 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.suptitle(
-        f"Reward Components Over Time, No stringency penalty, R_0 = {R_0:.2f}",
+        f"Reward Components Over Time, R_0 = {R_0:.2f}",
         fontsize=14,
         fontweight="bold",
         y=1.001,

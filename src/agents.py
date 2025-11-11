@@ -70,15 +70,12 @@ class MyopicMaximizer(Agent):
 
         for action in InterventionAction:
             beta = self.config.beta_0 * action.value
-            I_before = state.I
 
             S, I, R = self.sir.run_interval(
                 state, beta, self.config.gamma, self.config.action_interval
             )
 
-            I_after = I[-1]
-
-            reward = calculate_reward(I_before, I_after, action, self.config)
+            reward = calculate_reward(I[-1], action, self.config)
             action_rewards[action] = reward
 
             if reward > best_reward:
