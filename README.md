@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-*   Python 3.13+
-*   pip
+*   Python 3.8+
+*   conda
 
 ## Installation
 
@@ -13,9 +13,11 @@
     cd <repository-directory>
     ```
 
-2.  Install the required Python packages using `requirements.txt`:
+2.  Install dependencies using conda:
+
     ```sh
-    pip install -r requirements.txt
+    conda env create -f environment.yml
+    conda activate epidemic-control-as-pomdp
     ```
 
 ## Usage

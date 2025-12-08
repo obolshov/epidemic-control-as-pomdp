@@ -1,6 +1,0 @@
-numpy
-matplotlib
-seaborn
-pytest
-flake8
-black
