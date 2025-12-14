@@ -20,13 +20,19 @@
 
 ## Usage
 
-To run the simulation with different intervention strategies, use the following command:
+To run the simulation with different agents, use the following command:
 
 ```sh
 python main.py
 ```
 
-This will run simulations comparing four intervention levels (No, Mild, Moderate, Severe) and display plots showing the curves for each strategy.
+## Output
+
+**Logs**: Simulation results are saved to `logs/` directory as text files (one per agent) containing timesteps, observations, actions, and rewards.
+
+**Plots**: 
+- Individual agent plots: `results/{agent_name}.png` - SIR curves for each agent
+- Comparison plot: `results/all_results.png` - side-by-side comparison of all agents
 
 ## Running Tests
 
