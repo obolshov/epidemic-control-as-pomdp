@@ -10,14 +10,13 @@ from src.agents import (
     InterventionAction,
     Agent,
 )
-from src.utils import log_simulation_results, plot_single_simulation
+from src.utils import log_results, plot_single_result, plot_all_results
 
 
 def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
     obs, _ = env.reset()
     done = False
 
-    # Initialize storage for SimulationResult
     S_init, I_init, R_init = obs
     all_S = [S_init]
     all_I = [I_init]
@@ -31,7 +30,6 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
     current_timestep = 0
 
     while not done:
-        # Save observation before action
         observations.append(obs)
         timesteps.append(current_timestep)
 
@@ -39,12 +37,10 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
 
         obs, reward, done, truncated, info = env.step(action_idx)
 
-        # Retrieve detailed step data from info dict
         S = info.get("S", [])
         I = info.get("I", [])
         R = info.get("R", [])
 
-        # Extend arrays (skip first element as it duplicates the last state of previous step)
         if len(S) > 1:
             all_S.extend(S[1:])
             all_I.extend(I[1:])
@@ -52,7 +48,6 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
 
         current_timestep += (len(S) - 1) if len(S) > 0 else 0
 
-        # Store action and reward
         action_enum = env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
@@ -71,8 +66,10 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
         observations=observations,
     )
 
-    log_simulation_results(result, log_dir="logs")
-    plot_single_simulation(result, save_path=f"results/{result.agent_name}.png")
+    log_results(result, log_dir="logs")
+    plot_single_result(result, save_path=f"results/{result.agent_name}.png")
+
+    return result
 
 
 if __name__ == "__main__":
@@ -101,6 +98,8 @@ if __name__ == "__main__":
     results = []
     for agent in agents:
         print(f"Running {agent.__class__.__name__}...")
-        run_agent(agent, env)
+        result = run_agent(agent, env)
+        results.append(result)
 
+    plot_all_results(results, save_path="results/all_results.png")
     print("Done!")
