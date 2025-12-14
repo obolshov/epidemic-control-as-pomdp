@@ -4,3 +4,4 @@ seaborn
 pytest
 flake8
 black
+gymnasium
