@@ -1,6 +1,5 @@
 import random
-import numpy as np
-from src.sir import EpidemicState, SIR
+from src.sir import EpidemicState, run_sir
 from enum import Enum
 from src.config import DefaultConfig
 
@@ -47,7 +46,6 @@ class MyopicMaximizer(Agent):
 
     def __init__(self, config: DefaultConfig):
         self.config = config
-        self.sir = SIR()
         self.step_counter = 0
         self.action_values = list(InterventionAction)
 
@@ -85,7 +83,7 @@ class MyopicMaximizer(Agent):
 
             # Simulate one interval
             # We only need the final state of the interval to calculate reward
-            _, I_sim, _ = self.sir.run_interval(
+            _, I_sim, _ = run_sir(
                 current_state, beta, self.config.gamma, self.config.action_interval
             )
 
