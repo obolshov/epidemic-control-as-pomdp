@@ -4,7 +4,47 @@ import os
 from .env import SimulationResult
 
 
-def plot_comparison(
+def _plot_sir_curves(ax, result: SimulationResult, title: str = None) -> None:
+    """
+    Helper function to plot SIR curves on a given axes.
+    """
+    colors = {"S": "blue", "I": "red", "R": "green"}
+
+    ax.plot(result.t, result.S, color=colors["S"], label="Susceptible (S)", linewidth=2)
+    ax.plot(result.t, result.I, color=colors["I"], label="Infected (I)", linewidth=2)
+    ax.plot(result.t, result.R, color=colors["R"], label="Recovered (R)", linewidth=2)
+
+    if title:
+        ax.set_title(title, fontsize=12, fontweight="bold")
+
+    ax.set_xlabel("Time (days)")
+    ax.set_ylabel("Number of people")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    info_text = f"Peak I: {result.peak_infected:.1f}\n"
+    info_text += f"Total infected: {result.total_infected:.1f}\n"
+    info_text += f"Duration: {result.epidemic_duration} days"
+
+    if hasattr(result, "total_reward"):
+        info_text += f"\nTotal Reward: {result.total_reward:.2f}"
+
+    ax.text(
+        0.98,
+        0.98,
+        info_text,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        fontsize=9,
+    )
+
+    for timestep in result.timesteps[1:]:
+        ax.axvline(timestep, color="gray", linestyle="--", alpha=0.3, linewidth=1)
+
+
+def plot_all_results(
     results: List[SimulationResult], save_path: Optional[str] = None
 ) -> None:
     """
@@ -13,8 +53,6 @@ def plot_comparison(
     :param results: List of simulation results to plot
     :param save_path: Optional path to save the plot. If None, displays the plot.
     """
-    colors = {"S": "blue", "I": "red", "R": "green"}
-
     n_results = len(results)
     if n_results == 4:
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -29,49 +67,8 @@ def plot_comparison(
 
     for idx, result in enumerate(results):
         ax = axes[idx]
-
-        ax.plot(
-            result.t, result.S, color=colors["S"], label="Susceptible (S)", linewidth=2
-        )
-        ax.plot(
-            result.t, result.I, color=colors["I"], label="Infected (I)", linewidth=2
-        )
-        ax.plot(
-            result.t, result.R, color=colors["R"], label="Recovered (R)", linewidth=2
-        )
-
         title = f"{result.agent_name}"
-
-        ax.set_title(title, fontsize=12, fontweight="bold")
-        ax.set_xlabel("Time (days)")
-        ax.set_ylabel("Number of people")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-
-        peak_infected_text = f"Peak I: {result.peak_infected:.1f}"
-        ax.text(
-            0.98,
-            0.98,
-            peak_infected_text,
-            transform=ax.transAxes,
-            ha="right",
-            va="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-        )
-
-        total_reward_text = f"Total Reward: {result.total_reward:.2f}"
-        ax.text(
-            0.98,
-            0.92,
-            total_reward_text,
-            transform=ax.transAxes,
-            ha="right",
-            va="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-        )
-
-        for timestep in result.timesteps[1:]:
-            ax.axvline(timestep, color="gray", linestyle="--", alpha=0.3, linewidth=1)
+        _plot_sir_curves(ax, result, title)
 
     plt.tight_layout()
     plt.suptitle(
@@ -90,7 +87,7 @@ def plot_comparison(
         plt.close()
 
 
-def plot_single_simulation(
+def plot_single_result(
     result: SimulationResult, title: str = None, save_path: str = None
 ) -> None:
     """
@@ -104,32 +101,7 @@ def plot_single_simulation(
         title = f"SIR Model - {result.agent_name}"
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(result.t, result.S, "b", label="Susceptible (S)", linewidth=2)
-    ax.plot(result.t, result.I, "r", label="Infected (I)", linewidth=2)
-    ax.plot(result.t, result.R, "g", label="Recovered (R)", linewidth=2)
-    ax.set_title(title, fontsize=14, fontweight="bold")
-    ax.set_xlabel("Time (days)")
-    ax.set_ylabel("Number of people")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    info_text = f"Peak I: {result.peak_infected:.1f}\n"
-    info_text += f"Total infected: {result.total_infected:.1f}\n"
-    info_text += f"Duration: {result.epidemic_duration} days"
-
-    ax.text(
-        0.98,
-        0.98,
-        info_text,
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-        fontsize=9,
-    )
-
-    for timestep in result.timesteps[1:]:
-        ax.axvline(timestep, color="gray", linestyle="--", alpha=0.3, linewidth=1)
+    _plot_sir_curves(ax, result, title)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -140,7 +112,7 @@ def plot_single_simulation(
         plt.close()
 
 
-def log_simulation_results(result: SimulationResult, log_dir: str = "logs") -> None:
+def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
     """
     Logs simulation results to text files with table format.
 
