@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium import spaces
 
 from src.config import DefaultConfig
-from src.sir import SIR, EpidemicState
+from src.sir import run_sir, EpidemicState
 from src.agents import InterventionAction, Agent, StaticAgent
 
 
@@ -29,7 +29,6 @@ class EpidemicEnv(gym.Env):
     def __init__(self, config: DefaultConfig):
         super().__init__()
         self.config = config
-        self.sir = SIR()
 
         self.action_space = spaces.Discrete(len(InterventionAction))
         self.action_map = list(InterventionAction)
@@ -60,13 +59,12 @@ class EpidemicEnv(gym.Env):
             self.config.action_interval, self.config.days - self.current_day
         )
 
-        S, I, R = self.sir.run_interval(
-            self.current_state, beta, self.config.gamma, days_to_simulate
-        )
+        S, I, R = run_sir(self.current_state, beta, self.config.gamma, days_to_simulate)
 
-        self.current_state = EpidemicState(
-            N=self.current_state.N, S=S[-1], I=I[-1], R=R[-1]
-        )
+        if len(S) > 0:
+            self.current_state = EpidemicState(
+                N=self.current_state.N, S=S[-1], I=I[-1], R=R[-1]
+            )
 
         reward = calculate_reward(self.current_state.I, action_enum, self.config)
 

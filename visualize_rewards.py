@@ -46,9 +46,7 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
 
     current_day = 0
 
-    from src.sir import SIR
-
-    sir = SIR()
+    from src.sir import run_sir
 
     while current_day < simulation.config.days:
         # Store state at decision point
@@ -64,7 +62,7 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
             simulation.config.action_interval, simulation.config.days - current_day
         )
 
-        S, I, R = sir.run_interval(
+        S, I, R = run_sir(
             current_state, beta, simulation.config.gamma, days_to_simulate
         )
 

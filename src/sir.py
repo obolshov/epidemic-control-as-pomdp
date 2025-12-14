@@ -10,42 +10,31 @@ class EpidemicState:
     R: float  # Recovered
 
 
-class SIR:
-    def run_interval(self, state: EpidemicState, beta: float, gamma: float, days: int):
-        """
-        :param state: Current epidemic state (DTO)
-        :param beta: Transmission rate
-        :param gamma: Recovery rate
-        :param days: Number of days to simulate
-        :return: Arrays of (S, I, R) for each day (including initial state)
-        """
-        S, I, R = [state.S], [state.I], [state.R]
+def run_sir(state: EpidemicState, beta: float, gamma: float, days: int):
+    """
+    Simulates SIR model for a given number of days.
 
-        for _ in range(days):
-            S_current, I_current, R_current = S[-1], I[-1], R[-1]
+    :param state: Current epidemic state (DTO)
+    :param beta: Transmission rate
+    :param gamma: Recovery rate
+    :param days: Number of days to simulate
+    :return: Arrays of (S, I, R) for each day (excluding initial state)
+    """
+    S, I, R = [], [], []
+    S_current, I_current, R_current = state.S, state.I, state.R
 
-            new_infections = (beta * S_current * I_current) / state.N
-            new_recoveries = gamma * I_current
+    for _ in range(days):
+        new_infections = (beta * S_current * I_current) / state.N
+        new_recoveries = gamma * I_current
 
-            S_next = S_current - new_infections
-            I_next = I_current + new_infections - new_recoveries
-            R_next = R_current + new_recoveries
+        S_next = S_current - new_infections
+        I_next = I_current + new_infections - new_recoveries
+        R_next = R_current + new_recoveries
 
-            S.append(S_next)
-            I.append(I_next)
-            R.append(R_next)
+        S.append(S_next)
+        I.append(I_next)
+        R.append(R_next)
 
-        return np.array(S), np.array(I), np.array(R)
+        S_current, I_current, R_current = S_next, I_next, R_next
 
-    def run_all_days(self, state: EpidemicState, beta: float, gamma: float, days: int):
-        """
-        :param state: Initial epidemic state
-        :param beta: Transmission rate
-        :param gamma: Recovery rate
-        :param days: Number of days to simulate
-        :return: A tuple of (t, S, I, R) arrays
-        """
-        S, I, R = self.run_interval(state, beta, gamma, days)
-        t = np.linspace(0, days, days + 1)
-
-        return t, S, I, R
+    return np.array(S), np.array(I), np.array(R)

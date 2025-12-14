@@ -41,12 +41,12 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
         I = info.get("I", [])
         R = info.get("R", [])
 
-        if len(S) > 1:
-            all_S.extend(S[1:])
-            all_I.extend(I[1:])
-            all_R.extend(R[1:])
+        if len(S) > 0:
+            all_S.extend(S)
+            all_I.extend(I)
+            all_R.extend(R)
 
-        current_timestep += (len(S) - 1) if len(S) > 0 else 0
+        current_timestep += len(S)
 
         action_enum = env.action_map[action_idx]
         actions_taken.append(action_enum)
