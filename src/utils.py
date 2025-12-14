@@ -1,6 +1,8 @@
-import matplotlib.pyplot as plt
-from typing import List, Optional
 import os
+from typing import List, Optional
+
+import matplotlib.pyplot as plt
+
 from .env import SimulationResult
 
 
@@ -153,3 +155,78 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
         f.write(f"  Epidemic Duration: {result.epidemic_duration} days\n")
         f.write(f"  Total Reward: {result.total_reward:.4f}\n")
         f.write(f"  Number of Actions: {len(result.actions)}\n")
+
+
+# TODO refactor. SB3 has its own plotting functions. Maybe we can use them?
+def plot_learning_curve(
+    log_folder: str, title: str = "Learning Curve", save_path: Optional[str] = None
+) -> None:
+    """
+    Plots the learning curve from the monitor log file.
+    """
+    import numpy as np
+
+    # Find the monitor file
+    monitor_files = [f for f in os.listdir(log_folder) if f.endswith(".monitor.csv")]
+    if not monitor_files:
+        print(f"No monitor files found in {log_folder}")
+        return
+
+    filepath = os.path.join(log_folder, monitor_files[0])
+
+    # Read data using numpy
+    # r (reward), l (length), t (time)
+    try:
+        data = np.loadtxt(filepath, skiprows=2, delimiter=",")
+    except Exception as e:
+        print(f"Error reading monitor file: {e}")
+        return
+
+    if data.size == 0:
+        return
+
+    # Check if data is 1D (only one row)
+    if data.ndim == 1:
+        data = data.reshape(1, -1)
+
+    r = data[:, 0]
+    l = data[:, 1]
+
+    # Cumulative timesteps
+    timesteps = np.cumsum(l)
+
+    # Rolling mean
+    window_size = 50
+    if len(r) < window_size:
+        window_size = len(r)
+
+    rolling_mean = np.convolve(r, np.ones(window_size) / window_size, mode="valid")
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot raw data faintly
+    ax.plot(timesteps, r, alpha=0.3, color="gray", label="Episode Reward")
+
+    # Plot rolling mean
+    # timesteps for rolling mean start from window_size-1
+    ax.plot(
+        timesteps[window_size - 1 :],
+        rolling_mean,
+        color="blue",
+        linewidth=2,
+        label=f"Rolling Mean (w={window_size})",
+    )
+
+    ax.set_title(title)
+    ax.set_xlabel("Timesteps")
+    ax.set_ylabel("Reward")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
+        plt.close()

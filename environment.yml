@@ -10,8 +10,11 @@ dependencies:
   - pytest
   - flake8
   - black
+  - gymnasium
+  - pandas
   - pip
   - pip:
     - stable-baselines3
+    - tensorboard
 
 
