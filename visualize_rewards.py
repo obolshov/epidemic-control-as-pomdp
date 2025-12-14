@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-from src.simulation import Simulation, calculate_reward
-from src.agents import StaticAgent, RandomAgent, MyopicMaximizer, InterventionAction
+from src.env import EpidemicEnv, calculate_reward
+from src.agents import StaticAgent, MyopicMaximizer, InterventionAction
 from src.sir import EpidemicState
 from src.config import get_config, DefaultConfig
 import os
@@ -14,7 +14,7 @@ def calculate_reward_components(
     """
     Calculate reward components separately for visualization.
     """
-    infection_ratio = (I_t / config.N) - config.infection_peak
+    infection_ratio = (I_t / config.N) ** 2
     infection_penalty = config.w_I * max(0, infection_ratio)
     stringency_penalty = config.w_S * (1 - action.value)
 
@@ -27,11 +27,15 @@ def calculate_reward_components(
     )
 
 
-def run_simulation_with_reward_tracking(simulation: Simulation):
+def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     """
     Runs simulation and tracks reward components for each action.
     """
-    current_state = simulation.initial_state
+    obs, _ = env.reset()
+
+    # Reconstruct initial state from observation
+    S_curr, I_curr, R_curr = obs
+    current_state = EpidemicState(N=env.config.N, S=S_curr, I=I_curr, R=R_curr)
 
     all_S = [current_state.S]
     all_I = [current_state.I]
@@ -44,43 +48,42 @@ def run_simulation_with_reward_tracking(simulation: Simulation):
     stringency_penalties = []
     action_states = []
 
-    current_day = 0
+    terminated = False
+    truncated = False
 
-    from src.sir import run_sir
-
-    while current_day < simulation.config.days:
+    while not (terminated or truncated):
         # Store state at decision point
         action_states.append(current_state)
 
-        action = simulation.agent.select_action(current_state)
+        # Get action from agent
+        action_idx, _ = agent.predict(obs, deterministic=True)
+        action = env.action_map[action_idx]
         actions_taken.append(action)
-        action_timesteps.append(current_day)
+        action_timesteps.append(env.current_day)
 
-        beta = simulation.apply_action_to_beta(action)
+        # Step environment
+        obs, reward, terminated, truncated, info = env.step(action_idx)
 
-        days_to_simulate = min(
-            simulation.config.action_interval, simulation.config.days - current_day
-        )
+        # Extract S, I, R trajectories from info
+        S, I, R = info["S"], info["I"], info["R"]
 
-        S, I, R = run_sir(
-            current_state, beta, simulation.config.gamma, days_to_simulate
-        )
-
+        # Add all intermediate states (skip first as it's already in all_S/I/R)
         all_S.extend(S[1:])
         all_I.extend(I[1:])
         all_R.extend(R[1:])
 
-        current_state = EpidemicState(N=current_state.N, S=S[-1], I=I[-1], R=R[-1])
+        # Update current state
+        current_state = env.current_state
 
-        reward, infection_penalty, stringency_penalty = calculate_reward_components(
-            current_state.I, action, simulation.config
+        # Calculate reward components
+        reward_components = calculate_reward_components(
+            current_state.I, action, env.config
         )
+        _, infection_penalty, stringency_penalty = reward_components
 
         rewards.append(reward)
         infection_penalties.append(infection_penalty)
         stringency_penalties.append(stringency_penalty)
-
-        current_day += days_to_simulate
 
     t = np.arange(len(all_S))
 
@@ -111,8 +114,8 @@ if __name__ == "__main__":
 
     results = []
     for agent in agents:
-        simulation = Simulation(agent=agent, config=config)
-        result = run_simulation_with_reward_tracking(simulation)
+        env = EpidemicEnv(config=config)
+        result = run_simulation_with_reward_tracking(env, agent)
         results.append(result)
 
     all_values = []

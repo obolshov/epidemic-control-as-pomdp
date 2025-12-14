@@ -1,16 +1,25 @@
 import argparse
-import numpy as np
+import os
 
+import numpy as np
+from stable_baselines3 import PPO
+
+from src.agents import (
+    Agent,
+    InterventionAction,
+    MyopicMaximizer,
+    RandomAgent,
+    StaticAgent,
+)
 from src.config import get_config
 from src.env import EpidemicEnv, SimulationResult
-from src.agents import (
-    StaticAgent,
-    RandomAgent,
-    MyopicMaximizer,
-    InterventionAction,
-    Agent,
+from src.train import train_ppo_agent
+from src.utils import (
+    log_results,
+    plot_all_results,
+    plot_learning_curve,
+    plot_single_result,
 )
-from src.utils import log_results, plot_single_result, plot_all_results
 
 
 def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
@@ -80,9 +89,21 @@ if __name__ == "__main__":
         default="default",
         help="Which configuration to use",
     )
+    parser.add_argument(
+        "--train_ppo",
+        action="store_true",
+        help="Train PPO agent",
+    )
     args = parser.parse_args()
 
     config = get_config(args.config)
+
+    if args.train_ppo:
+        print("Training PPO agent...")
+        train_ppo_agent(EpidemicEnv, config, log_dir="logs/ppo", total_timesteps=50000)
+        plot_learning_curve(
+            log_folder="logs/ppo", save_path="results/ppo_learning_curve.png"
+        )
 
     env = EpidemicEnv(config)
 
@@ -94,6 +115,14 @@ if __name__ == "__main__":
         RandomAgent(),
         MyopicMaximizer(config),
     ]
+
+    ppo_model_path = "logs/ppo/ppo_model.zip"
+    if os.path.exists(ppo_model_path):
+        print("Loading PPO agent...")
+        ppo_agent = PPO.load(ppo_model_path)
+        agents.append(ppo_agent)
+    else:
+        print("PPO model not found. Run with --train_ppo to train it.")
 
     results = []
     for agent in agents:

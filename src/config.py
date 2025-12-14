@@ -14,7 +14,7 @@ class DefaultConfig:
         self.action_interval = 5  # Days between decisions
 
         # Reward function parameters
-        self.w_I = 1
+        self.w_I = 1.5
         self.w_S = 0.1
         self.infection_peak = 0.25
 

@@ -1,6 +1,10 @@
-import matplotlib.pyplot as plt
-from typing import List, Optional
+from math import ceil
 import os
+from typing import List, Optional
+
+import matplotlib.pyplot as plt
+from stable_baselines3.common import results_plotter
+
 from .env import SimulationResult
 
 
@@ -53,17 +57,8 @@ def plot_all_results(
     :param results: List of simulation results to plot
     :param save_path: Optional path to save the plot. If None, displays the plot.
     """
-    n_results = len(results)
-    if n_results == 4:
-        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-        axes = axes.flatten()
-    elif n_results == 6:
-        fig, axes = plt.subplots(3, 2, figsize=(14, 15))
-        axes = axes.flatten()
-    else:
-        fig, axes = plt.subplots(1, n_results, figsize=(7 * n_results, 6))
-        if n_results == 1:
-            axes = [axes]
+    _, axes = plt.subplots(2, 4, figsize=(28, 10))
+    axes = axes.flatten()
 
     for idx, result in enumerate(results):
         ax = axes[idx]
@@ -71,12 +66,6 @@ def plot_all_results(
         _plot_sir_curves(ax, result, title)
 
     plt.tight_layout()
-    plt.suptitle(
-        "SIR Model with Different Agents",
-        fontsize=14,
-        fontweight="bold",
-        y=1.002,
-    )
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -98,7 +87,7 @@ def plot_single_result(
     :param save_path: Optional path to save the plot
     """
     if title is None:
-        title = f"SIR Model - {result.agent_name}"
+        title = f"{result.agent_name}"
 
     fig, ax = plt.subplots(figsize=(10, 6))
     _plot_sir_curves(ax, result, title)
@@ -153,3 +142,35 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
         f.write(f"  Epidemic Duration: {result.epidemic_duration} days\n")
         f.write(f"  Total Reward: {result.total_reward:.4f}\n")
         f.write(f"  Number of Actions: {len(result.actions)}\n")
+
+
+def plot_learning_curve(
+    log_folder: str, title: str = "Learning Curve", save_path: Optional[str] = None
+) -> None:
+    x_axes = {
+        "timesteps": results_plotter.X_TIMESTEPS,
+        "episodes": results_plotter.X_EPISODES,
+    }
+
+    for axis_name, axis_code in x_axes.items():
+        try:
+            results_plotter.plot_results(
+                [log_folder],
+                num_timesteps=None,
+                x_axis=axis_code,
+                task_name=f"{title} ({axis_name})",
+                figsize=(10, 6),
+            )
+
+            if save_path:
+                base, ext = os.path.splitext(save_path)
+                current_save_path = f"{base}_{axis_name}{ext}"
+                os.makedirs(os.path.dirname(current_save_path), exist_ok=True)
+                plt.savefig(current_save_path, dpi=300, bbox_inches="tight")
+                plt.close()
+            else:
+                plt.show()
+                plt.close()
+
+        except Exception as e:
+            print(f"Error plotting {axis_name}: {e}")

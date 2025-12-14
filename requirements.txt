@@ -5,3 +5,7 @@ pytest
 flake8
 black
 gymnasium
+pandas
+stable-baselines3
+tensorboard
+torch

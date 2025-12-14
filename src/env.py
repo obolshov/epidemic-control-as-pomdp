@@ -16,8 +16,7 @@ def calculate_reward(
     :param action: Action taken
     :return: Reward value
     """
-    infection_ratio = (I_t / config.N) - config.infection_peak
-    infection_penalty = config.w_I * max(0, infection_ratio)
+    infection_penalty = config.w_I * (I_t / config.N) ** 2
     stringency_penalty = config.w_S * (1 - action.value)
 
     return -(infection_penalty + stringency_penalty)

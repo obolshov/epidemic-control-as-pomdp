@@ -1,6 +1,8 @@
 import random
-from src.sir import EpidemicState, run_sir
+import os
 from enum import Enum
+
+from src.sir import EpidemicState, run_sir
 from src.config import DefaultConfig
 
 
@@ -50,8 +52,6 @@ class MyopicMaximizer(Agent):
         self.action_values = list(InterventionAction)
 
         # Setup logging
-        import os
-
         self.log_path = "logs/myopic_maximizer_debug.txt"
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         with open(self.log_path, "w", encoding="utf-8") as f:
