@@ -1,11 +1,12 @@
 from typing import List
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
+from src.agents import Agent, InterventionAction, StaticAgent
 from src.config import DefaultConfig
-from src.sir import run_sir, EpidemicState
-from src.agents import InterventionAction, Agent, StaticAgent
+from src.sir import EpidemicState, run_sir
 
 
 def calculate_reward(

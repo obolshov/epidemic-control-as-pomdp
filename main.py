@@ -1,16 +1,17 @@
 import argparse
+
 import numpy as np
 
+from src.agents import (
+    Agent,
+    InterventionAction,
+    MyopicMaximizer,
+    RandomAgent,
+    StaticAgent,
+)
 from src.config import get_config
 from src.env import EpidemicEnv, SimulationResult
-from src.agents import (
-    StaticAgent,
-    RandomAgent,
-    MyopicMaximizer,
-    InterventionAction,
-    Agent,
-)
-from src.utils import log_results, plot_single_result, plot_all_results
+from src.utils import log_results, plot_all_results, plot_single_result
 
 
 def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:

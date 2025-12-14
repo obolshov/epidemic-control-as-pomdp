@@ -1,7 +1,8 @@
 import random
-from src.sir import EpidemicState, run_sir
 from enum import Enum
+
 from src.config import DefaultConfig
+from src.sir import EpidemicState, run_sir
 
 
 class InterventionAction(Enum):

@@ -1,8 +1,9 @@
 """Tests for SIR model core functionality."""
 
-import pytest
 import numpy as np
-from src.sir import run_sir, EpidemicState
+import pytest
+
+from src.sir import EpidemicState, run_sir
 
 
 def run_sir_with_initial(state: EpidemicState, beta: float, gamma: float, days: int):

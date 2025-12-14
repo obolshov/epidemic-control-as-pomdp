@@ -1,6 +1,8 @@
-import matplotlib.pyplot as plt
-from typing import List, Optional
 import os
+from typing import List, Optional
+
+import matplotlib.pyplot as plt
+
 from .env import SimulationResult
 
 
