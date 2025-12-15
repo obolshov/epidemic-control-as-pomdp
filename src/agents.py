@@ -50,6 +50,7 @@ class MyopicMaximizer(Agent):
         self.config = config
         self.step_counter = 0
         self.action_values = list(InterventionAction)
+        self.last_action = InterventionAction.NO
 
         # Setup logging
         self.log_path = "logs/myopic_maximizer_debug.txt"
@@ -67,6 +68,9 @@ class MyopicMaximizer(Agent):
 
     def predict(self, observation, state=None, episode_start=None, deterministic=True):
         from src.env import calculate_reward
+
+        if episode_start:
+            self.last_action = InterventionAction.NO
 
         S, I, R = observation
         # Reconstruct state for internal simulation
@@ -87,12 +91,16 @@ class MyopicMaximizer(Agent):
                 current_state, beta, self.config.gamma, self.config.action_interval
             )
 
-            reward = calculate_reward(I_sim[-1], action, self.config)
+            reward = calculate_reward(
+                I_sim[-1], action, self.config, previous_action=self.last_action
+            )
             action_rewards.append(reward)
 
             if reward > best_reward:
                 best_reward = reward
                 best_action_idx = idx
+
+        self.last_action = self.action_values[best_action_idx]
 
         # Logging
         with open(self.log_path, "a", encoding="utf-8") as f:

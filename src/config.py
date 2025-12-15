@@ -16,7 +16,7 @@ class DefaultConfig:
         # Reward function parameters
         self.w_I = 1.5
         self.w_S = 0.1
-        self.infection_peak = 0.25
+        self.w_change = 0.1
 
 
 def get_config(name: str):

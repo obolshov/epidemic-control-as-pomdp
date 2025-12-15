@@ -9,18 +9,23 @@ from src.agents import InterventionAction, Agent, StaticAgent
 
 
 def calculate_reward(
-    I_t: float, action: InterventionAction, config: DefaultConfig
+    I_t: float,
+    action: InterventionAction,
+    config: DefaultConfig,
+    previous_action: InterventionAction = InterventionAction.NO,
 ) -> float:
     """
     :param I_t: Infected count
     :param action: Action taken
+    :param previous_action: Previous action taken
     :return: Reward value
     """
     infection_ratio = (I_t / config.N) ** 2
     infection_penalty = config.w_I * max(0, infection_ratio)
     stringency_penalty = config.w_S * (1 - action.value)
+    change_penalty = config.w_change * abs(action.value - previous_action.value)
 
-    return -(infection_penalty + stringency_penalty)
+    return -(infection_penalty + stringency_penalty + change_penalty)
 
 
 class EpidemicEnv(gym.Env):
@@ -39,6 +44,7 @@ class EpidemicEnv(gym.Env):
 
         self.current_state = None
         self.current_day = 0
+        self.previous_action = InterventionAction.NO
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -48,6 +54,7 @@ class EpidemicEnv(gym.Env):
             N=self.config.N, S=S0, I=self.config.I0, R=self.config.R0
         )
         self.current_day = 0
+        self.previous_action = InterventionAction.NO
 
         return self._get_obs(), {}
 
@@ -66,8 +73,11 @@ class EpidemicEnv(gym.Env):
                 N=self.current_state.N, S=S[-1], I=I[-1], R=R[-1]
             )
 
-        reward = calculate_reward(self.current_state.I, action_enum, self.config)
+        reward = calculate_reward(
+            self.current_state.I, action_enum, self.config, self.previous_action
+        )
 
+        self.previous_action = action_enum
         self.current_day += days_to_simulate
 
         terminated = self.current_day >= self.config.days

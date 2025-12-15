@@ -42,7 +42,9 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
         observations.append(obs)
         timesteps.append(current_timestep)
 
-        action_idx, _ = agent.predict(obs, deterministic=True)
+        action_idx, _ = agent.predict(
+            obs, deterministic=True, episode_start=(len(actions_taken) == 0)
+        )
 
         obs, reward, done, truncated, info = env.step(action_idx)
 
