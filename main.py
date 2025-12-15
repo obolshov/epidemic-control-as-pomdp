@@ -1,7 +1,7 @@
 import argparse
 import os
+from typing import List
 
-import numpy as np
 from stable_baselines3 import PPO
 
 from src.agents import (
@@ -11,102 +11,37 @@ from src.agents import (
     RandomAgent,
     StaticAgent,
 )
-from src.config import get_config
+from src.config import DefaultConfig, get_config
 from src.env import EpidemicEnv, SimulationResult
+from src.evaluation import run_agent
 from src.train import train_ppo_agent
 from src.utils import (
-    log_results,
     plot_all_results,
     plot_learning_curve,
-    plot_single_result,
 )
 
 
-def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
-    obs, _ = env.reset()
-    done = False
-
-    S_init, I_init, R_init = obs
-    all_S = [S_init]
-    all_I = [I_init]
-    all_R = [R_init]
-
-    actions_taken = []
-    timesteps = []
-    rewards = []
-    observations = []
-
-    current_timestep = 0
-
-    while not done:
-        observations.append(obs)
-        timesteps.append(current_timestep)
-
-        action_idx, _ = agent.predict(obs, deterministic=True)
-
-        obs, reward, done, truncated, info = env.step(action_idx)
-
-        S = info.get("S", [])
-        I = info.get("I", [])
-        R = info.get("R", [])
-
-        if len(S) > 0:
-            all_S.extend(S)
-            all_I.extend(I)
-            all_R.extend(R)
-
-        current_timestep += len(S)
-
-        action_enum = env.action_map[action_idx]
-        actions_taken.append(action_enum)
-        rewards.append(reward)
-
-    t = np.arange(len(all_S))
-
-    result = SimulationResult(
-        agent=agent,
-        t=t,
-        S=np.array(all_S),
-        I=np.array(all_I),
-        R=np.array(all_R),
-        actions=actions_taken,
-        timesteps=timesteps,
-        rewards=rewards,
-        observations=observations,
+def train_and_plot_ppo(config: DefaultConfig) -> None:
+    """Trains the PPO agent and plots the learning curve."""
+    print("Training PPO agent...")
+    train_ppo_agent(EpidemicEnv, config, log_dir="logs/ppo", total_timesteps=50000)
+    plot_learning_curve(
+        log_folder="logs/ppo", save_path="results/ppo_learning_curve.png"
     )
 
-    log_results(result, log_dir="logs")
-    plot_single_result(result, save_path=f"results/{result.agent_name}.png")
 
-    return result
+def load_ppo_agent(model_path: str = "logs/ppo/ppo_model.zip") -> PPO:
+    """Loads a trained PPO agent if available."""
+    if os.path.exists(model_path):
+        print("Loading PPO agent...")
+        return PPO.load(model_path)
+    else:
+        print("PPO model not found. Run with --train_ppo to train it.")
+        return None
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="default",
-        help="Which configuration to use",
-    )
-    parser.add_argument(
-        "--train_ppo",
-        action="store_true",
-        help="Train PPO agent",
-    )
-    args = parser.parse_args()
-
-    config = get_config(args.config)
-
-    if args.train_ppo:
-        print("Training PPO agent...")
-        train_ppo_agent(EpidemicEnv, config, log_dir="logs/ppo", total_timesteps=50000)
-        plot_learning_curve(
-            log_folder="logs/ppo", save_path="results/ppo_learning_curve.png"
-        )
-
-    env = EpidemicEnv(config)
-
+def setup_agents(config: DefaultConfig) -> List[Agent]:
+    """Initializes and returns the list of agents to evaluate."""
     agents = [
         StaticAgent(InterventionAction.NO),
         StaticAgent(InterventionAction.MILD),
@@ -116,19 +51,49 @@ if __name__ == "__main__":
         MyopicMaximizer(config),
     ]
 
-    ppo_model_path = "logs/ppo/ppo_model.zip"
-    if os.path.exists(ppo_model_path):
-        print("Loading PPO agent...")
-        ppo_agent = PPO.load(ppo_model_path)
+    ppo_agent = load_ppo_agent()
+    if ppo_agent:
         agents.append(ppo_agent)
-    else:
-        print("PPO model not found. Run with --train_ppo to train it.")
 
-    results = []
+    return agents
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Epidemic Control Simulation")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="default",
+        help="Which configuration to use (default: 'default')",
+    )
+    parser.add_argument(
+        "--train_ppo",
+        action="store_true",
+        help="Train PPO agent before running simulation",
+    )
+    args = parser.parse_args()
+
+    config = get_config(args.config)
+
+    if args.train_ppo:
+        train_and_plot_ppo(config)
+
+    env = EpidemicEnv(config)
+    agents = setup_agents(config)
+
+    results: List[SimulationResult] = []
+
+    print("\nStarting simulations...")
     for agent in agents:
-        print(f"Running {agent.__class__.__name__}...")
+        print(f"Running simulation for agent: {agent.__class__.__name__}")
+
         result = run_agent(agent, env)
         results.append(result)
 
+    print("\nPlotting results...")
     plot_all_results(results, save_path="results/all_results.png")
-    print("Done!")
+    print("Done! Results saved to 'results/' directory.")
+
+
+if __name__ == "__main__":
+    main()
