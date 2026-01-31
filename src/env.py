@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium import spaces
 
 from src.config import DefaultConfig
-from src.sir import run_sir, EpidemicState
+from src.seir import run_seir, EpidemicState
 from src.agents import InterventionAction, Agent, StaticAgent
 
 
@@ -33,7 +33,7 @@ class EpidemicEnv(gym.Env):
         self.action_map = list(InterventionAction)
 
         self.observation_space = spaces.Box(
-            low=0, high=self.config.N, shape=(3,), dtype=np.float32
+            low=0, high=self.config.N, shape=(4,), dtype=np.float32
         )
 
         self.current_state = None
@@ -42,9 +42,13 @@ class EpidemicEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        S0 = self.config.N - self.config.I0 - self.config.R0
+        S0 = self.config.N - self.config.I0 - self.config.E0
         self.current_state = EpidemicState(
-            N=self.config.N, S=S0, I=self.config.I0, R=self.config.R0
+            N=self.config.N,
+            S=S0,
+            E=self.config.E0,
+            I=self.config.I0,
+            R=0,
         )
         self.current_day = 0
 
@@ -58,11 +62,21 @@ class EpidemicEnv(gym.Env):
             self.config.action_interval, self.config.days - self.current_day
         )
 
-        S, I, R = run_sir(self.current_state, beta, self.config.gamma, days_to_simulate)
+        S, E, I, R = run_seir(
+            self.current_state,
+            beta,
+            self.config.sigma,
+            self.config.gamma,
+            days_to_simulate,
+        )
 
         if len(S) > 0:
             self.current_state = EpidemicState(
-                N=self.current_state.N, S=S[-1], I=I[-1], R=R[-1]
+                N=self.current_state.N,
+                S=S[-1],
+                E=E[-1],
+                I=I[-1],
+                R=R[-1],
             )
 
         reward = calculate_reward(self.current_state.I, action_enum, self.config)
@@ -72,19 +86,24 @@ class EpidemicEnv(gym.Env):
         terminated = self.current_day >= self.config.days
         truncated = False
 
-        info = {"S": S, "I": I, "R": R}
+        info = {"S": S, "E": E, "I": I, "R": R}
 
         return self._get_obs(), reward, terminated, truncated, info
 
     def _get_obs(self):
         return np.array(
-            [self.current_state.S, self.current_state.I, self.current_state.R],
+            [
+                self.current_state.S,
+                self.current_state.E,
+                self.current_state.I,
+                self.current_state.R,
+            ],
             dtype=np.float32,
         )
 
     def render(self, mode="human"):
         print(
-            f"Day {self.current_day}: S={self.current_state.S:.0f}, I={self.current_state.I:.0f}, R={self.current_state.R:.0f}"
+            f"Day {self.current_day}: S={self.current_state.S:.0f}, E={self.current_state.E:.0f}, I={self.current_state.I:.0f}, R={self.current_state.R:.0f}"
         )
 
 
@@ -94,6 +113,7 @@ class SimulationResult:
         agent: Agent,
         t: np.ndarray,
         S: np.ndarray,
+        E: np.ndarray,
         I: np.ndarray,
         R: np.ndarray,
         actions: List[InterventionAction],
@@ -104,6 +124,7 @@ class SimulationResult:
         self.agent = agent
         self.t = t
         self.S = S
+        self.E = E
         self.I = I
         self.R = R
         self.actions = actions
@@ -117,7 +138,7 @@ class SimulationResult:
 
     @property
     def total_infected(self) -> float:
-        return self.R[-1] + self.I[-1]
+        return self.E[-1] + self.I[-1] + self.R[-1]
 
     @property
     def epidemic_duration(self) -> int:

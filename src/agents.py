@@ -2,7 +2,7 @@ import random
 import os
 from enum import Enum
 
-from src.sir import EpidemicState, run_sir
+from src.seir import EpidemicState, run_seir
 from src.config import DefaultConfig
 
 
@@ -21,7 +21,7 @@ class Agent:
 
     def predict(self, observation, state=None, episode_start=None, deterministic=True):
         """
-        :param observation: np.ndarray [S, I, R]
+        :param observation: np.ndarray [S, E, I, R]
         :return: (action_index, state)
         """
         raise NotImplementedError("Subclasses must implement predict")
@@ -68,11 +68,11 @@ class MyopicMaximizer(Agent):
     def predict(self, observation, state=None, episode_start=None, deterministic=True):
         from src.env import calculate_reward
 
-        S, I, R = observation
+        S, E, I, R = observation
         # Reconstruct state for internal simulation
-        # Note: We assume N = S + I + R
-        N = S + I + R
-        current_state = EpidemicState(N=N, S=S, I=I, R=R)
+
+        N = S + E + I + R
+        current_state = EpidemicState(N=N, S=S, E=E, I=I, R=R)
 
         best_action_idx = 0
         best_reward = float("-inf")
@@ -83,8 +83,12 @@ class MyopicMaximizer(Agent):
 
             # Simulate one interval
             # We only need the final state of the interval to calculate reward
-            _, I_sim, _ = run_sir(
-                current_state, beta, self.config.gamma, self.config.action_interval
+            _, _, I_sim, _ = run_seir(
+                current_state,
+                beta,
+                self.config.sigma,
+                self.config.gamma,
+                self.config.action_interval,
             )
 
             reward = calculate_reward(I_sim[-1], action, self.config)

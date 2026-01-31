@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from src.env import EpidemicEnv, calculate_reward
 from src.agents import StaticAgent, MyopicMaximizer, InterventionAction
-from src.sir import EpidemicState
+from src.seir import EpidemicState
 from src.config import get_config, DefaultConfig
 import os
 
@@ -34,10 +34,13 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     obs, _ = env.reset()
 
     # Reconstruct initial state from observation
-    S_curr, I_curr, R_curr = obs
-    current_state = EpidemicState(N=env.config.N, S=S_curr, I=I_curr, R=R_curr)
+    S_curr, E_curr, I_curr, R_curr = obs
+    current_state = EpidemicState(
+        N=env.config.N, S=S_curr, E=E_curr, I=I_curr, R=R_curr
+    )
 
     all_S = [current_state.S]
+    all_E = [current_state.E]
     all_I = [current_state.I]
     all_R = [current_state.R]
 
@@ -64,11 +67,12 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
         # Step environment
         obs, reward, terminated, truncated, info = env.step(action_idx)
 
-        # Extract S, I, R trajectories from info
-        S, I, R = info["S"], info["I"], info["R"]
+        # Extract S, E, I, R trajectories from info
+        S, E, I, R = info["S"], info["E"], info["I"], info["R"]
 
         # Add all intermediate states (skip first as it's already in all_S/I/R)
         all_S.extend(S[1:])
+        all_E.extend(E[1:])
         all_I.extend(I[1:])
         all_R.extend(R[1:])
 
@@ -90,6 +94,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     return {
         "t": t,
         "S": np.array(all_S),
+        "E": np.array(all_E),
         "I": np.array(all_I),
         "R": np.array(all_R),
         "actions": actions_taken,

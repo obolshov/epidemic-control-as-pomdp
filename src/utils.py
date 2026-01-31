@@ -8,13 +8,14 @@ from stable_baselines3.common import results_plotter
 from .env import SimulationResult
 
 
-def _plot_sir_curves(ax, result: SimulationResult, title: str = None) -> None:
+def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
     """
-    Helper function to plot SIR curves on a given axes.
+    Helper function to plot SEIR curves on a given axes.
     """
-    colors = {"S": "blue", "I": "red", "R": "green"}
+    colors = {"S": "blue", "E": "orange", "I": "red", "R": "green"}
 
     ax.plot(result.t, result.S, color=colors["S"], label="Susceptible (S)", linewidth=2)
+    ax.plot(result.t, result.E, color=colors["E"], label="Exposed (E)", linewidth=2)
     ax.plot(result.t, result.I, color=colors["I"], label="Infected (I)", linewidth=2)
     ax.plot(result.t, result.R, color=colors["R"], label="Recovered (R)", linewidth=2)
 
@@ -52,7 +53,7 @@ def plot_all_results(
     results: List[SimulationResult], save_path: Optional[str] = None
 ) -> None:
     """
-    Creates a comparison plot of SIR curves from simulation results.
+    Creates a comparison plot of SEIR curves from simulation results.
 
     :param results: List of simulation results to plot
     :param save_path: Optional path to save the plot. If None, displays the plot.
@@ -63,7 +64,7 @@ def plot_all_results(
     for idx, result in enumerate(results):
         ax = axes[idx]
         title = f"{result.agent_name}"
-        _plot_sir_curves(ax, result, title)
+        _plot_seir_curves(ax, result, title)
 
     plt.tight_layout()
 
@@ -80,7 +81,7 @@ def plot_single_result(
     result: SimulationResult, title: str = None, save_path: str = None
 ) -> None:
     """
-    Creates a simple plot of a single SIR simulation result.
+    Creates a simple plot of a single SEIR simulation result.
 
     :param result: SimulationResult to visualize
     :param title: Optional custom title
@@ -90,7 +91,7 @@ def plot_single_result(
         title = f"{result.agent_name}"
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    _plot_sir_curves(ax, result, title)
+    _plot_seir_curves(ax, result, title)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -115,13 +116,11 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
 
     with open(log_path, "w", encoding="utf-8") as f:
         f.write(f"Simulation Log: {result.agent_name}\n")
-        f.write("=" * 90 + "\n\n")
+        f.write("=" * 105 + "\n\n")
 
-        header = (
-            f"{'Day':<8} {'S':<14} {'I':<14} {'R':<14} {'Reward':<12} {'Action':<15}\n"
-        )
+        header = f"{'Day':<8} {'S':<14} {'E':<14} {'I':<14} {'R':<14} {'Reward':<12} {'Action':<15}\n"
         f.write(header)
-        f.write("-" * 90 + "\n")
+        f.write("-" * 105 + "\n")
 
         for i, (day, obs, action, reward) in enumerate(
             zip(
@@ -131,11 +130,11 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
                 result.rewards,
             )
         ):
-            S, I, R = obs
-            row = f"{day:<8} {S:<14.2f} {I:<14.2f} {R:<14.2f} {reward:<12.4f} {action.name:<15}\n"
+            S, E, I, R = obs
+            row = f"{day:<8} {S:<14.2f} {E:<14.2f} {I:<14.2f} {R:<14.2f} {reward:<12.4f} {action.name:<15}\n"
             f.write(row)
 
-        f.write("\n" + "=" * 90 + "\n")
+        f.write("\n" + "=" * 105 + "\n")
         f.write("Summary Statistics:\n")
         f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
         f.write(f"  Total Infected: {result.total_infected:.2f}\n")

@@ -1,12 +1,13 @@
 class DefaultConfig:
     def __init__(self):
         # Population and epidemic parameters
-        self.N = 2000  # Total population
-        self.I0 = 1  # Initial infected
-        self.R0 = 0  # Initial recovered
+        self.N = 100000  # Total population
+        self.E0 = 200  # Initial exposed
+        self.I0 = 50  # Initial infected
 
-        # SIR model parameters
+        # SEIR model parameters
         self.beta_0 = 0.4  # Base transmission rate
+        self.sigma = 0.2  # Incubation rate (1/incubation_period)
         self.gamma = 0.1  # Recovery rate
 
         # Simulation settings
@@ -14,9 +15,8 @@ class DefaultConfig:
         self.action_interval = 5  # Days between decisions
 
         # Reward function parameters
-        self.w_I = 1.5
+        self.w_I = 10
         self.w_S = 0.1
-        self.infection_peak = 0.25
 
 
 def get_config(name: str):

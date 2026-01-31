@@ -16,8 +16,9 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
     obs, _ = env.reset()
     done = False
 
-    S_init, I_init, R_init = obs
+    S_init, E_init, I_init, R_init = obs
     all_S = [S_init]
+    all_E = [E_init]
     all_I = [I_init]
     all_R = [R_init]
 
@@ -37,11 +38,13 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
         obs, reward, done, truncated, info = env.step(action_idx)
 
         S = info.get("S", [])
+        E = info.get("E", [])
         I = info.get("I", [])
         R = info.get("R", [])
 
         if len(S) > 0:
             all_S.extend(S)
+            all_E.extend(E)
             all_I.extend(I)
             all_R.extend(R)
 
@@ -57,6 +60,7 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
         agent=agent,
         t=t,
         S=np.array(all_S),
+        E=np.array(all_E),
         I=np.array(all_I),
         R=np.array(all_R),
         actions=actions_taken,
