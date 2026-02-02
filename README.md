@@ -24,14 +24,13 @@ The simulation includes the following agents:
 
 - **StaticAgent** - Always takes the same intervention action (NO, MILD, MODERATE, or SEVERE)
 - **RandomAgent** - Randomly selects intervention actions
-- **MyopicMaximizer** - Selects actions that maximize immediate reward
-- **PPO** - Proximal Policy Optimization agent (requires training with `--train_ppo`)
+- **PPO** - Proximal Policy Optimization agent (requires training with `--train-ppo`)
 
 ## Usage
 
 ### Basic Usage
 
-To run the simulation with different agents (StaticAgent, RandomAgent, MyopicMaximizer, and PPO if available):
+To run the simulation with different agents (StaticAgent, RandomAgent, and PPO if available):
 
 ```sh
 python main.py
@@ -42,7 +41,7 @@ python main.py
 To train a PPO agent before running simulations:
 
 ```sh
-python main.py --train_ppo
+python main.py --train-ppo
 ```
 
 This will:
@@ -72,7 +71,7 @@ python main.py --config <config_name>
 
 - **Individual agent plots**: `results/{agent_name}.png` - SIR curves for each agent
 - **Comparison plot**: `results/all_results.png` - Side-by-side comparison of all agents
-- **PPO learning curves**: `results/ppo_learning_curve_timesteps.png` and `results/ppo_learning_curve_episodes.png` - Training progress visualization (generated when using `--train_ppo`)
+- **PPO learning curves**: `results/ppo_learning_curve_timesteps.png` and `results/ppo_learning_curve_episodes.png` - Training progress visualization (generated when using `--train-ppo`)
 
 ## Running Tests
 

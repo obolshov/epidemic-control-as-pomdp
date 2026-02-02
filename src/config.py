@@ -18,6 +18,9 @@ class DefaultConfig:
         self.w_I = 10
         self.w_S = 0.1
 
+        # POMDP settings
+        self.include_exposed = True  # If False, E compartment is masked from observations
+
 
 def get_config(name: str):
     if name == "default":

@@ -7,7 +7,6 @@ from stable_baselines3 import PPO
 from src.agents import (
     Agent,
     InterventionAction,
-    MyopicMaximizer,
     RandomAgent,
     StaticAgent,
 )
@@ -15,6 +14,7 @@ from src.config import DefaultConfig, get_config
 from src.env import EpidemicEnv, SimulationResult
 from src.evaluation import run_agent
 from src.train import train_ppo_agent
+from src.wrappers import EpidemicObservationWrapper
 from src.utils import (
     plot_all_results,
     plot_learning_curve,
@@ -48,7 +48,6 @@ def setup_agents(config: DefaultConfig) -> List[Agent]:
         StaticAgent(InterventionAction.MODERATE),
         StaticAgent(InterventionAction.SEVERE),
         RandomAgent(),
-        MyopicMaximizer(config),
     ]
 
     ppo_agent = load_ppo_agent()
@@ -71,14 +70,27 @@ def main():
         action="store_true",
         help="Train PPO agent before running simulation",
     )
+    parser.add_argument(
+        "--partial-obs",
+        "--no-exposed",
+        dest="include_exposed",
+        action="store_false",
+        help="Enable partial observability by masking E (Exposed) compartment",
+    )
     args = parser.parse_args()
 
     config = get_config(args.config)
+    config.include_exposed = args.include_exposed
 
     if args.train_ppo:
         train_and_plot_ppo(config)
 
     env = EpidemicEnv(config)
+    
+    # Apply POMDP wrapper if partial observability is enabled
+    if not config.include_exposed:
+        env = EpidemicObservationWrapper(env, include_exposed=False)
+    
     agents = setup_agents(config)
 
     results: List[SimulationResult] = []

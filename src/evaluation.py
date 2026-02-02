@@ -16,7 +16,25 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
     obs, _ = env.reset()
     done = False
 
-    S_init, E_init, I_init, R_init = obs
+    # Handle partial observability: get full state from unwrapped env if needed
+    # If wrapper is applied, obs might be [S, I, R] instead of [S, E, I, R]
+    if len(obs) == 3:
+        # E is masked, get full state from unwrapped environment
+        unwrapped_env = env.unwrapped
+        if hasattr(unwrapped_env, 'current_state'):
+            state = unwrapped_env.current_state
+            S_init = state.S
+            E_init = state.E
+            I_init = state.I
+            R_init = state.R
+        else:
+            # Fallback: assume E=0 if we can't access it
+            S_init, I_init, R_init = obs
+            E_init = 0.0
+    else:
+        # Full observability: obs is [S, E, I, R]
+        S_init, E_init, I_init, R_init = obs
+    
     all_S = [S_init]
     all_E = [E_init]
     all_I = [I_init]
@@ -50,7 +68,9 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
 
         current_timestep += len(S)
 
-        action_enum = env.action_map[action_idx]
+        # Access action_map from unwrapped env (wrapper might not have it)
+        unwrapped_env = env.unwrapped
+        action_enum = unwrapped_env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
 

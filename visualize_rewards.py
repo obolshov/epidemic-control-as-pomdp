@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from src.env import EpidemicEnv, calculate_reward
-from src.agents import StaticAgent, MyopicMaximizer, InterventionAction
+from src.agents import StaticAgent, InterventionAction
 from src.seir import EpidemicState
 from src.config import get_config, DefaultConfig
 import os
@@ -112,7 +112,6 @@ if __name__ == "__main__":
     agents = [
         StaticAgent(InterventionAction.NO),
         StaticAgent(InterventionAction.SEVERE),
-        MyopicMaximizer(config),
     ]
 
     agent_names = ["No action", "Severe action", "Myopic Maximizer"]

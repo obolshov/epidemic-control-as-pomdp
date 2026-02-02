@@ -122,15 +122,21 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
         f.write(header)
         f.write("-" * 105 + "\n")
 
-        for i, (day, obs, action, reward) in enumerate(
+        for i, (day, action, reward) in enumerate(
             zip(
                 result.timesteps,
-                result.observations,
                 result.actions,
                 result.rewards,
             )
         ):
-            S, E, I, R = obs
+            # Use full state from result arrays (not agent observations which may be partial)
+            # timesteps[i] corresponds to the day when the decision was made
+            # Ensure index is within bounds
+            day_idx = min(int(day), len(result.S) - 1) if len(result.S) > 0 else 0
+            S = result.S[day_idx]
+            E = result.E[day_idx]
+            I = result.I[day_idx]
+            R = result.R[day_idx]
             row = f"{day:<8} {S:<14.2f} {E:<14.2f} {I:<14.2f} {R:<14.2f} {reward:<12.4f} {action.name:<15}\n"
             f.write(row)
 

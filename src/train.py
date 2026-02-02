@@ -5,6 +5,7 @@ from stable_baselines3.common.monitor import Monitor
 from typing import Type
 import gymnasium as gym
 from src.config import DefaultConfig
+from src.wrappers import EpidemicObservationWrapper
 
 
 def train_ppo_agent(
@@ -13,6 +14,11 @@ def train_ppo_agent(
     os.makedirs(log_dir, exist_ok=True)
 
     env = env_cls(config)
+    
+    # Apply POMDP wrapper if partial observability is enabled
+    if not config.include_exposed:
+        env = EpidemicObservationWrapper(env, include_exposed=False)
+    
     env = Monitor(env, log_dir)
 
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
