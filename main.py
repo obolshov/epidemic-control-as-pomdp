@@ -9,6 +9,7 @@ from src.agents import (
     InterventionAction,
     RandomAgent,
     StaticAgent,
+    ThresholdAgent,
 )
 from src.config import DefaultConfig, get_config
 from src.env import EpidemicEnv, SimulationResult
@@ -49,6 +50,7 @@ def setup_agents(config: DefaultConfig) -> List[Agent]:
         StaticAgent(InterventionAction.MODERATE),
         StaticAgent(InterventionAction.SEVERE),
         RandomAgent(),
+        ThresholdAgent(config),
     ]
 
     ppo_agent = load_ppo_agent()

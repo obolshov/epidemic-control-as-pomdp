@@ -24,13 +24,14 @@ The simulation includes the following agents:
 
 - **StaticAgent** - Always takes the same intervention action (NO, MILD, MODERATE, or SEVERE)
 - **RandomAgent** - Randomly selects intervention actions
+- **ThresholdAgent** - Selects intervention actions based on thresholds for infected fraction
 - **PPO** - Proximal Policy Optimization agent (requires training with `--train-ppo`)
 
 ## Usage
 
 ### Basic Usage
 
-To run the simulation with different agents (StaticAgent, RandomAgent, and PPO if available):
+To run the simulation with different agents (StaticAgent, RandomAgent, ThresholdAgent, and PPO if available):
 
 ```sh
 python main.py

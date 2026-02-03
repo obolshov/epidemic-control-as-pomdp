@@ -1,3 +1,6 @@
+from typing import List
+
+
 class DefaultConfig:
     def __init__(self):
         # Population and epidemic parameters
@@ -20,6 +23,9 @@ class DefaultConfig:
 
         # POMDP settings
         self.include_exposed = True  # If False, E compartment is masked from observations
+
+        # ThresholdAgent parameters
+        self.thresholds: List[float] = [0.01, 0.05, 0.09]  # Fraction of infected population
 
 
 def get_config(name: str):
