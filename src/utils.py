@@ -1,11 +1,25 @@
 from math import ceil
 import os
+from datetime import datetime
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
 from stable_baselines3.common import results_plotter
 
 from .env import SimulationResult
+
+
+def get_timestamped_results_dir(base_dir: str = "results") -> str:
+    """
+    Creates a timestamped directory for saving results.
+    
+    :param base_dir: Base directory name (default: "results")
+    :return: Path to the timestamped directory (e.g., "results/2026-02-02_14-30-45")
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    results_dir = os.path.join(base_dir, timestamp)
+    os.makedirs(results_dir, exist_ok=True)
+    return results_dir
 
 
 def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
@@ -69,7 +83,9 @@ def plot_all_results(
     plt.tight_layout()
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        dir_path = os.path.dirname(save_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close()
     else:
@@ -94,7 +110,9 @@ def plot_single_result(
     _plot_seir_curves(ax, result, title)
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        dir_path = os.path.dirname(save_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close()
     else:
@@ -170,7 +188,9 @@ def plot_learning_curve(
             if save_path:
                 base, ext = os.path.splitext(save_path)
                 current_save_path = f"{base}_{axis_name}{ext}"
-                os.makedirs(os.path.dirname(current_save_path), exist_ok=True)
+                dir_path = os.path.dirname(current_save_path)
+                if dir_path:
+                    os.makedirs(dir_path, exist_ok=True)
                 plt.savefig(current_save_path, dpi=300, bbox_inches="tight")
                 plt.close()
             else:

@@ -18,15 +18,16 @@ from src.wrappers import EpidemicObservationWrapper
 from src.utils import (
     plot_all_results,
     plot_learning_curve,
+    get_timestamped_results_dir,
 )
 
 
-def train_and_plot_ppo(config: DefaultConfig) -> None:
+def train_and_plot_ppo(config: DefaultConfig, results_dir: str) -> None:
     """Trains the PPO agent and plots the learning curve."""
     print("Training PPO agent...")
     train_ppo_agent(EpidemicEnv, config, log_dir="logs/ppo", total_timesteps=50000)
     plot_learning_curve(
-        log_folder="logs/ppo", save_path="results/ppo_learning_curve.png"
+        log_folder="logs/ppo", save_path=os.path.join(results_dir, "ppo_learning_curve.png")
     )
 
 
@@ -66,7 +67,7 @@ def main():
         help="Which configuration to use (default: 'default')",
     )
     parser.add_argument(
-        "--train_ppo",
+        "--train-ppo",
         action="store_true",
         help="Train PPO agent before running simulation",
     )
@@ -82,8 +83,12 @@ def main():
     config = get_config(args.config)
     config.include_exposed = args.include_exposed
 
+    # Create timestamped results directory
+    results_dir = get_timestamped_results_dir()
+    print(f"Results will be saved to: {results_dir}")
+
     if args.train_ppo:
-        train_and_plot_ppo(config)
+        train_and_plot_ppo(config, results_dir)
 
     env = EpidemicEnv(config)
     
@@ -99,12 +104,12 @@ def main():
     for agent in agents:
         print(f"Running simulation for agent: {agent.__class__.__name__}")
 
-        result = run_agent(agent, env)
+        result = run_agent(agent, env, results_dir=results_dir)
         results.append(result)
 
     print("\nPlotting results...")
-    plot_all_results(results, save_path="results/all_results.png")
-    print("Done! Results saved to 'results/' directory.")
+    plot_all_results(results, save_path=os.path.join(results_dir, "all_results.png"))
+    print(f"Done! Results saved to '{results_dir}' directory.")
 
 
 if __name__ == "__main__":

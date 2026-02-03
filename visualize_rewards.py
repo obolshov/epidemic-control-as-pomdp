@@ -5,6 +5,7 @@ from src.env import EpidemicEnv, calculate_reward
 from src.agents import StaticAgent, InterventionAction
 from src.seir import EpidemicState
 from src.config import get_config, DefaultConfig
+from src.utils import get_timestamped_results_dir
 import os
 
 
@@ -225,8 +226,10 @@ if __name__ == "__main__":
         y=1.001,
     )
 
-    os.makedirs("results", exist_ok=True)
-    save_path = "results/reward_components_plot.png"
+    # Create timestamped results directory
+    results_dir = get_timestamped_results_dir()
+    save_path = os.path.join(results_dir, "reward_components_plot.png")
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to: {save_path}")
 
     plt.show()

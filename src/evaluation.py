@@ -1,16 +1,19 @@
 import numpy as np
+import os
+from typing import Optional
 
 from src.agents import Agent
 from src.env import EpidemicEnv, SimulationResult
 from src.utils import log_results, plot_single_result
 
 
-def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
+def run_agent(agent: Agent, env: EpidemicEnv, results_dir: Optional[str] = None) -> SimulationResult:
     """
     Runs a simulation for a single agent.
 
     :param agent: The agent to evaluate.
     :param env: The environment to run the simulation in.
+    :param results_dir: Optional directory to save plots. If None, uses default "results" directory.
     :return: A SimulationResult object containing the results of the simulation.
     """
     obs, _ = env.reset()
@@ -90,6 +93,12 @@ def run_agent(agent: Agent, env: EpidemicEnv) -> SimulationResult:
     )
 
     log_results(result, log_dir="logs")
-    plot_single_result(result, save_path=f"results/{result.agent_name}.png")
+    
+    # Determine save path for plot
+    if results_dir is None:
+        results_dir = "results"
+        os.makedirs(results_dir, exist_ok=True)
+    
+    plot_single_result(result, save_path=os.path.join(results_dir, f"{result.agent_name}.png"))
 
     return result
