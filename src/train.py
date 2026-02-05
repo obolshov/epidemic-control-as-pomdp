@@ -27,6 +27,12 @@ def train_ppo_agent(
     model.learn(total_timesteps=total_timesteps)
     print("Training finished.")
 
-    save_path = os.path.join(log_dir, "ppo_model")
+    # Save model with different name based on observability mode
+    if config.include_exposed:
+        model_name = "ppo_model_full_obs"
+    else:
+        model_name = "ppo_model_partial_obs"
+    
+    save_path = os.path.join(log_dir, model_name)
     model.save(save_path)
     print(f"Model saved to {save_path}")

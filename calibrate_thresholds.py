@@ -299,16 +299,22 @@ def plot_calibration_results(
 
 
 def main():
-    # Fixed configuration
-    ppo_model_path = "logs/ppo/ppo_model.zip"
     output_dir = "calibration_results"
     
     # Load configuration
     config = get_config("default")
     
+    # Determine model path based on observability mode
+    # Note: This script uses full observability (no wrapper), so it uses full_obs model
+    if config.include_exposed:
+        ppo_model_path = "logs/ppo/ppo_model_full_obs.zip"
+    else:
+        ppo_model_path = "logs/ppo/ppo_model_partial_obs.zip"
+    
     # Check if PPO model exists
     if not os.path.exists(ppo_model_path):
-        print(f"Error: PPO model not found at {ppo_model_path}")
+        obs_mode = "full observability" if config.include_exposed else "partial observability"
+        print(f"Error: PPO model for {obs_mode} not found at {ppo_model_path}")
         print("Please train a PPO agent first using: python main.py --train-ppo")
         return
     

@@ -32,13 +32,28 @@ def train_and_plot_ppo(config: DefaultConfig, results_dir: str) -> None:
     )
 
 
-def load_ppo_agent(model_path: str = "logs/ppo/ppo_model.zip") -> PPO:
-    """Loads a trained PPO agent if available."""
+def load_ppo_agent(config: DefaultConfig) -> PPO:
+    """
+    Loads a trained PPO agent based on observability mode.
+    
+    Args:
+        config: Configuration object containing include_exposed flag.
+        
+    Returns:
+        Loaded PPO agent or None if model not found.
+    """
+    # Determine model path based on observability mode
+    if config.include_exposed:
+        model_path = "logs/ppo/ppo_model_full_obs.zip"
+    else:
+        model_path = "logs/ppo/ppo_model_partial_obs.zip"
+    
     if os.path.exists(model_path):
-        print("Loading PPO agent...")
+        print(f"Loading PPO agent from {model_path}...")
         return PPO.load(model_path)
     else:
-        print("PPO model not found. Run with --train_ppo to train it.")
+        obs_mode = "full observability" if config.include_exposed else "partial observability"
+        print(f"PPO model for {obs_mode} not found at {model_path}. Run with --train_ppo to train it.")
         return None
 
 
@@ -53,7 +68,7 @@ def setup_agents(config: DefaultConfig) -> List[Agent]:
         ThresholdAgent(config),
     ]
 
-    ppo_agent = load_ppo_agent()
+    ppo_agent = load_ppo_agent(config)
     if ppo_agent:
         agents.append(ppo_agent)
 
