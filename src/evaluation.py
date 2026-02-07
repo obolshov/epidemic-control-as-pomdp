@@ -7,13 +7,19 @@ from src.env import EpidemicEnv, SimulationResult
 from src.utils import log_results, plot_single_result
 
 
-def run_agent(agent: Agent, env: EpidemicEnv, results_dir: Optional[str] = None) -> SimulationResult:
+def run_agent(
+    agent: Agent,
+    env: EpidemicEnv,
+    experiment_dir: Optional["ExperimentDirectory"] = None,
+    agent_name: Optional[str] = None,
+) -> SimulationResult:
     """
     Runs a simulation for a single agent.
 
     :param agent: The agent to evaluate.
     :param env: The environment to run the simulation in.
-    :param results_dir: Optional directory to save plots. If None, uses default "results" directory.
+    :param experiment_dir: ExperimentDirectory for saving outputs. If None, saves to default locations.
+    :param agent_name: Override name for saving files. If None, uses agent's class name.
     :return: A SimulationResult object containing the results of the simulation.
     """
     obs, _ = env.reset()
@@ -92,13 +98,21 @@ def run_agent(agent: Agent, env: EpidemicEnv, results_dir: Optional[str] = None)
         observations=observations,
     )
 
-    log_results(result, log_dir="logs")
+    # Use custom agent name if provided
+    save_name = agent_name if agent_name else result.agent_name.lower().replace(" ", "_").replace("-", "_")
     
-    # Determine save path for plot
-    if results_dir is None:
-        results_dir = "results"
-        os.makedirs(results_dir, exist_ok=True)
+    # Save logs and plots
+    if experiment_dir is not None:
+        # Save to experiment directory structure
+        log_path = experiment_dir.get_log_path(save_name)
+        plot_path = experiment_dir.get_plot_path(f"{save_name}_seir.png")
+    else:
+        # Fallback to default locations (for backwards compatibility)
+        log_path = os.path.join("logs", f"{save_name}.txt")
+        os.makedirs("results", exist_ok=True)
+        plot_path = os.path.join("results", f"{save_name}_seir.png")
     
-    plot_single_result(result, save_path=os.path.join(results_dir, f"{result.agent_name}.png"))
+    log_results(result, log_path=str(log_path))
+    plot_single_result(result, save_path=str(plot_path))
 
     return result

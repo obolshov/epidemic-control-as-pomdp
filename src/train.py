@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 
@@ -9,30 +10,52 @@ from src.wrappers import EpidemicObservationWrapper
 
 
 def train_ppo_agent(
-    env_cls: Type[gym.Env], config: DefaultConfig, log_dir: str, total_timesteps: int
-) -> None:
-    os.makedirs(log_dir, exist_ok=True)
-
+    env_cls: Type[gym.Env],
+    config: DefaultConfig,
+    experiment_dir: "ExperimentDirectory",
+    agent_name: str,
+    total_timesteps: int,
+    pomdp_params: dict = None,
+) -> PPO:
+    """
+    Train a PPO agent and save weights to experiment directory.
+    
+    Args:
+        env_cls: Environment class to instantiate.
+        config: Configuration for the environment.
+        experiment_dir: ExperimentDirectory for saving outputs.
+        agent_name: Name of the agent (e.g., "ppo_baseline").
+        total_timesteps: Number of timesteps to train.
+        pomdp_params: POMDP parameters for applying wrappers.
+        
+    Returns:
+        Trained PPO model.
+    """
+    if pomdp_params is None:
+        pomdp_params = {}
+    
+    # Create environment
     env = env_cls(config)
     
     # Apply POMDP wrapper if partial observability is enabled
-    if not config.include_exposed:
+    if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
     
-    env = Monitor(env, log_dir)
+    # Create monitor directory for this agent
+    monitor_dir = experiment_dir.tensorboard_dir / agent_name
+    monitor_dir.mkdir(parents=True, exist_ok=True)
+    env = Monitor(env, str(monitor_dir))
 
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
+    # Initialize PPO model with TensorBoard logging
+    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=str(experiment_dir.tensorboard_dir))
 
-    print(f"Training PPO agent for {total_timesteps} timesteps...")
-    model.learn(total_timesteps=total_timesteps)
+    print(f"Training {agent_name} for {total_timesteps} timesteps...")
+    model.learn(total_timesteps=total_timesteps, tb_log_name=agent_name)
     print("Training finished.")
 
-    # Save model with different name based on observability mode
-    if config.include_exposed:
-        model_name = "ppo_model_full_obs"
-    else:
-        model_name = "ppo_model_partial_obs"
+    # Save model weights
+    weight_path = experiment_dir.get_weight_path(agent_name)
+    model.save(str(weight_path.with_suffix("")))  # Remove .zip as SB3 adds it
+    print(f"Model weights saved to {weight_path}")
     
-    save_path = os.path.join(log_dir, model_name)
-    model.save(save_path)
-    print(f"Model saved to {save_path}")
+    return model

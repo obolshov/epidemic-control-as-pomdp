@@ -1,83 +1,158 @@
 # Epidemic Control as Partially Observable Domain
 
-## Prerequisites
+Reinforcement learning framework for epidemic control using Non-Pharmaceutical Interventions (NPIs). Implements MDP and POMDP scenarios for studying partial observability effects on optimal control policies.
 
-*   Python 3.13+
-*   pip
+## Quick Start
 
-## Installation
+### Installation
 
-1.  Clone the repository to your local machine:
-    ```sh
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
+```bash
+pip install -r requirements.txt
+```
 
-2.  Install the required Python packages using `requirements.txt`:
-    ```sh
-    pip install -r requirements.txt
-    ```
+### Run Your First Experiment
+
+```bash
+# Verify epidemic model with static policies
+python run_static_agents.py
+
+# Run MDP experiment (trains RL agents by default)
+python main.py --scenario mdp
+
+# Run POMDP experiment (masked exposed compartment)
+python main.py --scenario no_exposed
+
+# Skip training, use existing weights
+python main.py --scenario mdp --skip-training all
+```
+
+Results are saved to `experiments/{scenario}/{timestamp}/` with plots and logs.
+Model weights are shared at `experiments/{scenario}/weights/` for reuse across runs.
+
+## Scenarios
+
+The system supports predefined scenarios for reproducibility:
+
+### **mdp** (Baseline)
+Full observability MDP where all SEIR compartments are visible.
+```bash
+python main.py --scenario mdp
+```
+
+### **no_exposed** (POMDP)
+Partial observability with masked Exposed (E) compartment.
+```bash
+python main.py --scenario no_exposed
+```
+
+### Custom Scenarios
+Specify POMDP parameters directly via CLI:
+```bash
+python main.py --no-exposed
+```
+
+Future parameters can be added (see [EXTENDING.md](EXTENDING.md)):
+```bash
+# python main.py --no-exposed --delay 5 --noise 0.1
+```
 
 ## Agents
 
-The simulation includes the following agents:
+Four types of agents are evaluated in each experiment:
 
-- **StaticAgent** - Always takes the same intervention action (NO, MILD, MODERATE, or SEVERE)
-- **RandomAgent** - Randomly selects intervention actions
-- **ThresholdAgent** - Selects intervention actions based on thresholds for infected fraction
-- **PPO** - Proximal Policy Optimization agent (requires training with `--train-ppo`)
+- **RandomAgent**: Selects random interventions
+- **ThresholdAgent**: Rule-based policy using infection thresholds
+- **PPO (Baseline)**: Trained with standard PPO
+- *(Future)* **PPO (FrameStack)**: Stacked observations for temporal awareness
+- *(Future)* **PPO (Recurrent)**: LSTM-based policy for partial observability
 
-## Usage
+## CLI Options
 
-### Basic Usage
-
-To run the simulation with different agents (StaticAgent, RandomAgent, ThresholdAgent, and PPO if available):
-
-```sh
-python main.py
+```bash
+python main.py --help
 ```
 
-### Training PPO Agent
+Key options:
+- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`)
+- `--skip-training`: Skip training for agents (comma-separated list or `all`)
+- `--timesteps, -t`: Training timesteps (default: 50000)
+- `--load-experiment, -l`: Reload and rerun existing experiment
+- `--no-exposed`: Mask E compartment (custom POMDP)
+- `--config, -c`: Base configuration (default: "default")
 
-To train a PPO agent before running simulations:
+**Training behavior:**
+- By default, trains all RL agents from scratch
+- Use `--skip-training all` to load existing weights for all agents
+- Use `--skip-training ppo_baseline` to skip specific agents
 
-```sh
-python main.py --train-ppo
+## Output Structure
+
+Each experiment creates a timestamped directory, while model weights are shared at the scenario level:
+
+```
+experiments/
+  mdp/
+    weights/                       # Shared weights (reused across runs)
+      ppo_baseline.zip
+      ppo_framestack.zip
+    2026-02-07_14-30-00/           # Timestamped experiment results
+      config.json                  # Full experiment configuration
+      summary.json                 # Key metrics for all agents
+      plots/
+        comparison_all_agents.png  # Side-by-side SEIR curves
+        random_agent_seir.png      # Individual agent plots
+        threshold_agent_seir.png
+        ppo_baseline_seir.png
+        ppo_baseline_learning_*.png # Training curves
+      logs/
+        random_agent.txt           # Detailed action logs
+        threshold_agent.txt
+        ppo_baseline.txt
+        tensorboard/               # TensorBoard training logs
 ```
 
-This will:
-- Train the PPO agent for 50,000 timesteps
-- Save the trained model to `logs/ppo/ppo_model.zip`
-- Generate learning curve plots in `results/ppo_learning_curve_*.png`
-- Log training metrics to TensorBoard (in `logs/ppo/`)
+**Note:** Weights are stored at `experiments/{scenario}/weights/` to enable reuse across multiple runs.
 
-**Note**: If a trained PPO model already exists at `logs/ppo/ppo_model.zip`, it will be automatically loaded and included in the simulation without needing to retrain.
+## Load and Rerun Experiments
 
-### Configuration
+Experiments are fully reproducible. To rerun without retraining:
 
-You can specify a different configuration:
-
-```sh
-python main.py --config <config_name>
+```bash
+python main.py --load-experiment experiments/mdp/2026-02-07_14-30-00/
 ```
 
-## Output
+This loads configuration and weights, reruns evaluation, and saves results to a new timestamped directory.
 
-### Logs
+## Model Verification
 
-- **Simulation logs**: `logs/{agent_name}.txt` - Text files containing timesteps, observations, actions, and rewards for each agent
-- **PPO training logs**: `logs/ppo/` - TensorBoard event files and training monitor CSV (use `tensorboard --logdir logs/ppo` to view)
+For quick epidemic model sanity checks:
 
-### Plots
-
-- **Individual agent plots**: `results/{agent_name}.png` - SIR curves for each agent
-- **Comparison plot**: `results/all_results.png` - Side-by-side comparison of all agents
-- **PPO learning curves**: `results/ppo_learning_curve_timesteps.png` and `results/ppo_learning_curve_episodes.png` - Training progress visualization (generated when using `--train-ppo`)
-
-## Running Tests
-
-To run the tests:
-
-```sh
-python -m pytest
+```bash
+python run_static_agents.py
 ```
+
+Runs all four static policies (NO, MILD, MODERATE, SEVERE interventions) and generates a comparison plot.
+
+## Examples
+
+```bash
+# Train all agents (default behavior)
+python main.py --scenario mdp
+
+# Skip training, use existing weights
+python main.py --scenario mdp --skip-training all
+
+# Train only new agents, skip ppo_baseline
+python main.py --scenario mdp --skip-training ppo_baseline
+
+# Custom POMDP configuration
+python main.py --no-exposed
+
+# Adjust training duration
+python main.py --scenario mdp --timesteps 100000
+```
+
+## Extending the System
+
+To add new POMDP parameters, RL agents, or scenarios, see [EXTENDING.md](EXTENDING.md).
+

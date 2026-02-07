@@ -1,25 +1,11 @@
 from math import ceil
 import os
-from datetime import datetime
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
 from stable_baselines3.common import results_plotter
 
 from .env import SimulationResult
-
-
-def get_timestamped_results_dir(base_dir: str = "results") -> str:
-    """
-    Creates a timestamped directory for saving results.
-    
-    :param base_dir: Base directory name (default: "results")
-    :return: Path to the timestamped directory (e.g., "results/2026-02-02_14-30-45")
-    """
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    results_dir = os.path.join(base_dir, timestamp)
-    os.makedirs(results_dir, exist_ok=True)
-    return results_dir
 
 
 def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
@@ -68,18 +54,49 @@ def plot_all_results(
 ) -> None:
     """
     Creates a comparison plot of SEIR curves from simulation results.
+    
+    Dynamically adjusts layout based on number of agents:
+    - 1-5 agents: Single row
+    - 6+ agents: Two rows
 
     :param results: List of simulation results to plot
     :param save_path: Optional path to save the plot. If None, displays the plot.
     """
-    _, axes = plt.subplots(2, 4, figsize=(28, 10))
-    axes = axes.flatten()
-
+    num_agents = len(results)
+    
+    if num_agents == 0:
+        print("Warning: No results to plot")
+        return
+    
+    # Determine layout: prefer single row for 1-5 agents
+    if num_agents <= 5:
+        nrows = 1
+        ncols = num_agents
+        figsize = (7 * num_agents, 6)
+    else:
+        # Two rows for 6+ agents
+        nrows = 2
+        ncols = ceil(num_agents / 2)
+        figsize = (7 * ncols, 12)
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    
+    # Handle single plot case
+    if num_agents == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
+    
+    # Plot each result
     for idx, result in enumerate(results):
         ax = axes[idx]
         title = f"{result.agent_name}"
         _plot_seir_curves(ax, result, title)
-
+    
+    # Hide extra subplots if any (for 2-row layouts with odd numbers)
+    for idx in range(num_agents, len(axes)):
+        axes[idx].set_visible(False)
+    
     plt.tight_layout()
 
     if save_path:
@@ -98,6 +115,8 @@ def plot_single_result(
 ) -> None:
     """
     Creates a simple plot of a single SEIR simulation result.
+    
+    Saves with consistent naming: {agent_name}_seir.png
 
     :param result: SimulationResult to visualize
     :param title: Optional custom title
@@ -120,17 +139,18 @@ def plot_single_result(
         plt.close()
 
 
-def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
+def log_results(result: SimulationResult, log_path: str) -> None:
     """
     Logs simulation results to text files with table format.
+    
+    Saves with consistent naming: {agent_name}.txt
 
-    :param results: List of simulation results to log
-    :param log_dir: Directory to save log files (default: "logs")
+    :param result: SimulationResult to log
+    :param log_path: Full path to save log file
     """
-    os.makedirs(log_dir, exist_ok=True)
-
-    safe_name = result.agent_name.replace(" ", "_").replace("-", "")
-    log_path = os.path.join(log_dir, f"{safe_name}.txt")
+    dir_path = os.path.dirname(log_path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
 
     with open(log_path, "w", encoding="utf-8") as f:
         f.write(f"Simulation Log: {result.agent_name}\n")
@@ -170,9 +190,18 @@ def log_results(result: SimulationResult, log_dir: str = "logs") -> None:
 def plot_learning_curve(
     log_folder: str, title: str = "Learning Curve", save_path: Optional[str] = None
 ) -> None:
+    """
+    Plot learning curves from SB3 training logs.
+    
+    Saves with consistent naming: {agent_name}_learning_episodes.png and {agent_name}_learning_timesteps.png
+    
+    :param log_folder: Path to folder containing monitor logs
+    :param title: Title for the plot
+    :param save_path: Base path for saving plots (will append _episodes.png and _timesteps.png)
+    """
     x_axes = {
-        "timesteps": results_plotter.X_TIMESTEPS,
         "episodes": results_plotter.X_EPISODES,
+        "timesteps": results_plotter.X_TIMESTEPS,
     }
 
     for axis_name, axis_code in x_axes.items():

@@ -9,3 +9,4 @@ pandas
 stable-baselines3
 tensorboard
 torch
+typer

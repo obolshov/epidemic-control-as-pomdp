@@ -206,10 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Examples
-examples/
-
 # Results and logs
-results/
-logs/
+experiments/
 calibration_results/

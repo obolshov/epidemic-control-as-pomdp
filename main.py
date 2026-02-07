@@ -1,133 +1,374 @@
-import argparse
-import os
-from typing import List
+"""
+Main entry point for epidemic control experiments.
 
+Supports multiple modes:
+- Predefined scenarios (--scenario mdp, --scenario no_exposed)
+- Custom POMDP configurations (--no-exposed, --delay, --noise, etc.)
+- Loading and rerunning experiments (--load-experiment)
+"""
+
+import os
+from pathlib import Path
+from typing import List, Optional
+
+import typer
 from stable_baselines3 import PPO
 
 from src.agents import (
     Agent,
     InterventionAction,
     RandomAgent,
-    StaticAgent,
     ThresholdAgent,
 )
 from src.config import DefaultConfig, get_config
 from src.env import EpidemicEnv, SimulationResult
 from src.evaluation import run_agent
+from src.experiment import ExperimentConfig, ExperimentDirectory, load_experiment
+from src.scenarios import (
+    get_scenario,
+    create_custom_scenario_name,
+    list_scenarios,
+)
 from src.train import train_ppo_agent
 from src.wrappers import EpidemicObservationWrapper
-from src.utils import (
-    plot_all_results,
-    plot_learning_curve,
-    get_timestamped_results_dir,
-)
+from src.utils import plot_all_results, plot_learning_curve
 
 
-def train_and_plot_ppo(config: DefaultConfig, results_dir: str) -> None:
-    """Trains the PPO agent and plots the learning curve."""
-    print("Training PPO agent...")
-    train_ppo_agent(EpidemicEnv, config, log_dir="logs/ppo", total_timesteps=50000)
-    plot_learning_curve(
-        log_folder="logs/ppo", save_path=os.path.join(results_dir, "ppo_learning_curve.png")
-    )
+app = typer.Typer(help="Epidemic Control as POMDP - Experiment Runner")
 
 
-def load_ppo_agent(config: DefaultConfig) -> PPO:
+def create_environment(config: DefaultConfig, pomdp_params: dict) -> EpidemicEnv:
     """
-    Loads a trained PPO agent based on observability mode.
+    Create environment with appropriate POMDP wrappers.
     
     Args:
-        config: Configuration object containing include_exposed flag.
+        config: Base configuration.
+        pomdp_params: POMDP parameters for wrappers.
         
     Returns:
-        Loaded PPO agent or None if model not found.
+        Environment with wrappers applied.
     """
-    # Determine model path based on observability mode
-    if config.include_exposed:
-        model_path = "logs/ppo/ppo_model_full_obs.zip"
-    else:
-        model_path = "logs/ppo/ppo_model_partial_obs.zip"
-    
-    if os.path.exists(model_path):
-        print(f"Loading PPO agent from {model_path}...")
-        return PPO.load(model_path)
-    else:
-        obs_mode = "full observability" if config.include_exposed else "partial observability"
-        print(f"PPO model for {obs_mode} not found at {model_path}. Run with --train_ppo to train it.")
-        return None
-
-
-def setup_agents(config: DefaultConfig) -> List[Agent]:
-    """Initializes and returns the list of agents to evaluate."""
-    agents = [
-        StaticAgent(InterventionAction.NO),
-        StaticAgent(InterventionAction.MILD),
-        StaticAgent(InterventionAction.MODERATE),
-        StaticAgent(InterventionAction.SEVERE),
-        RandomAgent(),
-        ThresholdAgent(config),
-    ]
-
-    ppo_agent = load_ppo_agent(config)
-    if ppo_agent:
-        agents.append(ppo_agent)
-
-    return agents
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Epidemic Control Simulation")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="default",
-        help="Which configuration to use (default: 'default')",
-    )
-    parser.add_argument(
-        "--train-ppo",
-        action="store_true",
-        help="Train PPO agent before running simulation",
-    )
-    parser.add_argument(
-        "--partial-obs",
-        "--no-exposed",
-        dest="include_exposed",
-        action="store_false",
-        help="Enable partial observability by masking E (Exposed) compartment",
-    )
-    args = parser.parse_args()
-
-    config = get_config(args.config)
-    config.include_exposed = args.include_exposed
-
-    # Create timestamped results directory
-    results_dir = get_timestamped_results_dir()
-    print(f"Results will be saved to: {results_dir}")
-
-    if args.train_ppo:
-        train_and_plot_ppo(config, results_dir)
-
     env = EpidemicEnv(config)
     
     # Apply POMDP wrapper if partial observability is enabled
-    if not config.include_exposed:
+    if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
     
-    agents = setup_agents(config)
+    # Future wrappers can be added here:
+    # if pomdp_params.get("noise_std", 0) > 0:
+    #     env = NoiseWrapper(env, noise_std=pomdp_params["noise_std"])
+    # if pomdp_params.get("delay", 0) > 0:
+    #     env = DelayWrapper(env, delay=pomdp_params["delay"])
+    
+    return env
 
-    results: List[SimulationResult] = []
 
-    print("\nStarting simulations...")
+def setup_target_agents(config: DefaultConfig, agent_names: List[str]) -> List[Agent]:
+    """
+    Initialize target agents (non-static agents for evaluation).
+    
+    Args:
+        config: Configuration for agents.
+        agent_names: List of agent names to initialize.
+        
+    Returns:
+        List of initialized Agent objects.
+    """
+    agents = []
+    
+    if "random" in agent_names:
+        agents.append(RandomAgent())
+    
+    if "threshold" in agent_names:
+        agents.append(ThresholdAgent(config))
+    
+    # PPO agents will be loaded or trained separately
+    # They are not added here to avoid duplication
+    
+    return agents
+
+
+def prepare_rl_agents(
+    exp_config: ExperimentConfig,
+    experiment_dir: ExperimentDirectory,
+    agents_to_skip: set,
+) -> List[PPO]:
+    """
+    Train or load RL agents based on skip list.
+    
+    By default, trains all agents. Agents in skip list are loaded from weights.
+    
+    Args:
+        exp_config: Experiment configuration.
+        experiment_dir: Experiment directory for saving/loading.
+        agents_to_skip: Set of agent names to skip training (or {"all"} to skip all).
+        
+    Returns:
+        List of PPO models (trained or loaded).
+    """
+    rl_agent_names = [
+        name for name in exp_config.target_agents 
+        if name.startswith("ppo_")
+    ]
+    
+    if not rl_agent_names:
+        return []
+    
+    skip_all = "all" in agents_to_skip
+    
+    print("\n" + "=" * 80)
+    print("PREPARING RL AGENTS")
+    print("=" * 80)
+    
+    models = []
+    for agent_name in rl_agent_names:
+        should_skip = skip_all or agent_name in agents_to_skip
+        
+        if should_skip:
+            # Load existing weights
+            weight_path = experiment_dir.get_weight_path(agent_name)
+            if weight_path.exists():
+                print(f"\n✓ Loading {agent_name} from {weight_path}...")
+                model = PPO.load(str(weight_path.with_suffix("")))
+                models.append(model)
+            else:
+                print(f"\n✗ Warning: Weights for {agent_name} not found at {weight_path}")
+                print(f"   Skipping {agent_name} (will not be evaluated)")
+        else:
+            # Train agent
+            print(f"\n→ Training {agent_name}...")
+            model = train_ppo_agent(
+                env_cls=EpidemicEnv,
+                config=exp_config.base_config,
+                experiment_dir=experiment_dir,
+                agent_name=agent_name,
+                total_timesteps=exp_config.total_timesteps,
+                pomdp_params=exp_config.pomdp_params,
+            )
+            models.append(model)
+            
+            # Plot learning curve
+            tensorboard_log = experiment_dir.tensorboard_dir / agent_name
+            if tensorboard_log.exists():
+                plot_path = experiment_dir.get_plot_path(f"{agent_name}_learning.png")
+                plot_learning_curve(
+                    log_folder=str(tensorboard_log),
+                    title=f"{agent_name} Learning Curve",
+                    save_path=str(plot_path),
+                )
+    
+    return models
+
+
+def run_evaluation(
+    exp_config: ExperimentConfig,
+    experiment_dir: ExperimentDirectory,
+    rl_models: List[PPO],
+) -> List[SimulationResult]:
+    """
+    Run evaluation for all agents.
+    
+    Args:
+        exp_config: Experiment configuration.
+        experiment_dir: Experiment directory for saving results.
+        rl_models: List of trained/loaded RL models.
+        
+    Returns:
+        List of SimulationResult objects.
+    """
+    print("\n" + "=" * 80)
+    print("RUNNING EVALUATION")
+    print("=" * 80)
+    
+    # Create environment for evaluation
+    env = create_environment(exp_config.base_config, exp_config.pomdp_params)
+    
+    # Setup non-RL agents
+    agents = setup_target_agents(exp_config.base_config, exp_config.target_agents)
+    
+    results = []
+    
+    # Evaluate non-RL agents
     for agent in agents:
-        print(f"Running simulation for agent: {agent.__class__.__name__}")
-
-        result = run_agent(agent, env, results_dir=results_dir)
+        agent_name = agent.__class__.__name__.lower()
+        print(f"\nEvaluating {agent.__class__.__name__}...")
+        result = run_agent(agent, env, experiment_dir=experiment_dir, agent_name=agent_name)
         results.append(result)
+    
+    # Evaluate RL agents
+    rl_agent_names = [
+        name for name in exp_config.target_agents 
+        if name.startswith("ppo_")
+    ]
+    for model, agent_name in zip(rl_models, rl_agent_names):
+        print(f"\nEvaluating {agent_name}...")
+        result = run_agent(model, env, experiment_dir=experiment_dir, agent_name=agent_name)
+        results.append(result)
+    
+    return results
 
-    print("\nPlotting results...")
-    plot_all_results(results, save_path=os.path.join(results_dir, "all_results.png"))
-    print(f"Done! Results saved to '{results_dir}' directory.")
+
+@app.command()
+def main(
+    scenario: Optional[str] = typer.Option(
+        None,
+        "--scenario",
+        "-s",
+        help=f"Predefined scenario to run. Available: {', '.join(list_scenarios())}",
+    ),
+    load_experiment_path: Optional[str] = typer.Option(
+        None,
+        "--load-experiment",
+        "-l",
+        help="Path to existing experiment to reload and rerun",
+    ),
+    config_name: str = typer.Option(
+        "default",
+        "--config",
+        "-c",
+        help="Base configuration to use",
+    ),
+    skip_training: Optional[str] = typer.Option(
+        None,
+        "--skip-training",
+        help="Skip training for specified agents (comma-separated) or all if no argument provided. Use 'all' to skip all agents.",
+    ),
+    total_timesteps: int = typer.Option(
+        50000,
+        "--timesteps",
+        "-t",
+        help="Total timesteps for RL training",
+    ),
+    # POMDP parameters (for custom scenarios)
+    no_exposed: bool = typer.Option(
+        False,
+        "--no-exposed",
+        help="Mask E (Exposed) compartment from observations",
+    ),
+    # Future parameters can be easily added here:
+    # delay: int = typer.Option(0, "--delay", help="Observation delay in days"),
+    # noise: float = typer.Option(0.0, "--noise", help="Observation noise std"),
+):
+    """
+    Run epidemic control experiment.
+    
+    By default, trains all RL agents. Use --skip-training to load existing weights.
+    
+    Examples:
+        python main.py --scenario mdp
+        python main.py --scenario mdp --skip-training all
+        python main.py --scenario mdp --skip-training ppo_baseline
+        python main.py --no-exposed
+        python main.py --load-experiment experiments/mdp/2026-02-05_14-30-00/
+    """
+    
+    # Parse skip_training argument
+    agents_to_skip = set()
+    if skip_training is not None:
+        if skip_training.lower() == "all" or skip_training == "":
+            agents_to_skip = {"all"}
+        else:
+            agents_to_skip = set(agent.strip() for agent in skip_training.split(","))
+
+    
+    # Mode 1: Load existing experiment
+    if load_experiment_path:
+        print(f"Loading experiment from: {load_experiment_path}")
+        exp_config = load_experiment(load_experiment_path)
+        
+        # Create new timestamped directory under same scenario
+        experiment_dir = ExperimentDirectory(exp_config)
+        print(f"Results will be saved to: {experiment_dir.root}")
+        
+        # When loading, skip training by default (load existing weights)
+        if skip_training is None:
+            agents_to_skip = {"all"}
+        
+    # Mode 2: Predefined scenario
+    elif scenario:
+        print(f"Running predefined scenario: {scenario}")
+        scenario_config = get_scenario(scenario)
+        
+        base_config = get_config(config_name)
+        
+        exp_config = ExperimentConfig(
+            base_config=base_config,
+            pomdp_params=scenario_config["pomdp_params"],
+            scenario_name=scenario,
+            is_custom=False,
+            target_agents=scenario_config["target_agents"],
+            train_rl=True,  # This field is deprecated but kept for backward compatibility
+            total_timesteps=total_timesteps,
+        )
+        
+        experiment_dir = ExperimentDirectory(exp_config)
+        print(f"Results will be saved to: {experiment_dir.root}")
+        
+    # Mode 3: Custom configuration
+    else:
+        print("Running custom experiment")
+        
+        base_config = get_config(config_name)
+        
+        # Build POMDP parameters from CLI flags
+        pomdp_params = {
+            "include_exposed": not no_exposed,
+            # Future parameters:
+            # "delay": delay,
+            # "noise_std": noise,
+        }
+        
+        # Generate scenario name
+        scenario_name = create_custom_scenario_name(pomdp_params)
+        
+        # Default target agents for custom experiments
+        target_agents = ["random", "threshold", "ppo_baseline"]
+        
+        exp_config = ExperimentConfig(
+            base_config=base_config,
+            pomdp_params=pomdp_params,
+            scenario_name=scenario_name,
+            is_custom=True,
+            target_agents=target_agents,
+            train_rl=True,  # This field is deprecated but kept for backward compatibility
+            total_timesteps=total_timesteps,
+        )
+        
+        experiment_dir = ExperimentDirectory(exp_config)
+        print(f"Results will be saved to: {experiment_dir.root}")
+    
+    # Save experiment configuration
+    experiment_dir.save_config()
+    
+    # Prepare RL agents (train or load based on skip list)
+    rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip)
+    
+    # Run evaluation
+    results = run_evaluation(exp_config, experiment_dir, rl_models)
+    
+    # Create comparison plot
+    print("\n" + "=" * 80)
+    print("CREATING COMPARISON PLOT")
+    print("=" * 80)
+    comparison_path = experiment_dir.get_plot_path("comparison_all_agents.png")
+    plot_all_results(results, save_path=str(comparison_path))
+    
+    # Save summary
+    experiment_dir.save_summary(results)
+    
+    # Print final summary
+    print("\n" + "=" * 80)
+    print("EXPERIMENT COMPLETE")
+    print("=" * 80)
+    print(f"\nScenario: {exp_config.scenario_name}")
+    print(f"Results directory: {experiment_dir.root}")
+    print(f"\nEvaluated {len(results)} agents:")
+    for result in results:
+        print(f"  - {result.agent_name}: "
+              f"Peak I = {result.peak_infected:.1f}, "
+              f"Total Reward = {result.total_reward:.2f}")
+    print("\n" + "=" * 80)
 
 
 if __name__ == "__main__":
-    main()
+    app()
