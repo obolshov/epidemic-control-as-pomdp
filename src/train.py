@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecMonitor
 
 from typing import Type
 import gymnasium as gym
@@ -41,10 +42,25 @@ def train_ppo_agent(
     if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
     
-    # Create monitor directory for this agent
-    monitor_dir = experiment_dir.tensorboard_dir / agent_name
-    monitor_dir.mkdir(parents=True, exist_ok=True)
-    env = Monitor(env, str(monitor_dir))
+    # Apply frame stacking for ppo_framestack agent
+    if agent_name == "ppo_framestack":
+        # Create monitor directory
+        monitor_dir = experiment_dir.tensorboard_dir / agent_name
+        monitor_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Wrap in DummyVecEnv first (required by VecFrameStack)
+        env = DummyVecEnv([lambda: env])
+        # Add VecMonitor for training metrics (must be before VecFrameStack)
+        env = VecMonitor(env, filename=str(monitor_dir))
+        # Apply frame stacking
+        env = VecFrameStack(env, n_stack=config.n_stack)
+        print(f"Applied VecMonitor + VecFrameStack with n_stack={config.n_stack}")
+        print(f"Observation space changed to: {env.observation_space}")
+    else:
+        # Standard Monitor wrapper for non-framestack agents
+        monitor_dir = experiment_dir.tensorboard_dir / agent_name
+        monitor_dir.mkdir(parents=True, exist_ok=True)
+        env = Monitor(env, str(monitor_dir))
 
     # Initialize PPO model with TensorBoard logging
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=str(experiment_dir.tensorboard_dir))

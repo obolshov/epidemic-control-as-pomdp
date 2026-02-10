@@ -120,6 +120,7 @@ class SimulationResult:
         timesteps: List[int],
         rewards: List[float],
         observations: List[np.ndarray],
+        custom_name: str = None,
     ):
         self.agent = agent
         self.t = t
@@ -131,6 +132,7 @@ class SimulationResult:
         self.timesteps = timesteps
         self.rewards = rewards
         self.observations = observations
+        self.custom_name = custom_name
 
     @property
     def peak_infected(self) -> float:
@@ -147,6 +149,10 @@ class SimulationResult:
 
     @property
     def agent_name(self) -> str:
+        # Use custom name if provided (for RL agents like ppo_baseline, ppo_framestack)
+        if self.custom_name:
+            return self.custom_name
+        
         if isinstance(self.agent, StaticAgent):
             action_name = list(InterventionAction)[self.agent.action_idx].name
             return f"StaticAgent - {action_name}"

@@ -17,32 +17,60 @@ def run_agent(
     Runs a simulation for a single agent.
 
     :param agent: The agent to evaluate.
-    :param env: The environment to run the simulation in.
+    :param env: The environment to run the simulation in (can be VecEnv or regular Env).
     :param experiment_dir: ExperimentDirectory for saving outputs. If None, saves to default locations.
     :param agent_name: Override name for saving files. If None, uses agent's class name.
     :return: A SimulationResult object containing the results of the simulation.
     """
-    obs, _ = env.reset()
+    # Check if this is a VecEnv (used for framestack)
+    from stable_baselines3.common.vec_env import VecEnv
+    is_vec_env = isinstance(env, VecEnv)
+    
+    obs = env.reset()
+    
+    # VecEnv returns obs without info dict in reset
+    if is_vec_env:
+        # VecEnv returns array with shape (n_envs, *obs_shape)
+        # We use single environment, so extract first element
+        obs_flat = obs[0] if len(obs.shape) > 1 else obs
+    else:
+        obs, _ = obs if isinstance(obs, tuple) else (obs, {})
+        obs_flat = obs
+    
     done = False
 
-    # Handle partial observability: get full state from unwrapped env if needed
-    # If wrapper is applied, obs might be [S, I, R] instead of [S, E, I, R]
-    if len(obs) == 3:
-        # E is masked, get full state from unwrapped environment
-        unwrapped_env = env.unwrapped
-        if hasattr(unwrapped_env, 'current_state'):
-            state = unwrapped_env.current_state
-            S_init = state.S
-            E_init = state.E
-            I_init = state.I
-            R_init = state.R
-        else:
-            # Fallback: assume E=0 if we can't access it
-            S_init, I_init, R_init = obs
-            E_init = 0.0
+    # Get unwrapped environment to access true state
+    if is_vec_env:
+        # For VecEnv, get the underlying environment from the first env
+        unwrapped_env = env.envs[0]
+        while hasattr(unwrapped_env, 'env'):
+            unwrapped_env = unwrapped_env.env
     else:
-        # Full observability: obs is [S, E, I, R]
-        S_init, E_init, I_init, R_init = obs
+        unwrapped_env = env.unwrapped
+    
+    # Handle partial observability: get full state from unwrapped env if needed
+    # Note: obs_flat might be stacked frames for framestack agent
+    if hasattr(unwrapped_env, 'current_state'):
+        state = unwrapped_env.current_state
+        S_init = state.S
+        E_init = state.E
+        I_init = state.I
+        R_init = state.R
+    else:
+        # Fallback: try to extract from observation
+        # For framestack, obs_flat will be stacked, take last frame
+        if len(obs_flat) == 3:
+            S_init, I_init, R_init = obs_flat[-3:]
+            E_init = 0.0
+        elif len(obs_flat) == 4:
+            S_init, E_init, I_init, R_init = obs_flat[-4:]
+        else:
+            # Likely stacked observations, take last 4 or 3 elements
+            if len(obs_flat) % 4 == 0:
+                S_init, E_init, I_init, R_init = obs_flat[-4:]
+            else:
+                S_init, I_init, R_init = obs_flat[-3:]
+                E_init = 0.0
     
     all_S = [S_init]
     all_E = [E_init]
@@ -57,12 +85,28 @@ def run_agent(
     current_timestep = 0
 
     while not done:
-        observations.append(obs)
+        # Store observation (for framestack, this is the stacked observation)
+        observations.append(obs_flat if is_vec_env else obs)
         timesteps.append(current_timestep)
 
-        action_idx, _ = agent.predict(obs, deterministic=True)
+        # Predict action (agent handles both VecEnv and regular env observations)
+        if is_vec_env:
+            action_idx, _ = agent.predict(obs, deterministic=True)
+            # VecEnv predict returns array, extract scalar
+            action_idx = int(action_idx[0]) if hasattr(action_idx, '__len__') else int(action_idx)
+        else:
+            action_idx, _ = agent.predict(obs, deterministic=True)
 
-        obs, reward, done, truncated, info = env.step(action_idx)
+        # Step environment
+        if is_vec_env:
+            obs, reward, done_array, info_array = env.step([action_idx])
+            # Extract from vectorized format
+            obs_flat = obs[0]
+            reward = float(reward[0])
+            done = bool(done_array[0])
+            info = info_array[0]
+        else:
+            obs, reward, done, truncated, info = env.step(action_idx)
 
         S = info.get("S", [])
         E = info.get("E", [])
@@ -78,12 +122,14 @@ def run_agent(
         current_timestep += len(S)
 
         # Access action_map from unwrapped env (wrapper might not have it)
-        unwrapped_env = env.unwrapped
         action_enum = unwrapped_env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
 
     t = np.arange(len(all_S))
+    
+    # Use custom agent name if provided
+    save_name = agent_name if agent_name else None
 
     result = SimulationResult(
         agent=agent,
@@ -96,10 +142,12 @@ def run_agent(
         timesteps=timesteps,
         rewards=rewards,
         observations=observations,
+        custom_name=save_name,
     )
-
-    # Use custom agent name if provided
-    save_name = agent_name if agent_name else result.agent_name.lower().replace(" ", "_").replace("-", "_")
+    
+    # Generate file-safe name for saving
+    if save_name is None:
+        save_name = result.agent_name.lower().replace(" ", "_").replace("-", "_")
     
     # Save logs and plots
     if experiment_dir is not None:

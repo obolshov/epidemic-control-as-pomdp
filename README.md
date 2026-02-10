@@ -58,12 +58,12 @@ Future parameters can be added (see [EXTENDING.md](EXTENDING.md)):
 
 ## Agents
 
-Four types of agents are evaluated in each experiment:
+Agents evaluated in each experiment:
 
 - **RandomAgent**: Selects random interventions
 - **ThresholdAgent**: Rule-based policy using infection thresholds
-- **PPO (Baseline)**: Trained with standard PPO
-- *(Future)* **PPO (FrameStack)**: Stacked observations for temporal awareness
+- **PPO (Baseline)**: Trained with standard PPO (single-step observations)
+- **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 5 time steps)
 - *(Future)* **PPO (Recurrent)**: LSTM-based policy for partial observability
 
 ## CLI Options
@@ -83,7 +83,7 @@ Key options:
 **Training behavior:**
 - By default, trains all RL agents from scratch
 - Use `--skip-training all` to load existing weights for all agents
-- Use `--skip-training ppo_baseline` to skip specific agents
+- Use `--skip-training ppo_baseline,ppo_framestack` to skip specific agents
 
 ## Output Structure
 

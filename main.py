@@ -128,15 +128,15 @@ def prepare_rl_agents(
             # Load existing weights
             weight_path = experiment_dir.get_weight_path(agent_name)
             if weight_path.exists():
-                print(f"\n✓ Loading {agent_name} from {weight_path}...")
+                print(f"\n[OK] Loading {agent_name} from {weight_path}...")
                 model = PPO.load(str(weight_path.with_suffix("")))
                 models.append(model)
             else:
-                print(f"\n✗ Warning: Weights for {agent_name} not found at {weight_path}")
+                print(f"\n[WARNING] Weights for {agent_name} not found at {weight_path}")
                 print(f"   Skipping {agent_name} (will not be evaluated)")
         else:
             # Train agent
-            print(f"\n→ Training {agent_name}...")
+            print(f"\n[TRAINING] {agent_name}...")
             model = train_ppo_agent(
                 env_cls=EpidemicEnv,
                 config=exp_config.base_config,
@@ -180,7 +180,7 @@ def run_evaluation(
     print("RUNNING EVALUATION")
     print("=" * 80)
     
-    # Create environment for evaluation
+    # Create environment for evaluation (non-RL agents)
     env = create_environment(exp_config.base_config, exp_config.pomdp_params)
     
     # Setup non-RL agents
@@ -202,7 +202,18 @@ def run_evaluation(
     ]
     for model, agent_name in zip(rl_models, rl_agent_names):
         print(f"\nEvaluating {agent_name}...")
-        result = run_agent(model, env, experiment_dir=experiment_dir, agent_name=agent_name)
+        
+        # Create appropriate environment for this agent
+        # ppo_framestack needs VecFrameStack, others use standard env
+        if agent_name == "ppo_framestack":
+            from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+            eval_env = create_environment(exp_config.base_config, exp_config.pomdp_params)
+            eval_env = DummyVecEnv([lambda: eval_env])
+            eval_env = VecFrameStack(eval_env, n_stack=exp_config.base_config.n_stack)
+        else:
+            eval_env = env  # Reuse standard environment
+        
+        result = run_agent(model, eval_env, experiment_dir=experiment_dir, agent_name=agent_name)
         results.append(result)
     
     return results

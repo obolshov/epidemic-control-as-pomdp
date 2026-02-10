@@ -173,28 +173,23 @@ PREDEFINED_SCENARIOS = {
 
 For standard PPO variants, no changes needed - the system handles it automatically.
 
-For custom architectures, modify `src/train.py`:
+For custom architectures requiring special environment wrappers, modify `src/train.py`.
+
+**Example: PPO FrameStack (already implemented)**
+
+The `ppo_framestack` agent uses VecFrameStack to stack observations from multiple time steps:
 
 ```python
-def train_ppo_agent(
-    env_cls: Type[gym.Env],
-    config: DefaultConfig,
-    experiment_dir: ExperimentDirectory,
-    agent_name: str,
-    total_timesteps: int,
-    pomdp_params: dict = None,
-) -> PPO:
-    # ... existing code ...
-    
-    # Custom policy for specific agents
-    if agent_name == "ppo_framestack":
-        # Wrap environment with frame stacking
-        from stable_baselines3.common.vec_env import VecFrameStack
-        env = VecFrameStack(env, n_stack=4)
-    
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=str(experiment_dir.tensorboard_dir))
-    # ... rest of training
+# In train_ppo_agent()
+if agent_name == "ppo_framestack":
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+    env = DummyVecEnv([lambda: env])
+    env = VecFrameStack(env, n_stack=config.n_stack)
 ```
+
+**Important:** The `n_stack` parameter is configured in `DefaultConfig` (currently set to 5).
+
+When adding agents that use VecEnv wrappers, you must also update `run_evaluation()` in `main.py` to create the appropriate environment for evaluation.
 
 ### Step 3: Test
 
@@ -204,13 +199,17 @@ python main.py --scenario mdp
 
 The system automatically:
 - Trains the new agent
-- Saves weights to `experiments/mdp/weights/ppo_framestack.zip`
-- Generates plots: `plots/ppo_framestack_seir.png`, `plots/ppo_framestack_learning_*.png`
-- Creates logs: `logs/ppo_framestack.txt`
+- Saves weights to `experiments/mdp/weights/{agent_name}.zip`
+- Generates plots: `plots/{agent_name}_seir.png`, `plots/{agent_name}_learning.png`
+- Creates logs: `logs/{agent_name}.txt`
 
 **To train only the new agent** (skip existing agents):
 ```bash
+# Skip ppo_baseline, only train ppo_framestack
 python main.py --scenario mdp --skip-training ppo_baseline
+
+# Skip multiple agents
+python main.py --scenario mdp --skip-training ppo_baseline,ppo_framestack
 ```
 
 ## Adding Predefined Scenarios

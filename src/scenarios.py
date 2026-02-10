@@ -14,14 +14,14 @@ PREDEFINED_SCENARIOS = {
         "pomdp_params": {
             "include_exposed": True,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline"],
+        "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack"],
     },
     "no_exposed": {
         "description": "POMDP Experiment 1: Masked E compartment",
         "pomdp_params": {
             "include_exposed": False,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline"],
+        "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack"],
     },
     # Future experiments can be added here:
     # "noisy_observations": {
