@@ -201,13 +201,18 @@ def run_evaluation(
         print(f"\nEvaluating {agent_name}...")
         
         # Create appropriate environment for this agent
-        # ppo_framestack needs VecFrameStack, others use standard env
         if agent_name == "ppo_framestack":
+            # FrameStack needs VecFrameStack wrapper
             from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
             eval_env = create_environment(exp_config.base_config, exp_config.pomdp_params)
             eval_env = DummyVecEnv([lambda: eval_env])
             eval_env = VecFrameStack(eval_env, n_stack=exp_config.base_config.n_stack)
+        elif agent_name == "ppo_recurrent":
+            # Recurrent agent uses raw environment (no stacking, LSTM handles temporal info)
+            # Important: RecurrentPPO manages LSTM state internally
+            eval_env = create_environment(exp_config.base_config, exp_config.pomdp_params)
         else:
+            # Standard environment for baseline PPO
             eval_env = env  # Reuse standard environment
         
         result = run_agent(model, eval_env, experiment_dir=experiment_dir, agent_name=agent_name)

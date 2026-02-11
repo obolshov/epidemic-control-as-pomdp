@@ -13,7 +13,7 @@ TARGET_AGENTS = [
     "threshold",
     "ppo_baseline",
     "ppo_framestack",
-    # "ppo_recurrent",
+    "ppo_recurrent",
 ]
 
 

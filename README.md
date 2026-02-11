@@ -63,8 +63,8 @@ Agents evaluated in each experiment:
 - **RandomAgent**: Selects random interventions
 - **ThresholdAgent**: Rule-based policy using infection thresholds
 - **PPO (Baseline)**: Trained with standard PPO (single-step observations)
-- **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 5 time steps)
-- *(Future)* **PPO (Recurrent)**: LSTM-based policy for partial observability
+- **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 time steps)
+- **PPO (Recurrent)**: LSTM-based policy that compresses temporal history into hidden state
 
 ## CLI Options
 

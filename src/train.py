@@ -1,8 +1,9 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecMonitor
+from sb3_contrib import RecurrentPPO
 
-from typing import Type
+from typing import Type, Union
 import gymnasium as gym
 from src.config import DefaultConfig
 from src.wrappers import EpidemicObservationWrapper
@@ -15,7 +16,7 @@ def train_ppo_agent(
     agent_name: str,
     total_timesteps: int,
     pomdp_params: dict = None,
-) -> PPO:
+) -> Union[PPO, RecurrentPPO]:
     """
     Train a PPO agent and save weights to experiment directory.
     
@@ -55,14 +56,33 @@ def train_ppo_agent(
         print(f"Applied VecMonitor + VecFrameStack with n_stack={config.n_stack}")
         print(f"Observation space changed to: {env.observation_space}")
     else:
-        # Standard Monitor wrapper for non-framestack agents
+        # Standard Monitor wrapper
         monitor_dir = experiment_dir.tensorboard_dir / agent_name
         monitor_dir.mkdir(parents=True, exist_ok=True)
         env = Monitor(env, str(monitor_dir))
 
-    # Initialize PPO model with TensorBoard logging
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=str(experiment_dir.tensorboard_dir))
-
+    # Handle RecurrentPPO separately
+    if agent_name == "ppo_recurrent":
+        print(f"Using RecurrentPPO with MlpLstmPolicy")
+        print(f"LSTM config: hidden_size={config.lstm_hidden_size}, n_layers={config.n_lstm_layers}")
+        
+        # RecurrentPPO requires special policy kwargs
+        policy_kwargs = {
+            "lstm_hidden_size": config.lstm_hidden_size,
+            "n_lstm_layers": config.n_lstm_layers,
+        }
+        
+        model = RecurrentPPO(
+            "MlpLstmPolicy", 
+            env, 
+            verbose=1,
+            policy_kwargs=policy_kwargs,
+            tensorboard_log=str(experiment_dir.tensorboard_dir)
+        )    
+    else:
+        # Standard PPO model initialization (existing code)
+        model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=str(experiment_dir.tensorboard_dir))
+        
     print(f"Training {agent_name} for {total_timesteps} timesteps...")
     model.learn(total_timesteps=total_timesteps, tb_log_name=agent_name)
     print("Training finished.")

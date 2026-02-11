@@ -83,6 +83,10 @@ def run_agent(
     observations = []
 
     current_timestep = 0
+    
+    # Initialize state for recurrent policies (LSTM)
+    lstm_state = None
+    episode_start = np.ones((1,), dtype=bool)
 
     while not done:
         # Store observation (for framestack, this is the stacked observation)
@@ -90,12 +94,13 @@ def run_agent(
         timesteps.append(current_timestep)
 
         # Predict action (agent handles both VecEnv and regular env observations)
+        action_idx, lstm_state = agent.predict(obs, state=lstm_state, episode_start=episode_start, deterministic=True)
         if is_vec_env:
-            action_idx, _ = agent.predict(obs, deterministic=True)
             # VecEnv predict returns array, extract scalar
             action_idx = int(action_idx[0]) if hasattr(action_idx, '__len__') else int(action_idx)
-        else:
-            action_idx, _ = agent.predict(obs, deterministic=True)
+        
+        # After first step, episode_start is False
+        episode_start = np.zeros((1,), dtype=bool)
 
         # Step environment
         if is_vec_env:

@@ -30,6 +30,10 @@ class DefaultConfig:
         # Frame stacking for temporal awareness
         self.n_stack = 10  # Number of consecutive observations to stack
 
+        # Recurrent agent parameters (LSTM)
+        self.lstm_hidden_size = 128  # Hidden state size for LSTM
+        self.n_lstm_layers = 1  # Number of LSTM layers
+
 
 def get_config(name: str):
     if name == "default":
