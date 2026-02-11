@@ -200,7 +200,7 @@ def plot_learning_curve(
     :param save_path: Base path for saving plots (will append _episodes.png and _timesteps.png)
     """
     x_axes = {
-        "episodes": results_plotter.X_EPISODES,
+        # "episodes": results_plotter.X_EPISODES,
         "timesteps": results_plotter.X_TIMESTEPS,
     }
 

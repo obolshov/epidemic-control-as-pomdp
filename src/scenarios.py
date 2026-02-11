@@ -2,26 +2,33 @@
 Predefined experiment scenarios for reproducibility.
 
 This module defines standard POMDP scenarios and utilities for creating custom scenarios.
-Each scenario specifies POMDP parameters and target agents to evaluate.
+Each scenario specifies POMDP parameters. Target agents are defined globally.
 """
 
 from typing import Dict, Any, List
 
 
+TARGET_AGENTS = [
+    "random",
+    "threshold",
+    "ppo_baseline",
+    "ppo_framestack",
+    # "ppo_recurrent",
+]
+
+
 PREDEFINED_SCENARIOS = {
     "mdp": {
-        "description": "Baseline MDP (full observability, all target agents)",
+        "description": "Baseline MDP (full observability)",
         "pomdp_params": {
             "include_exposed": True,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack"],
     },
     "no_exposed": {
         "description": "POMDP Experiment 1: Masked E compartment",
         "pomdp_params": {
             "include_exposed": False,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack"],
     },
     # Future experiments can be added here:
     # "noisy_observations": {
@@ -30,7 +37,6 @@ PREDEFINED_SCENARIOS = {
     #         "include_exposed": True,
     #         "noise_std": 0.1,
     #     },
-    #     "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack", "ppo_recurrent"],
     # },
     # "delayed_observations": {
     #     "description": "POMDP Experiment 3: Delayed observations",
@@ -38,7 +44,6 @@ PREDEFINED_SCENARIOS = {
     #         "include_exposed": True,
     #         "delay": 5,
     #     },
-    #     "target_agents": ["random", "threshold", "ppo_baseline", "ppo_framestack", "ppo_recurrent"],
     # },
 }
 
@@ -51,7 +56,7 @@ def get_scenario(name: str) -> Dict[str, Any]:
         name: Scenario name (e.g., "mdp", "no_exposed").
         
     Returns:
-        Dictionary with scenario configuration.
+        Dictionary with scenario configuration including target agents.
         
     Raises:
         ValueError: If scenario name is not recognized.
@@ -62,7 +67,9 @@ def get_scenario(name: str) -> Dict[str, Any]:
             f"Unknown scenario: '{name}'. Available scenarios: {available}"
         )
     
-    return PREDEFINED_SCENARIOS[name].copy()
+    scenario = PREDEFINED_SCENARIOS[name].copy()
+    scenario["target_agents"] = TARGET_AGENTS.copy()
+    return scenario
 
 
 def create_custom_scenario_name(pomdp_params: Dict[str, Any]) -> str:

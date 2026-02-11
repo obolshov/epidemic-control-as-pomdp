@@ -76,7 +76,6 @@ Key options:
 - `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps (default: 50000)
-- `--load-experiment, -l`: Reload and rerun existing experiment
 - `--no-exposed`: Mask E compartment (custom POMDP)
 - `--config, -c`: Base configuration (default: "default")
 
@@ -113,15 +112,6 @@ experiments/
 
 **Note:** Weights are stored at `experiments/{scenario}/weights/` to enable reuse across multiple runs.
 
-## Load and Rerun Experiments
-
-Experiments are fully reproducible. To rerun without retraining:
-
-```bash
-python main.py --load-experiment experiments/mdp/2026-02-07_14-30-00/
-```
-
-This loads configuration and weights, reruns evaluation, and saves results to a new timestamped directory.
 
 ## Model Verification
 

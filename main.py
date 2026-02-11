@@ -7,8 +7,6 @@ Supports multiple modes:
 - Loading and rerunning experiments (--load-experiment)
 """
 
-import os
-from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -16,18 +14,18 @@ from stable_baselines3 import PPO
 
 from src.agents import (
     Agent,
-    InterventionAction,
     RandomAgent,
     ThresholdAgent,
 )
 from src.config import DefaultConfig, get_config
 from src.env import EpidemicEnv, SimulationResult
 from src.evaluation import run_agent
-from src.experiment import ExperimentConfig, ExperimentDirectory, load_experiment
+from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.scenarios import (
     get_scenario,
     create_custom_scenario_name,
     list_scenarios,
+    TARGET_AGENTS,
 )
 from src.train import train_ppo_agent
 from src.wrappers import EpidemicObservationWrapper
@@ -128,15 +126,14 @@ def prepare_rl_agents(
             # Load existing weights
             weight_path = experiment_dir.get_weight_path(agent_name)
             if weight_path.exists():
-                print(f"\n[OK] Loading {agent_name} from {weight_path}...")
+                print(f"\nLoading {agent_name} from {weight_path}...")
                 model = PPO.load(str(weight_path.with_suffix("")))
                 models.append(model)
             else:
-                print(f"\n[WARNING] Weights for {agent_name} not found at {weight_path}")
-                print(f"   Skipping {agent_name} (will not be evaluated)")
+                raise FileNotFoundError(f"Weights for {agent_name} not found at {weight_path}")
         else:
             # Train agent
-            print(f"\n[TRAINING] {agent_name}...")
+            print(f"\nTraining {agent_name}...")
             model = train_ppo_agent(
                 env_cls=EpidemicEnv,
                 config=exp_config.base_config,
@@ -227,12 +224,6 @@ def main(
         "-s",
         help=f"Predefined scenario to run. Available: {', '.join(list_scenarios())}",
     ),
-    load_experiment_path: Optional[str] = typer.Option(
-        None,
-        "--load-experiment",
-        "-l",
-        help="Path to existing experiment to reload and rerun",
-    ),
     config_name: str = typer.Option(
         "default",
         "--config",
@@ -270,7 +261,6 @@ def main(
         python main.py --scenario mdp --skip-training all
         python main.py --scenario mdp --skip-training ppo_baseline
         python main.py --no-exposed
-        python main.py --load-experiment experiments/mdp/2026-02-05_14-30-00/
     """
     
     # Parse skip_training argument
@@ -280,23 +270,9 @@ def main(
             agents_to_skip = {"all"}
         else:
             agents_to_skip = set(agent.strip() for agent in skip_training.split(","))
-
     
-    # Mode 1: Load existing experiment
-    if load_experiment_path:
-        print(f"Loading experiment from: {load_experiment_path}")
-        exp_config = load_experiment(load_experiment_path)
-        
-        # Create new timestamped directory under same scenario
-        experiment_dir = ExperimentDirectory(exp_config)
-        print(f"Results will be saved to: {experiment_dir.root}")
-        
-        # When loading, skip training by default (load existing weights)
-        if skip_training is None:
-            agents_to_skip = {"all"}
-        
-    # Mode 2: Predefined scenario
-    elif scenario:
+    # Mode 1: Predefined scenario
+    if scenario:
         print(f"Running predefined scenario: {scenario}")
         scenario_config = get_scenario(scenario)
         
@@ -315,7 +291,7 @@ def main(
         experiment_dir = ExperimentDirectory(exp_config)
         print(f"Results will be saved to: {experiment_dir.root}")
         
-    # Mode 3: Custom configuration
+    # Mode 2: Custom configuration
     else:
         print("Running custom experiment")
         
@@ -332,15 +308,12 @@ def main(
         # Generate scenario name
         scenario_name = create_custom_scenario_name(pomdp_params)
         
-        # Default target agents for custom experiments
-        target_agents = ["random", "threshold", "ppo_baseline"]
-        
         exp_config = ExperimentConfig(
             base_config=base_config,
             pomdp_params=pomdp_params,
             scenario_name=scenario_name,
             is_custom=True,
-            target_agents=target_agents,
+            target_agents=TARGET_AGENTS.copy(),
             train_rl=True,  # This field is deprecated but kept for backward compatibility
             total_timesteps=total_timesteps,
         )

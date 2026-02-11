@@ -151,22 +151,16 @@ To add a new RL agent type (e.g., PPO with frame stacking):
 
 ### Step 1: Add to Target Agents
 
-Edit `src/scenarios.py`, add to scenario configurations:
+Edit `src/scenarios.py`, add to `TARGET_AGENTS`:
 
 ```python
-PREDEFINED_SCENARIOS = {
-    "mdp": {
-        "description": "Baseline MDP (full observability, all target agents)",
-        "pomdp_params": {"include_exposed": True},
-        "target_agents": [
-            "random",
-            "threshold",
-            "ppo_baseline",
-            "ppo_framestack",  # ← Add here
-        ],
-    },
-    # ... other scenarios
-}
+# Default target agents evaluated in all experiments
+TARGET_AGENTS = [
+    "random",
+    "threshold",
+    "ppo_baseline",
+    "ppo_framestack",  # ← Add your new agent here
+]
 ```
 
 ### Step 2: Implement Training Logic (if needed)
@@ -228,7 +222,6 @@ PREDEFINED_SCENARIOS = {
             "include_exposed": True,
             "noise_std": 0.1,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline"],
     },
     
     "delayed_partial": {
@@ -237,7 +230,6 @@ PREDEFINED_SCENARIOS = {
             "include_exposed": False,
             "delay": 5,
         },
-        "target_agents": ["random", "threshold", "ppo_baseline", "ppo_recurrent"],
     },
 }
 ```

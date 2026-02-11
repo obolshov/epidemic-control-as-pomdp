@@ -14,7 +14,7 @@ class DefaultConfig:
         self.gamma = 0.1  # Recovery rate
 
         # Simulation settings
-        self.days = 200  # Simulation days
+        self.days = 300  # Simulation days
         self.action_interval = 5  # Days between decisions
 
         # Reward function parameters
@@ -28,7 +28,7 @@ class DefaultConfig:
         self.thresholds: List[float] = [0.01, 0.05, 0.09]  # Fraction of infected population
 
         # Frame stacking for temporal awareness
-        self.n_stack = 5  # Number of consecutive observations to stack
+        self.n_stack = 10  # Number of consecutive observations to stack
 
 
 def get_config(name: str):

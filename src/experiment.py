@@ -9,11 +9,10 @@ This module provides infrastructure for:
 """
 
 import json
-import os
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from src.config import DefaultConfig
 
@@ -45,24 +44,25 @@ class ExperimentConfig:
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert ExperimentConfig to dictionary for JSON serialization."""
+        """
+        Convert ExperimentConfig to dictionary for JSON serialization.
+        
+        Automatically serializes all attributes of base_config using __dict__.
+        """
+        # Serialize base_config - automatically capture all attributes
+        base_config_dict = {}
+        for key, value in vars(self.base_config).items():
+            if isinstance(value, list):
+                base_config_dict[key] = value.copy()
+            else:
+                # For other types, try to convert to basic types
+                base_config_dict[key] = value
+        
         return {
             "scenario_name": self.scenario_name,
             "is_custom": self.is_custom,
             "timestamp": self.timestamp,
-            "base_config": {
-                "N": self.base_config.N,
-                "E0": self.base_config.E0,
-                "I0": self.base_config.I0,
-                "beta_0": self.base_config.beta_0,
-                "sigma": self.base_config.sigma,
-                "gamma": self.base_config.gamma,
-                "days": self.base_config.days,
-                "action_interval": self.base_config.action_interval,
-                "w_I": self.base_config.w_I,
-                "w_S": self.base_config.w_S,
-                "thresholds": self.base_config.thresholds,
-            },
+            "base_config": base_config_dict,
             "pomdp_params": self.pomdp_params,
             "target_agents": self.target_agents,
             "train_rl": self.train_rl,
@@ -70,37 +70,6 @@ class ExperimentConfig:
             "total_timesteps": self.total_timesteps,
         }
     
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "ExperimentConfig":
-        """Create ExperimentConfig from dictionary (loaded from JSON)."""
-        # Reconstruct DefaultConfig
-        base_config = DefaultConfig()
-        if "base_config" in data:
-            bc = data["base_config"]
-            base_config.N = bc.get("N", base_config.N)
-            base_config.E0 = bc.get("E0", base_config.E0)
-            base_config.I0 = bc.get("I0", base_config.I0)
-            base_config.beta_0 = bc.get("beta_0", base_config.beta_0)
-            base_config.sigma = bc.get("sigma", base_config.sigma)
-            base_config.gamma = bc.get("gamma", base_config.gamma)
-            base_config.days = bc.get("days", base_config.days)
-            base_config.action_interval = bc.get("action_interval", base_config.action_interval)
-            base_config.w_I = bc.get("w_I", base_config.w_I)
-            base_config.w_S = bc.get("w_S", base_config.w_S)
-            base_config.thresholds = bc.get("thresholds", base_config.thresholds)
-        
-        return ExperimentConfig(
-            base_config=base_config,
-            pomdp_params=data.get("pomdp_params", {}),
-            scenario_name=data.get("scenario_name", "custom"),
-            is_custom=data.get("is_custom", True),
-            target_agents=data.get("target_agents", []),
-            train_rl=data.get("train_rl", False),
-            num_eval_episodes=data.get("num_eval_episodes", 1),
-            total_timesteps=data.get("total_timesteps", 50000),
-            timestamp=data.get("timestamp", datetime.now().strftime("%Y-%m-%d_%H-%M-%S")),
-        )
-
 
 class ExperimentDirectory:
     """
@@ -238,54 +207,3 @@ class ExperimentDirectory:
         return str(self.root)
 
 
-def load_experiment(experiment_path: str) -> ExperimentConfig:
-    """
-    Load experiment configuration from an existing experiment directory.
-    
-    Args:
-        experiment_path: Path to experiment directory containing config.json.
-        
-    Returns:
-        ExperimentConfig loaded from config.json.
-        
-    Raises:
-        FileNotFoundError: If config.json does not exist.
-        json.JSONDecodeError: If config.json is malformed.
-    """
-    config_path = Path(experiment_path) / "config.json"
-    
-    if not config_path.exists():
-        raise FileNotFoundError(f"config.json not found in {experiment_path}")
-    
-    with open(config_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    
-    return ExperimentConfig.from_dict(data)
-
-
-def find_latest_experiment(scenario_name: str, base_dir: str = "experiments") -> Optional[Path]:
-    """
-    Find the most recent experiment directory for a given scenario.
-    
-    Args:
-        scenario_name: Name of the scenario (e.g., "mdp").
-        base_dir: Base directory for experiments.
-        
-    Returns:
-        Path to the latest experiment directory, or None if no experiments found.
-    """
-    scenario_dir = Path(base_dir) / scenario_name
-    
-    if not scenario_dir.exists():
-        return None
-    
-    # List all subdirectories (timestamps)
-    experiment_dirs = [d for d in scenario_dir.iterdir() if d.is_dir()]
-    
-    if not experiment_dirs:
-        return None
-    
-    # Sort by directory name (timestamp format ensures lexicographic = chronological)
-    experiment_dirs.sort(reverse=True)
-    
-    return experiment_dirs[0]
