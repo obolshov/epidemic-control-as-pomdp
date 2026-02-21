@@ -75,3 +75,53 @@ class EpidemicObservationWrapper(gym.ObservationWrapper):
             filtered_obs = obs
         
         return filtered_obs.astype(self.observation_space.dtype)
+
+
+class UnderReportingWrapper(gym.ObservationWrapper):
+    """Simulates under-reporting by scaling the observed I and R compartments.
+
+    In reality, only a fraction of infected (and recovered) individuals are
+    officially detected via testing. The agent sees k*I and k*R instead of the
+    true values. COVID-19 research suggests k ≈ 0.1–0.3 depending on the country.
+
+    Must be applied AFTER EpidemicObservationWrapper (if E masking is used),
+    since it infers I and R indices from the current observation shape.
+
+    Args:
+        env: Wrapped environment. Observation shape must be (3,) [S, I, R]
+             or (4,) [S, E, I, R].
+        detection_rate: Fraction of true I and R observed. Must be in (0.0, 1.0].
+                        1.0 = full observation (no distortion); 0.3 = COVID-realistic.
+    """
+
+    def __init__(self, env: gym.Env, detection_rate: float = 1.0) -> None:
+        super().__init__(env)
+        if not (0.0 < detection_rate <= 1.0):
+            raise ValueError(f"detection_rate must be in (0, 1], got {detection_rate}")
+        self.detection_rate = detection_rate
+
+        obs_size = env.observation_space.shape[0]
+        if obs_size == 4:    # [S, E, I, R]
+            self.i_index = 2
+            self.r_index = 3
+        elif obs_size == 3:  # [S, I, R] — E already masked
+            self.i_index = 1
+            self.r_index = 2
+        else:
+            raise ValueError(
+                f"Unexpected observation size {obs_size}; expected 3 ([S, I, R]) or 4 ([S, E, I, R])."
+            )
+
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        """Scale I and R compartments by detection_rate.
+
+        Args:
+            obs: Observation vector of shape (3,) or (4,).
+
+        Returns:
+            Observation with I and R scaled by detection_rate. Shape unchanged.
+        """
+        scaled = obs.copy()
+        scaled[self.i_index] *= self.detection_rate
+        scaled[self.r_index] *= self.detection_rate
+        return scaled.astype(self.observation_space.dtype)

@@ -28,7 +28,7 @@ from src.scenarios import (
     TARGET_AGENTS,
 )
 from src.train import train_ppo_agent
-from src.wrappers import EpidemicObservationWrapper
+from src.wrappers import EpidemicObservationWrapper, UnderReportingWrapper
 from src.utils import plot_all_results, plot_learning_curve
 
 
@@ -51,13 +51,18 @@ def create_environment(config: DefaultConfig, pomdp_params: dict) -> EpidemicEnv
     # Apply POMDP wrapper if partial observability is enabled
     if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
-    
+
+    # Apply under-reporting wrapper if detection_rate < 1.0
+    detection_rate = pomdp_params.get("detection_rate", 1.0)
+    if detection_rate < 1.0:
+        env = UnderReportingWrapper(env, detection_rate=detection_rate)
+
     # Future wrappers can be added here:
     # if pomdp_params.get("noise_std", 0) > 0:
     #     env = NoiseWrapper(env, noise_std=pomdp_params["noise_std"])
     # if pomdp_params.get("delay", 0) > 0:
     #     env = DelayWrapper(env, delay=pomdp_params["delay"])
-    
+
     return env
 
 
@@ -252,6 +257,11 @@ def main(
         "--no-exposed",
         help="Mask E (Exposed) compartment from observations",
     ),
+    detection_rate: float = typer.Option(
+        1.0,
+        "--detection-rate",
+        help="Fraction of true I and R observed (1.0=full, 0.3=COVID-realistic). Custom mode only.",
+    ),
     # Future parameters can be easily added here:
     # delay: int = typer.Option(0, "--delay", help="Observation delay in days"),
     # noise: float = typer.Option(0.0, "--noise", help="Observation noise std"),
@@ -305,11 +315,12 @@ def main(
         # Build POMDP parameters from CLI flags
         pomdp_params = {
             "include_exposed": not no_exposed,
+            "detection_rate": detection_rate,
             # Future parameters:
             # "delay": delay,
             # "noise_std": noise,
         }
-        
+
         # Generate scenario name
         scenario_name = create_custom_scenario_name(pomdp_params)
         

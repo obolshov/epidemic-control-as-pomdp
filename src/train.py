@@ -6,7 +6,7 @@ from sb3_contrib import RecurrentPPO
 from typing import Type, Union
 import gymnasium as gym
 from src.config import DefaultConfig
-from src.wrappers import EpidemicObservationWrapper
+from src.wrappers import EpidemicObservationWrapper, UnderReportingWrapper
 
 
 def train_ppo_agent(
@@ -40,7 +40,12 @@ def train_ppo_agent(
     # Apply POMDP wrapper if partial observability is enabled
     if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
-    
+
+    # Apply under-reporting wrapper if detection_rate < 1.0
+    detection_rate = pomdp_params.get("detection_rate", 1.0)
+    if detection_rate < 1.0:
+        env = UnderReportingWrapper(env, detection_rate=detection_rate)
+
     # Apply frame stacking for ppo_framestack agent
     if agent_name == "ppo_framestack":
         # Create monitor directory

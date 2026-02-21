@@ -9,9 +9,12 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 - **Core Model:** SEIR (Susceptible-Exposed-Infected-Recovered) ODE system.
 - **RL Framework:** Stable Baselines 3 (SB3), Gymnasium.
 - **Key Innovation:** Transitioning from MDP (Oracle) to POMDP (Blind, FrameStack, Recurrent).
-- **Architecture:** - `src/seir.py`: ODE logic (must remain deterministic).
+- **Architecture:**
+    - `src/seir.py`: ODE logic (must remain deterministic).
     - `src/env.py`: Gymnasium environment.
     - `src/agents.py`: Agent wrappers and baseline logic.
+    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions (`EpidemicObservationWrapper`, `UnderReportingWrapper`).
+    - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
 
 # Coding Standards & Style

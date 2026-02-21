@@ -23,6 +23,7 @@ class DefaultConfig:
 
         # POMDP settings
         self.include_exposed = True  # If False, E compartment is masked from observations
+        self.detection_rate: float = 1.0  # Fraction of true I and R observed; 1.0 = full, 0.3 = COVID-realistic
 
         # ThresholdAgent parameters
         self.thresholds: List[float] = [0.01, 0.05, 0.09]  # Fraction of infected population

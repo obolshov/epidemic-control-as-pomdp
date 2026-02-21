@@ -39,21 +39,27 @@ Full observability MDP where all SEIR compartments are visible.
 python main.py --scenario mdp
 ```
 
-### **no_exposed** (POMDP)
+### **no_exposed** (POMDP Experiment 1)
 Partial observability with masked Exposed (E) compartment.
 ```bash
 python main.py --scenario no_exposed
 ```
 
+### **no_exposed_underreporting** (POMDP Experiment 2)
+Masked E compartment + under-reporting of active cases (detection rate k=0.3).
+The agent observes 30% of true I and R — consistent with COVID-19 surveillance estimates.
+```bash
+python main.py --scenario no_exposed_underreporting
+```
+
 ### Custom Scenarios
 Specify POMDP parameters directly via CLI:
 ```bash
+# Mask E compartment only
 python main.py --no-exposed
-```
 
-Future parameters can be added (see [EXTENDING.md](EXTENDING.md)):
-```bash
-# python main.py --no-exposed --delay 5 --noise 0.1
+# Mask E compartment + under-reporting
+python main.py --no-exposed --detection-rate 0.3
 ```
 
 ## Agents
@@ -73,11 +79,11 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`)
+- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `no_exposed_underreporting`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps (default: 50000)
-- `--no-exposed`: Mask E compartment (custom POMDP)
-- `--config, -c`: Base configuration (default: "default")
+- `--no-exposed`: Mask E compartment (custom mode)
+- `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
@@ -135,8 +141,11 @@ python main.py --scenario mdp --skip-training all
 # Train only new agents, skip ppo_baseline
 python main.py --scenario mdp --skip-training ppo_baseline
 
-# Custom POMDP configuration
-python main.py --no-exposed
+# POMDP: masked E + under-reporting (predefined)
+python main.py --scenario no_exposed_underreporting
+
+# POMDP: custom detection rate
+python main.py --no-exposed --detection-rate 0.5
 
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000
