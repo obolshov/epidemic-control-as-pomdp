@@ -3,13 +3,13 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from src.config import DefaultConfig
+from src.config import Config
 from src.seir import run_seir, EpidemicState
 from src.agents import InterventionAction, Agent, StaticAgent
 
 
 def calculate_reward(
-    I_t: float, action: InterventionAction, config: DefaultConfig
+    I_t: float, action: InterventionAction, config: Config
 ) -> float:
     """
     :param I_t: Infected count
@@ -25,7 +25,7 @@ def calculate_reward(
 class EpidemicEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, config: DefaultConfig):
+    def __init__(self, config: Config):
         super().__init__()
         self.config = config
 

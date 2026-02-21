@@ -1,6 +1,6 @@
 import random
 from enum import Enum
-from src.config import DefaultConfig
+from src.config import Config
 import numpy as np
 
 
@@ -58,7 +58,7 @@ class ThresholdAgent(Agent):
         i_idx: Index of I compartment in observation vector (auto-detected on first call).
     """
     
-    def __init__(self, config: DefaultConfig):
+    def __init__(self, config: Config):
         """
         Initialize ThresholdAgent.
         

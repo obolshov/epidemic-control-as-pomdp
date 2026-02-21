@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.agents import StaticAgent, InterventionAction
-from src.config import get_config
+from src.config import Config
 from src.env import EpidemicEnv, SimulationResult
 
 
@@ -160,7 +160,7 @@ def main():
     print("\nRunning all four static intervention strategies to verify epidemic model...\n")
     
     # Load default configuration
-    config = get_config("default")
+    config = Config()
     
     # Create output directory under experiments/static_agents/
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

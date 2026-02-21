@@ -48,4 +48,4 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 # Workflow constraints
 - Do not hallucinate files. Work strictly with the provided file structure.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
-- Keep `src/config.py` as the single source of truth for hyperparameters.
+- `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
