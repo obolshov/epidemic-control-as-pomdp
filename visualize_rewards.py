@@ -4,13 +4,13 @@ from matplotlib.ticker import MultipleLocator
 from src.env import EpidemicEnv, calculate_reward
 from src.agents import StaticAgent, InterventionAction
 from src.seir import EpidemicState
-from src.config import get_config, DefaultConfig
+from src.config import Config
 from src.utils import get_timestamped_results_dir
 import os
 
 
 def calculate_reward_components(
-    I_t: float, action: InterventionAction, config: DefaultConfig
+    I_t: float, action: InterventionAction, config: Config
 ):
     """
     Calculate reward components separately for visualization.
@@ -108,7 +108,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
 
 
 if __name__ == "__main__":
-    config = get_config("default")
+    config = Config()
 
     agents = [
         StaticAgent(InterventionAction.NO),

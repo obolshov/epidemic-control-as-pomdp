@@ -17,7 +17,7 @@ from src.agents import (
     RandomAgent,
     ThresholdAgent,
 )
-from src.config import DefaultConfig, get_config
+from src.config import Config
 from src.env import EpidemicEnv, SimulationResult
 from src.evaluation import run_agent
 from src.experiment import ExperimentConfig, ExperimentDirectory
@@ -35,7 +35,7 @@ from src.utils import plot_all_results, plot_learning_curve
 app = typer.Typer(help="Epidemic Control as POMDP - Experiment Runner")
 
 
-def create_environment(config: DefaultConfig, pomdp_params: dict) -> EpidemicEnv:
+def create_environment(config: Config, pomdp_params: dict) -> EpidemicEnv:
     """
     Create environment with appropriate POMDP wrappers.
     
@@ -66,7 +66,7 @@ def create_environment(config: DefaultConfig, pomdp_params: dict) -> EpidemicEnv
     return env
 
 
-def setup_target_agents(config: DefaultConfig, agent_names: List[str]) -> List[Agent]:
+def setup_target_agents(config: Config, agent_names: List[str]) -> List[Agent]:
     """
     Initialize target agents (non-static agents for evaluation).
     
@@ -234,12 +234,6 @@ def main(
         "-s",
         help=f"Predefined scenario to run. Available: {', '.join(list_scenarios())}",
     ),
-    config_name: str = typer.Option(
-        "default",
-        "--config",
-        "-c",
-        help="Base configuration to use",
-    ),
     skip_training: Optional[str] = typer.Option(
         None,
         "--skip-training",
@@ -290,16 +284,13 @@ def main(
     if scenario:
         print(f"Running predefined scenario: {scenario}")
         scenario_config = get_scenario(scenario)
-        
-        base_config = get_config(config_name)
-        
+
         exp_config = ExperimentConfig(
-            base_config=base_config,
+            base_config=Config(),
             pomdp_params=scenario_config["pomdp_params"],
             scenario_name=scenario,
             is_custom=False,
             target_agents=scenario_config["target_agents"],
-            train_rl=True,  # This field is deprecated but kept for backward compatibility
             total_timesteps=total_timesteps,
         )
         
@@ -309,9 +300,7 @@ def main(
     # Mode 2: Custom configuration
     else:
         print("Running custom experiment")
-        
-        base_config = get_config(config_name)
-        
+
         # Build POMDP parameters from CLI flags
         pomdp_params = {
             "include_exposed": not no_exposed,
@@ -321,16 +310,12 @@ def main(
             # "noise_std": noise,
         }
 
-        # Generate scenario name
-        scenario_name = create_custom_scenario_name(pomdp_params)
-        
         exp_config = ExperimentConfig(
-            base_config=base_config,
+            base_config=Config(),
             pomdp_params=pomdp_params,
-            scenario_name=scenario_name,
+            scenario_name=create_custom_scenario_name(pomdp_params),
             is_custom=True,
             target_agents=TARGET_AGENTS.copy(),
-            train_rl=True,  # This field is deprecated but kept for backward compatibility
             total_timesteps=total_timesteps,
         )
         

@@ -5,13 +5,13 @@ from sb3_contrib import RecurrentPPO
 
 from typing import Type, Union
 import gymnasium as gym
-from src.config import DefaultConfig
+from src.config import Config
 from src.wrappers import EpidemicObservationWrapper, UnderReportingWrapper
 
 
 def train_ppo_agent(
     env_cls: Type[gym.Env],
-    config: DefaultConfig,
+    config: Config,
     experiment_dir: "ExperimentDirectory",
     agent_name: str,
     total_timesteps: int,
