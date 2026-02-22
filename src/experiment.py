@@ -14,7 +14,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+import numpy as np
+
 from src.config import Config
+
+
+def generate_seeds(num_seeds: int) -> List[int]:
+    """Generate a deterministic list of training seeds.
+
+    Args:
+        num_seeds: Number of seeds to generate.
+
+    Returns:
+        List of integer seeds.
+    """
+    base_seeds = [42, 123, 456, 789, 1024, 2048, 3141, 5555, 7777, 9999]
+    if num_seeds <= len(base_seeds):
+        return base_seeds[:num_seeds]
+    rng = np.random.default_rng(42)
+    extra = rng.integers(0, 10000, size=num_seeds - len(base_seeds)).tolist()
+    return base_seeds + extra
 
 
 @dataclass

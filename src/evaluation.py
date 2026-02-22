@@ -16,7 +16,8 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecFrameStack, VecMonitor, VecNormalize
 from sb3_contrib import RecurrentPPO
 
-from src.agents import Agent
+from src.agents import Agent, create_baseline_agents
+from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.config import Config
 from src.env import EpidemicEnv, SimulationResult
 from src.utils import log_results, plot_single_result
@@ -308,3 +309,81 @@ def run_agent(
     plot_single_result(result, save_path=str(plot_path))
 
     return result
+
+
+def run_evaluation(
+    exp_config: ExperimentConfig,
+    experiment_dir: ExperimentDirectory,
+    rl_models: Dict[str, List[Union[PPO, RecurrentPPO]]],
+) -> tuple[List[SimulationResult], Dict[str, dict]]:
+    """Run multi-seed statistical evaluation and best-seed trajectory evaluation.
+
+    Args:
+        exp_config: Experiment configuration.
+        experiment_dir: Experiment directory for saving results.
+        rl_models: Dict mapping agent_name -> list of models (one per seed).
+
+    Returns:
+        Tuple of (trajectory results for best seeds, multi-seed statistics dict).
+    """
+    print("\n" + "=" * 80)
+    print("RUNNING EVALUATION")
+    print("=" * 80)
+
+    results: List[SimulationResult] = []
+    multi_seed_stats: Dict[str, dict] = {}
+
+    # Evaluate non-RL agents (single-episode trajectory)
+    env = create_environment(exp_config.base_config, exp_config.pomdp_params)
+    agents = create_baseline_agents(exp_config.base_config, exp_config.target_agents)
+
+    for agent in agents:
+        agent_name = agent.__class__.__name__.lower()
+        print(f"\nEvaluating {agent.__class__.__name__}...")
+        result = run_agent(agent, env, experiment_dir=experiment_dir, agent_name=agent_name)
+        results.append(result)
+
+    # Evaluate RL agents: multi-seed statistics + best-seed trajectory
+    for agent_name, models in rl_models.items():
+        print(f"\nEvaluating {agent_name} ({len(models)} seeds)...")
+
+        # Phase 1: Multi-seed statistical evaluation
+        stats = evaluate_multi_seed(
+            models=models,
+            seeds=exp_config.training_seeds[: len(models)],
+            config=exp_config.base_config,
+            pomdp_params=exp_config.pomdp_params,
+            agent_name=agent_name,
+            experiment_dir=experiment_dir,
+            n_eval_episodes_per_seed=exp_config.num_eval_episodes,
+        )
+        multi_seed_stats[agent_name] = stats
+
+        print(
+            f"  {agent_name}: mean={stats['overall_mean']:.2f} "
+            f"± {stats['overall_std']:.2f} "
+            f"(95% CI: [{stats['ci_low']:.2f}, {stats['ci_high']:.2f}])"
+        )
+        print(f"  Best seed: {stats['best_seed']} (idx={stats['best_seed_idx']})")
+
+        # Phase 2: Trajectory evaluation for the best seed model
+        best_model = models[stats["best_seed_idx"]]
+        best_seed = stats["best_seed"]
+        vecnorm_path = str(
+            experiment_dir.get_vecnormalize_path(agent_name, best_seed)
+        )
+
+        eval_env = create_eval_vec_env(
+            exp_config.base_config,
+            exp_config.pomdp_params,
+            agent_name,
+            vecnorm_path,
+            seed=best_seed,
+        )
+        result = run_agent(
+            best_model, eval_env, experiment_dir=experiment_dir, agent_name=agent_name
+        )
+        results.append(result)
+        eval_env.close()
+
+    return results, multi_seed_stats

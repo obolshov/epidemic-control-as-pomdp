@@ -1,5 +1,7 @@
 import random
 from enum import Enum
+from typing import List
+
 from src.config import Config
 import numpy as np
 
@@ -136,6 +138,24 @@ class ThresholdAgent(Agent):
             action_idx = 2  # MODERATE
         else:
             action_idx = 3  # SEVERE
-        
+
         return action_idx, state
+
+
+def create_baseline_agents(config: Config, agent_names: List[str]) -> List[Agent]:
+    """Initialize non-RL baseline agents for evaluation.
+
+    Args:
+        config: Configuration for agents.
+        agent_names: List of agent names to initialize (e.g., ["random", "threshold"]).
+
+    Returns:
+        List of initialized Agent objects.
+    """
+    agents: List[Agent] = []
+    if "random" in agent_names:
+        agents.append(RandomAgent())
+    if "threshold" in agent_names:
+        agents.append(ThresholdAgent(config))
+    return agents
 

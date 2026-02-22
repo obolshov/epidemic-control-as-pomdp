@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -18,6 +18,8 @@ from stable_baselines3.common.vec_env import (
 from sb3_contrib import RecurrentPPO
 
 from src.config import Config
+from src.experiment import ExperimentConfig, ExperimentDirectory
+from src.utils import plot_learning_curve
 from src.wrappers import create_environment
 
 
@@ -309,6 +311,83 @@ def train_ppo_agent(
     env.close()
 
     return model
+
+
+def prepare_rl_agents(
+    exp_config: ExperimentConfig,
+    experiment_dir: ExperimentDirectory,
+    agents_to_skip: set,
+) -> Dict[str, List[Union[PPO, RecurrentPPO]]]:
+    """Train or load RL agents across multiple seeds.
+
+    Args:
+        exp_config: Experiment configuration.
+        experiment_dir: Experiment directory for saving/loading.
+        agents_to_skip: Set of agent names to skip training (or {"all"} to skip all).
+
+    Returns:
+        Dict mapping agent_name -> list of models (one per seed).
+    """
+    rl_agent_names = [
+        name for name in exp_config.target_agents
+        if name.startswith("ppo_")
+    ]
+
+    if not rl_agent_names:
+        return {}
+
+    skip_all = "all" in agents_to_skip
+
+    print("\n" + "=" * 80)
+    print("PREPARING RL AGENTS")
+    print("=" * 80)
+
+    models_by_agent: Dict[str, List[Union[PPO, RecurrentPPO]]] = {}
+
+    for agent_name in rl_agent_names:
+        should_skip = skip_all or agent_name in agents_to_skip
+        models = []
+
+        for seed in exp_config.training_seeds:
+            if should_skip:
+                weight_path = experiment_dir.get_weight_path(agent_name, seed)
+                if weight_path.exists():
+                    print(f"\nLoading {agent_name} (seed={seed}) from {weight_path}...")
+                    if agent_name == "ppo_recurrent":
+                        model = RecurrentPPO.load(str(weight_path.with_suffix("")))
+                    else:
+                        model = PPO.load(str(weight_path.with_suffix("")))
+                    models.append(model)
+                else:
+                    raise FileNotFoundError(
+                        f"Weights for {agent_name} (seed={seed}) not found at {weight_path}"
+                    )
+            else:
+                print(f"\nTraining {agent_name} (seed={seed})...")
+                model = train_ppo_agent(
+                    config=exp_config.base_config,
+                    experiment_dir=experiment_dir,
+                    agent_name=agent_name,
+                    total_timesteps=exp_config.total_timesteps,
+                    seed=seed,
+                    pomdp_params=exp_config.pomdp_params,
+                )
+                models.append(model)
+
+                monitor_dir = experiment_dir.tensorboard_dir / f"{agent_name}_seed{seed}"
+                if monitor_dir.exists():
+                    plot_path = experiment_dir.get_plot_path(
+                        f"{agent_name}_seed{seed}_learning.png"
+                    )
+                    plot_learning_curve(
+                        log_folder=str(monitor_dir),
+                        title=f"{agent_name} (seed={seed}) Learning Curve",
+                        save_path=str(plot_path),
+                    )
+
+        models_by_agent[agent_name] = models
+
+    return models_by_agent
 
 
 def _find_vec_normalize(env: VecEnv) -> Optional[VecNormalize]:
