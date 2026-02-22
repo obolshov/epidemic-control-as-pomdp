@@ -210,4 +210,7 @@ __marimo__/
 experiments/
 calibration_results/
 
+# Internal docs
+docs/
+
 .claude/settings.local.json

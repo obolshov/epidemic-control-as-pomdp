@@ -5,7 +5,7 @@ from typing import List
 @dataclass
 class Config:
     # Population and epidemic parameters
-    N: int = 100_000 # Total population size
+    N: int = 200_000 # Total population size
     E0: int = 200 # Initial number of exposed individuals
     I0: int = 50 # Initial number of infected individuals
 
@@ -31,3 +31,16 @@ class Config:
     # Recurrent agent parameters (LSTM)
     lstm_hidden_size: int = 128
     n_lstm_layers: int = 1
+
+    # Training hyperparameters
+    n_envs: int = 4  # Number of parallel environments for training
+    recurrent_n_steps: int = 256  # Rollout length per env for RecurrentPPO
+    recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO
+    recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
+    ent_coef: float = 0.01  # Entropy bonus for exploration
+
+    # Early stopping hyperparameters (via EvalCallback)
+    # Stopping triggers when no improvement for `early_stop_patience` consecutive evals
+    # Each eval = eval_freq timesteps (default 5000). Min warmup = min_evals * eval_freq.
+    early_stop_patience: int = 5   # Evals without improvement before stopping (25k steps)
+    early_stop_min_evals: int = 3  # Minimum evals before stopping can trigger (15k warmup)

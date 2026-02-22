@@ -49,3 +49,35 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 - Do not hallucinate files. Work strictly with the provided file structure.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
+
+# Running Experiments
+
+## Virtual environment
+ALWAYS activate the venv before running any Python script:
+```bash
+source venv/Scripts/activate
+python main.py ...
+```
+Without this, dependencies will not resolve correctly and imports will fail.
+
+## experiments/ directory — DO NOT DELETE
+Each scenario run saves results into a **separate timestamped subfolder**:
+```
+experiments/{scenario_name}/{YYYY-MM-DD_HH-MM-SS}/
+```
+
+## Use custom scenarios for smoke tests — NOT predefined ones
+Predefined scenarios (`--scenario mdp`, `--scenario no_exposed_underreporting`, etc.) share a **single weights directory** per scenario name (`experiments/{scenario}/weights/`). Running a predefined scenario will **overwrite existing trained weights**.
+
+For smoke tests and validation, always use the **custom scenario flags** instead:
+```bash
+# Equivalent to --scenario no_exposed_underreporting, but writes to a unique dir
+python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
+```
+Custom scenarios generate a unique `scenario_name` (e.g. `no_exposed_k0.3`) and never collide with the user's predefined experiment weights.
+
+## Keep -t small for smoke tests
+One full training run for RecurrentPPO takes ~25 minutes. Use `-t 10000` for any validation or smoke test — it is sufficient to confirm the pipeline works end-to-end:
+```bash
+python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
+```

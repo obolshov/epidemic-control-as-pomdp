@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from src.config import Config
 
@@ -28,8 +28,10 @@ class ExperimentConfig:
         scenario_name: Name of the scenario ("mdp", "no_exposed", "custom").
         is_custom: Whether this is a custom (ad-hoc) or predefined scenario.
         target_agents: List of agent names to run (e.g., ["random", "threshold", "ppo_baseline"]).
-        num_eval_episodes: Number of evaluation episodes (for future multi-seed evaluation).
+        num_eval_episodes: Number of evaluation episodes per seed.
         total_timesteps: Total timesteps for RL training.
+        num_training_seeds: Number of independent training runs per agent.
+        training_seeds: List of random seeds for training.
         timestamp: ISO timestamp of when the experiment was created.
     """
     base_config: Config
@@ -37,8 +39,12 @@ class ExperimentConfig:
     scenario_name: str
     is_custom: bool
     target_agents: List[str]
-    num_eval_episodes: int = 1
-    total_timesteps: int = 50_000
+    num_eval_episodes: int = 10
+    total_timesteps: int = 200_000
+    num_training_seeds: int = 5
+    training_seeds: List[int] = field(
+        default_factory=lambda: [42, 123, 456, 789, 1024]
+    )
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,6 +63,8 @@ class ExperimentConfig:
             "target_agents": self.target_agents,
             "num_eval_episodes": self.num_eval_episodes,
             "total_timesteps": self.total_timesteps,
+            "num_training_seeds": self.num_training_seeds,
+            "training_seeds": self.training_seeds,
         }
 
 
@@ -124,12 +132,18 @@ class ExperimentDirectory:
             json.dump(self.config.to_dict(), f, indent=2, ensure_ascii=False)
         print(f"Experiment config saved to: {config_path}")
 
-    def save_summary(self, results: List[Any]) -> None:
+    def save_summary(
+        self,
+        results: List[Any],
+        multi_seed_stats: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Save experiment summary with key metrics from all agents.
 
         Args:
-            results: List of SimulationResult objects.
+            results: List of SimulationResult objects (best seed trajectories).
+            multi_seed_stats: Optional dict mapping agent_name -> multi-seed statistics
+                with keys: overall_mean, overall_std, ci_low, ci_high, per_seed.
         """
         summary_path = self.root / "summary.json"
 
@@ -137,7 +151,8 @@ class ExperimentDirectory:
             "scenario_name": self.config.scenario_name,
             "timestamp": self.config.timestamp,
             "num_agents": len(results),
-            "agents": []
+            "num_training_seeds": self.config.num_training_seeds,
+            "agents": [],
         }
 
         for result in results:
@@ -149,23 +164,43 @@ class ExperimentDirectory:
                 "total_reward": float(result.total_reward),
                 "num_actions": len(result.actions),
             }
+            # Attach multi-seed stats if available
+            if multi_seed_stats and result.agent_name in multi_seed_stats:
+                agent_summary["multi_seed"] = multi_seed_stats[result.agent_name]
+
             summary_data["agents"].append(agent_summary)
 
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary_data, f, indent=2, ensure_ascii=False)
         print(f"Experiment summary saved to: {summary_path}")
 
-    def get_weight_path(self, agent_name: str) -> Path:
+    def get_weight_path(self, agent_name: str, seed: Optional[int] = None) -> Path:
         """
         Get path for saving/loading agent weights.
 
         Args:
             agent_name: Name of the agent (e.g., "ppo_baseline").
+            seed: Training seed. If provided, returns seed-specific path.
 
         Returns:
-            Path to weight file: weights/{agent_name}.zip
+            Path to weight file: weights/{agent_name}[_seed{seed}].zip
         """
+        if seed is not None:
+            return self.weights_dir / f"{agent_name}_seed{seed}.zip"
         return self.weights_dir / f"{agent_name}.zip"
+
+    def get_vecnormalize_path(self, agent_name: str, seed: int) -> Path:
+        """
+        Get path for saving/loading VecNormalize statistics.
+
+        Args:
+            agent_name: Name of the agent.
+            seed: Training seed.
+
+        Returns:
+            Path to VecNormalize file.
+        """
+        return self.weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
 
     def get_plot_path(self, plot_name: str) -> Path:
         """

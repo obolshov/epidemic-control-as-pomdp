@@ -1,6 +1,10 @@
+from typing import Any, Dict
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
+
+from src.config import Config
 
 
 class EpidemicObservationWrapper(gym.ObservationWrapper):
@@ -125,3 +129,28 @@ class UnderReportingWrapper(gym.ObservationWrapper):
         scaled[self.i_index] *= self.detection_rate
         scaled[self.r_index] *= self.detection_rate
         return scaled.astype(self.observation_space.dtype)
+
+
+def create_environment(config: Config, pomdp_params: Dict[str, Any]) -> gym.Env:
+    """
+    Create environment with appropriate POMDP wrappers.
+
+    Args:
+        config: Base configuration.
+        pomdp_params: POMDP parameters for wrappers.
+
+    Returns:
+        Environment with wrappers applied.
+    """
+    from src.env import EpidemicEnv
+
+    env = EpidemicEnv(config)
+
+    if not pomdp_params.get("include_exposed", True):
+        env = EpidemicObservationWrapper(env, include_exposed=False)
+
+    detection_rate = pomdp_params.get("detection_rate", 1.0)
+    if detection_rate < 1.0:
+        env = UnderReportingWrapper(env, detection_rate=detection_rate)
+
+    return env

@@ -1,7 +1,8 @@
 from math import ceil
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3.common import results_plotter
 
@@ -228,3 +229,83 @@ def plot_learning_curve(
 
         except Exception as e:
             print(f"Error plotting {axis_name}: {e}")
+
+
+def plot_evaluation_curves(
+    eval_log_paths_by_agent: Dict[str, List[str]],
+    title: str = "Evaluation During Training",
+    save_path: Optional[str] = None,
+) -> None:
+    """Plot evaluation reward curves aggregated across seeds with 95% CI.
+
+    For each agent, loads all seed evaluations.npz files, truncates to the
+    shortest common timestep range, and plots mean ± 95% CI across seeds.
+    Produces one clean curve per agent instead of one per seed.
+
+    Args:
+        eval_log_paths_by_agent: Dict mapping agent_name -> list of npz
+            directory paths (one per seed).
+        title: Plot title.
+        save_path: Path to save plot. If None, displays interactively.
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = plt.cm.tab10.colors
+
+    for idx, (agent_name, log_dirs) in enumerate(eval_log_paths_by_agent.items()):
+        # Load all seeds for this agent
+        seed_means: List[np.ndarray] = []
+        min_len = None
+
+        for log_dir in log_dirs:
+            npz_path = os.path.join(log_dir, "evaluations.npz")
+            if not os.path.exists(npz_path):
+                continue
+            data = np.load(npz_path)
+            # results shape: (n_evals, n_eval_episodes) — mean over episodes
+            per_eval_mean = np.mean(data["results"], axis=1)
+            seed_means.append((data["timesteps"], per_eval_mean))
+            if min_len is None or len(per_eval_mean) < min_len:
+                min_len = len(per_eval_mean)
+
+        if not seed_means or min_len == 0:
+            print(f"Warning: no eval data found for {agent_name}, skipping.")
+            continue
+
+        # Use timesteps from the first seed (deterministic eval_freq → same grid)
+        timesteps = seed_means[0][0][:min_len]
+        # Stack seed curves truncated to the shortest run (early stopping)
+        stacked = np.stack([m[:min_len] for _, m in seed_means], axis=0)
+        # stacked shape: (n_seeds, n_evals)
+
+        n_seeds = stacked.shape[0]
+        mean_curve = np.mean(stacked, axis=0)
+        std_curve = np.std(stacked, axis=0)
+        ci = 1.96 * std_curve / np.sqrt(n_seeds) if n_seeds > 1 else np.zeros_like(std_curve)
+
+        color = colors[idx % len(colors)]
+        label = f"{agent_name} (n={n_seeds} seeds)"
+        ax.plot(timesteps, mean_curve, linewidth=2, label=label, color=color)
+        ax.fill_between(
+            timesteps,
+            mean_curve - ci,
+            mean_curve + ci,
+            alpha=0.25,
+            color=color,
+        )
+
+    ax.set_xlabel("Timesteps")
+    ax.set_ylabel("Mean Evaluation Reward")
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    if save_path:
+        dir_path = os.path.dirname(save_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
+        plt.close()

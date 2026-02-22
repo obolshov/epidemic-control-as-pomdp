@@ -1,10 +1,162 @@
+"""
+Evaluation module for epidemic control agents.
+
+Provides:
+- run_agent(): Single-episode trajectory evaluation for SEIR plots.
+- evaluate_agent_statistics(): Multi-episode reward statistics using SB3's evaluate_policy.
+- evaluate_multi_seed(): Aggregate statistics across multiple independently-trained models.
+"""
+
 import numpy as np
 import os
-from typing import Optional
+from typing import Any, Callable, Dict, List, Optional, Union
+
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecFrameStack, VecMonitor, VecNormalize
+from sb3_contrib import RecurrentPPO
 
 from src.agents import Agent
+from src.config import Config
 from src.env import EpidemicEnv, SimulationResult
 from src.utils import log_results, plot_single_result
+from src.wrappers import create_environment
+
+
+def create_eval_vec_env(
+    config: Config,
+    pomdp_params: Dict[str, Any],
+    agent_name: str,
+    vecnorm_path: Optional[str] = None,
+    seed: int = 0,
+) -> VecEnv:
+    """Create evaluation VecEnv with frozen VecNormalize stats.
+
+    Args:
+        config: Base configuration.
+        pomdp_params: POMDP wrapper parameters.
+        agent_name: Agent name (determines if VecFrameStack is applied).
+        vecnorm_path: Path to saved VecNormalize stats. If None, no normalization.
+        seed: Random seed for the environment.
+
+    Returns:
+        Evaluation VecEnv ready for inference.
+    """
+    env = create_environment(config, pomdp_params)
+    env.reset(seed=seed)
+    venv = DummyVecEnv([lambda: env])
+    venv = VecMonitor(venv)
+
+    if vecnorm_path and os.path.exists(vecnorm_path):
+        venv = VecNormalize.load(vecnorm_path, venv)
+        venv.training = False
+        venv.norm_reward = False
+    else:
+        venv = VecNormalize(venv, norm_obs=False, norm_reward=False)
+
+    if agent_name == "ppo_framestack":
+        venv = VecFrameStack(venv, n_stack=config.n_stack)
+
+    return venv
+
+
+def evaluate_agent_statistics(
+    model: Union[PPO, RecurrentPPO],
+    eval_env: VecEnv,
+    n_eval_episodes: int = 10,
+    deterministic: bool = True,
+) -> Dict[str, Any]:
+    """Evaluate agent over multiple episodes and return reward statistics.
+
+    Args:
+        model: Trained RL model.
+        eval_env: Evaluation environment (with frozen VecNormalize).
+        n_eval_episodes: Number of evaluation episodes.
+        deterministic: Whether to use deterministic actions.
+
+    Returns:
+        Dict with mean_reward, std_reward, ci_low, ci_high, episode_rewards, episode_lengths.
+    """
+    episode_rewards, episode_lengths = evaluate_policy(
+        model,
+        eval_env,
+        n_eval_episodes=n_eval_episodes,
+        deterministic=deterministic,
+        return_episode_rewards=True,
+    )
+
+    mean_reward = float(np.mean(episode_rewards))
+    std_reward = float(np.std(episode_rewards))
+    n = len(episode_rewards)
+    ci_margin = 1.96 * std_reward / np.sqrt(n) if n > 1 else 0.0
+
+    return {
+        "mean_reward": mean_reward,
+        "std_reward": std_reward,
+        "ci_low": mean_reward - ci_margin,
+        "ci_high": mean_reward + ci_margin,
+        "episode_rewards": [float(r) for r in episode_rewards],
+        "episode_lengths": [int(el) for el in episode_lengths],
+    }
+
+
+def evaluate_multi_seed(
+    models: List[Union[PPO, RecurrentPPO]],
+    seeds: List[int],
+    config: Config,
+    pomdp_params: Dict[str, Any],
+    agent_name: str,
+    experiment_dir: "ExperimentDirectory",
+    n_eval_episodes_per_seed: int = 10,
+) -> Dict[str, Any]:
+    """Evaluate multiple independently-trained models and aggregate statistics.
+
+    Args:
+        models: List of trained models (one per seed).
+        seeds: List of training seeds corresponding to models.
+        config: Base configuration.
+        pomdp_params: POMDP wrapper parameters.
+        agent_name: Agent name.
+        experiment_dir: Experiment directory for VecNormalize paths.
+        n_eval_episodes_per_seed: Episodes per seed evaluation.
+
+    Returns:
+        Dict with overall_mean, overall_std, ci_low, ci_high, per_seed stats, best_seed_idx.
+    """
+    all_rewards = []
+    per_seed_stats = []
+
+    for model, seed in zip(models, seeds):
+        vecnorm_path = str(experiment_dir.get_vecnormalize_path(agent_name, seed))
+        eval_env = create_eval_vec_env(
+            config, pomdp_params, agent_name, vecnorm_path, seed=seed
+        )
+
+        stats = evaluate_agent_statistics(
+            model, eval_env, n_eval_episodes_per_seed
+        )
+        stats["seed"] = seed
+        per_seed_stats.append(stats)
+        all_rewards.extend(stats["episode_rewards"])
+
+        eval_env.close()
+
+    overall_mean = float(np.mean(all_rewards))
+    overall_std = float(np.std(all_rewards))
+    n = len(all_rewards)
+    ci_margin = 1.96 * overall_std / np.sqrt(n) if n > 1 else 0.0
+
+    best_seed_idx = int(np.argmax([s["mean_reward"] for s in per_seed_stats]))
+
+    return {
+        "overall_mean": overall_mean,
+        "overall_std": overall_std,
+        "ci_low": overall_mean - ci_margin,
+        "ci_high": overall_mean + ci_margin,
+        "per_seed": per_seed_stats,
+        "best_seed_idx": best_seed_idx,
+        "best_seed": seeds[best_seed_idx],
+    }
 
 
 def run_agent(
@@ -14,42 +166,43 @@ def run_agent(
     agent_name: Optional[str] = None,
 ) -> SimulationResult:
     """
-    Runs a simulation for a single agent.
+    Runs a simulation for a single agent (single-episode trajectory).
 
-    :param agent: The agent to evaluate.
-    :param env: The environment to run the simulation in (can be VecEnv or regular Env).
-    :param experiment_dir: ExperimentDirectory for saving outputs. If None, saves to default locations.
-    :param agent_name: Override name for saving files. If None, uses agent's class name.
-    :return: A SimulationResult object containing the results of the simulation.
+    Used for generating SEIR trajectory plots. For statistical evaluation,
+    use evaluate_agent_statistics() or evaluate_multi_seed() instead.
+
+    Args:
+        agent: The agent to evaluate.
+        env: The environment to run the simulation in (can be VecEnv or regular Env).
+        experiment_dir: ExperimentDirectory for saving outputs. If None, saves to default locations.
+        agent_name: Override name for saving files. If None, uses agent's class name.
+
+    Returns:
+        A SimulationResult object containing the results of the simulation.
     """
     # Check if this is a VecEnv (used for framestack)
-    from stable_baselines3.common.vec_env import VecEnv
     is_vec_env = isinstance(env, VecEnv)
-    
+
     obs = env.reset()
-    
+
     # VecEnv returns obs without info dict in reset
     if is_vec_env:
-        # VecEnv returns array with shape (n_envs, *obs_shape)
-        # We use single environment, so extract first element
         obs_flat = obs[0] if len(obs.shape) > 1 else obs
     else:
         obs, _ = obs if isinstance(obs, tuple) else (obs, {})
         obs_flat = obs
-    
+
     done = False
 
     # Get unwrapped environment to access true state
     if is_vec_env:
-        # For VecEnv, get the underlying environment from the first env
         unwrapped_env = env.envs[0]
         while hasattr(unwrapped_env, 'env'):
             unwrapped_env = unwrapped_env.env
     else:
         unwrapped_env = env.unwrapped
-    
-    # Handle partial observability: get full state from unwrapped env if needed
-    # Note: obs_flat might be stacked frames for framestack agent
+
+    # Get initial state from unwrapped env
     if hasattr(unwrapped_env, 'current_state'):
         state = unwrapped_env.current_state
         S_init = state.S
@@ -57,21 +210,18 @@ def run_agent(
         I_init = state.I
         R_init = state.R
     else:
-        # Fallback: try to extract from observation
-        # For framestack, obs_flat will be stacked, take last frame
         if len(obs_flat) == 3:
             S_init, I_init, R_init = obs_flat[-3:]
             E_init = 0.0
         elif len(obs_flat) == 4:
             S_init, E_init, I_init, R_init = obs_flat[-4:]
         else:
-            # Likely stacked observations, take last 4 or 3 elements
             if len(obs_flat) % 4 == 0:
                 S_init, E_init, I_init, R_init = obs_flat[-4:]
             else:
                 S_init, I_init, R_init = obs_flat[-3:]
                 E_init = 0.0
-    
+
     all_S = [S_init]
     all_E = [E_init]
     all_I = [I_init]
@@ -83,29 +233,23 @@ def run_agent(
     observations = []
 
     current_timestep = 0
-    
+
     # Initialize state for recurrent policies (LSTM)
     lstm_state = None
     episode_start = np.ones((1,), dtype=bool)
 
     while not done:
-        # Store observation (for framestack, this is the stacked observation)
         observations.append(obs_flat if is_vec_env else obs)
         timesteps.append(current_timestep)
 
-        # Predict action (agent handles both VecEnv and regular env observations)
         action_idx, lstm_state = agent.predict(obs, state=lstm_state, episode_start=episode_start, deterministic=True)
         if is_vec_env:
-            # VecEnv predict returns array, extract scalar
             action_idx = int(action_idx[0]) if hasattr(action_idx, '__len__') else int(action_idx)
-        
-        # After first step, episode_start is False
+
         episode_start = np.zeros((1,), dtype=bool)
 
-        # Step environment
         if is_vec_env:
             obs, reward, done_array, info_array = env.step([action_idx])
-            # Extract from vectorized format
             obs_flat = obs[0]
             reward = float(reward[0])
             done = bool(done_array[0])
@@ -126,14 +270,12 @@ def run_agent(
 
         current_timestep += len(S)
 
-        # Access action_map from unwrapped env (wrapper might not have it)
         action_enum = unwrapped_env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
 
     t = np.arange(len(all_S))
-    
-    # Use custom agent name if provided
+
     save_name = agent_name if agent_name else None
 
     result = SimulationResult(
@@ -149,22 +291,19 @@ def run_agent(
         observations=observations,
         custom_name=save_name,
     )
-    
-    # Generate file-safe name for saving
+
     if save_name is None:
         save_name = result.agent_name.lower().replace(" ", "_").replace("-", "_")
-    
+
     # Save logs and plots
     if experiment_dir is not None:
-        # Save to experiment directory structure
         log_path = experiment_dir.get_log_path(save_name)
         plot_path = experiment_dir.get_plot_path(f"{save_name}_seir.png")
     else:
-        # Fallback to default locations (for backwards compatibility)
         log_path = os.path.join("logs", f"{save_name}.txt")
         os.makedirs("results", exist_ok=True)
         plot_path = os.path.join("results", f"{save_name}_seir.png")
-    
+
     log_results(result, log_path=str(log_path))
     plot_single_result(result, save_path=str(plot_path))
 
