@@ -6,11 +6,11 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 
 # Project Context
 - **Domain:** Epidemic control via NPIs (Non-Pharmaceutical Interventions).
-- **Core Model:** SEIR (Susceptible-Exposed-Infected-Recovered) ODE system.
+- **Core Model:** SEIR (Susceptible-Exposed-Infected-Recovered) with stochastic Binomial transitions.
 - **RL Framework:** Stable Baselines 3 (SB3), Gymnasium.
 - **Key Innovation:** Transitioning from MDP (Oracle) to POMDP (Blind, FrameStack, Recurrent).
 - **Architecture:**
-    - `src/seir.py`: ODE logic (must remain deterministic).
+    - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
     - `src/env.py`: Gymnasium environment.
     - `src/agents.py`: Agent wrappers and baseline logic.
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions (`EpidemicObservationWrapper`, `UnderReportingWrapper`).

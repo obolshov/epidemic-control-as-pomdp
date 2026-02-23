@@ -50,6 +50,7 @@ def _build_experiment_config(
     total_timesteps: int,
     num_seeds: int,
     training_seeds: List[int],
+    deterministic: bool = False,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -60,17 +61,21 @@ def _build_experiment_config(
         total_timesteps: RL training budget.
         num_seeds: Number of training seeds.
         training_seeds: Deterministic seed list.
+        deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
 
     Returns:
         Fully populated ExperimentConfig.
     """
+    base_config = Config(stochastic=not deterministic)
+    det_suffix = "_det" if deterministic else ""
+
     if scenario:
         print(f"Running predefined scenario: {scenario}")
         scenario_config = get_scenario(scenario)
         return ExperimentConfig(
-            base_config=Config(),
+            base_config=base_config,
             pomdp_params=scenario_config["pomdp_params"],
-            scenario_name=scenario,
+            scenario_name=scenario + det_suffix,
             is_custom=False,
             target_agents=scenario_config["target_agents"],
             total_timesteps=total_timesteps,
@@ -84,9 +89,9 @@ def _build_experiment_config(
         "detection_rate": detection_rate,
     }
     return ExperimentConfig(
-        base_config=Config(),
+        base_config=base_config,
         pomdp_params=pomdp_params,
-        scenario_name=create_custom_scenario_name(pomdp_params),
+        scenario_name=create_custom_scenario_name(pomdp_params) + det_suffix,
         is_custom=True,
         target_agents=TARGET_AGENTS.copy(),
         total_timesteps=total_timesteps,
@@ -215,6 +220,11 @@ def main(
         "--detection-rate",
         help="Fraction of true I and R observed (1.0=full, 0.3=COVID-realistic).",
     ),
+    deterministic: bool = typer.Option(
+        False,
+        "--deterministic",
+        help="Use deterministic ODE dynamics instead of stochastic Binomial transitions.",
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation.
@@ -229,7 +239,8 @@ def main(
     training_seeds = generate_seeds(num_seeds)
 
     exp_config = _build_experiment_config(
-        scenario, no_exposed, detection_rate, total_timesteps, num_seeds, training_seeds
+        scenario, no_exposed, detection_rate, total_timesteps, num_seeds, training_seeds,
+        deterministic=deterministic,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

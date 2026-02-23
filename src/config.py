@@ -13,6 +13,7 @@ class Config:
     beta_0: float = 0.4   # Base transmission rate
     sigma: float = 0.2    # Incubation rate (1 / incubation_period)
     gamma: float = 0.1    # Recovery rate
+    stochastic: bool = True  # If True, use Binomial transitions; if False, use deterministic ODE
 
     # Simulation settings
     days: int = 300 # Total simulation length in days

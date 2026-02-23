@@ -172,3 +172,93 @@ class TestSeirModelProperties:
             peak_high < peak_low
         ), f"Higher gamma should lead to lower peak (low gamma: {peak_low:.2f}, high gamma: {peak_high:.2f})"
 
+
+class TestStochasticRunSeir:
+    """Tests for stochastic Binomial transition mode of run_seir."""
+
+    @pytest.fixture
+    def stochastic_params(self):
+        """Parameters for stochastic SEIR tests. N=1000 gives noticeable variance."""
+        return {
+            "state": EpidemicState(N=1000, S=999, E=0, I=1, R=0),
+            "beta": 0.4,
+            "sigma": 0.2,
+            "gamma": 0.1,
+            "days": 160,
+            "rng": np.random.default_rng(42),
+        }
+
+    def test_non_negative(self, stochastic_params):
+        """Binomial draws are bounded by compartment size, so values must stay >= 0."""
+        S, E, I, R = run_seir(**stochastic_params)
+        assert np.all(S >= 0), "S must be non-negative"
+        assert np.all(E >= 0), "E must be non-negative"
+        assert np.all(I >= 0), "I must be non-negative"
+        assert np.all(R >= 0), "R must be non-negative"
+
+    def test_population_conservation(self, stochastic_params):
+        """S+E+I+R must equal N exactly at every step (integer arithmetic)."""
+        state = stochastic_params["state"]
+        S, E, I, R = run_seir(**stochastic_params)
+        totals = S + E + I + R
+        assert np.all(totals == state.N), f"Population not conserved: {totals}"
+
+    def test_reproducible_with_seed(self, stochastic_params):
+        """Same rng seed must produce bitwise-identical trajectories."""
+        params_a = stochastic_params.copy()
+        params_a["rng"] = np.random.default_rng(99)
+        S_a, E_a, I_a, R_a = run_seir(**params_a)
+
+        params_b = stochastic_params.copy()
+        params_b["rng"] = np.random.default_rng(99)
+        S_b, E_b, I_b, R_b = run_seir(**params_b)
+
+        assert np.array_equal(S_a, S_b)
+        assert np.array_equal(I_a, I_b)
+
+    def test_different_seeds_differ(self, stochastic_params):
+        """Different seeds should produce distinct trajectories (N=1000 → noticeable variance)."""
+        params_a = stochastic_params.copy()
+        params_a["rng"] = np.random.default_rng(1)
+        _, _, I_a, _ = run_seir(**params_a)
+
+        params_b = stochastic_params.copy()
+        params_b["rng"] = np.random.default_rng(2)
+        _, _, I_b, _ = run_seir(**params_b)
+
+        assert not np.array_equal(I_a, I_b), "Different seeds should yield different trajectories"
+
+    def test_large_n_converges_to_deterministic(self):
+        """Mean of many stochastic runs with large N should be close to deterministic solution."""
+        state = EpidemicState(N=10_000, S=9_900, E=50, I=50, R=0)
+        beta, sigma, gamma, days = 0.4, 0.2, 0.1, 100
+        n_runs = 200
+        rng = np.random.default_rng(0)
+
+        I_stochastic = np.zeros((n_runs, days))
+        for k in range(n_runs):
+            _, _, I_run, _ = run_seir(state, beta, sigma, gamma, days, rng=rng)
+            I_stochastic[k] = I_run
+
+        _, _, I_det, _ = run_seir(state, beta, sigma, gamma, days, rng=None)
+
+        mean_I = I_stochastic.mean(axis=0)
+        peak_det = I_det.max()
+        peak_mean = mean_I.max()
+
+        relative_error = abs(peak_mean - peak_det) / peak_det
+        assert relative_error < 0.05, (
+            f"Stochastic mean peak ({peak_mean:.1f}) deviates >5% from "
+            f"deterministic peak ({peak_det:.1f})"
+        )
+
+    def test_no_negative_with_extreme_rates(self):
+        """Binomial transitions must stay non-negative even with extreme epidemic parameters."""
+        state = EpidemicState(N=1000, S=990, E=5, I=5, R=0)
+        rng = np.random.default_rng(7)
+        S, E, I, R = run_seir(state, beta=1.5, sigma=0.9, gamma=0.9, days=50, rng=rng)
+        assert np.all(S >= 0)
+        assert np.all(E >= 0)
+        assert np.all(I >= 0)
+        assert np.all(R >= 0)
+

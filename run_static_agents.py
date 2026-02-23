@@ -32,7 +32,7 @@ def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:
     Returns:
         SimulationResult with complete trajectory.
     """
-    obs, _ = env.reset()
+    obs, _ = env.reset(seed=42)
     done = False
     
     # Extract initial state
@@ -210,6 +210,7 @@ def main():
             "beta_0": config.beta_0,
             "sigma": config.sigma,
             "gamma": config.gamma,
+            "stochastic": config.stochastic,
             "days": config.days,
             "action_interval": config.action_interval,
             "w_I": config.w_I,

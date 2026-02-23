@@ -62,12 +62,15 @@ class EpidemicEnv(gym.Env):
             self.config.action_interval, self.config.days - self.current_day
         )
 
+        rng = self.np_random if self.config.stochastic else None
+
         S, E, I, R = run_seir(
             self.current_state,
             beta,
             self.config.sigma,
             self.config.gamma,
             days_to_simulate,
+            rng=rng
         )
 
         if len(S) > 0:
