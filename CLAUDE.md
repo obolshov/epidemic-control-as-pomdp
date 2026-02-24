@@ -13,7 +13,7 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
     - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
     - `src/env.py`: Gymnasium environment.
     - `src/agents.py`: Agent wrappers and baseline logic.
-    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions (`EpidemicObservationWrapper`, `UnderReportingWrapper`).
+    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions (`EpidemicObservationWrapper`, `UnderReportingWrapper`, `MultiplicativeNoiseWrapper`).
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
 
@@ -67,12 +67,15 @@ experiments/{scenario_name}/{YYYY-MM-DD_HH-MM-SS}/
 ```
 
 ## Use custom scenarios for smoke tests — NOT predefined ones
-Predefined scenarios (`--scenario mdp`, `--scenario no_exposed_underreporting`, etc.) share a **single weights directory** per scenario name (`experiments/{scenario}/weights/`). Running a predefined scenario will **overwrite existing trained weights**.
+Predefined scenarios (`--scenario mdp`, `--scenario underreporting`, etc.) share a **single weights directory** per scenario name (`experiments/{scenario}/weights/`). Running a predefined scenario will **overwrite existing trained weights**.
 
 For smoke tests and validation, always use the **custom scenario flags** instead:
 ```bash
-# Equivalent to --scenario no_exposed_underreporting, but writes to a unique dir
+# Equivalent to --scenario underreporting, but writes to a unique dir
 python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
+
+# Equivalent to --scenario noisy_pomdp, but writes to a unique dir
+python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 -t 10000 --num-seeds 1
 ```
 Custom scenarios generate a unique `scenario_name` (e.g. `no_exposed_k0.3`) and never collide with the user's predefined experiment weights.
 

@@ -45,11 +45,19 @@ Partial observability with masked Exposed (E) compartment.
 python main.py --scenario no_exposed
 ```
 
-### **no_exposed_underreporting** (POMDP Experiment 2)
+### **underreporting** (POMDP Experiment 2)
 Masked E compartment + under-reporting of active cases (detection rate k=0.3).
 The agent observes 30% of true I and R — consistent with COVID-19 surveillance estimates.
 ```bash
-python main.py --scenario no_exposed_underreporting
+python main.py --scenario underreporting
+```
+
+### **noisy_pomdp** (POMDP Experiment 3)
+Masked E + under-reporting (k=0.3) + per-compartment multiplicative noise.
+Simulates false-positive/negative testing (I, E: σ=0.30) and incomplete recovery
+statistics (R: σ=0.15). The most realistic surveillance scenario.
+```bash
+python main.py --scenario noisy_pomdp
 ```
 
 ### Custom Scenarios
@@ -79,11 +87,12 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `no_exposed_underreporting`)
+- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
-- `--timesteps, -t`: Training timesteps (default: 50000)
+- `--timesteps, -t`: Training timesteps
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
+- `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
@@ -141,11 +150,18 @@ python main.py --scenario mdp --skip-training all
 # Train only new agents, skip ppo_baseline
 python main.py --scenario mdp --skip-training ppo_baseline
 
-# POMDP: masked E + under-reporting (predefined)
-python main.py --scenario no_exposed_underreporting
+# POMDP: masked E + under-reporting
+python main.py --scenario underreporting
+
+# POMDP: masked E + under-reporting + multiplicative noise
+python main.py --scenario noisy_pomdp
 
 # POMDP: custom detection rate
 python main.py --no-exposed --detection-rate 0.5
+
+# POMDP: custom noise levels
+python main.py --no-exposed --detection-rate 0.3 \
+  --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15
 
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000

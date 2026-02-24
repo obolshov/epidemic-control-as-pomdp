@@ -7,7 +7,7 @@ Supports multiple modes:
 - Multi-seed training with statistical evaluation
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 
@@ -47,6 +47,7 @@ def _build_experiment_config(
     scenario: Optional[str],
     no_exposed: bool,
     detection_rate: float,
+    noise_stds: Optional[List[float]],
     total_timesteps: int,
     num_seeds: int,
     training_seeds: List[int],
@@ -58,6 +59,7 @@ def _build_experiment_config(
         scenario: Predefined scenario name, or None for custom.
         no_exposed: Whether to mask the E compartment.
         detection_rate: Fraction of true I and R observed.
+        noise_stds: Per-compartment multiplicative noise stds, or None to disable.
         total_timesteps: RL training budget.
         num_seeds: Number of training seeds.
         training_seeds: Deterministic seed list.
@@ -84,9 +86,10 @@ def _build_experiment_config(
         )
 
     print("Running custom experiment")
-    pomdp_params = {
+    pomdp_params: Dict[str, Any] = {
         "include_exposed": not no_exposed,
         "detection_rate": detection_rate,
+        "noise_stds": noise_stds,
     }
     return ExperimentConfig(
         base_config=base_config,
@@ -220,6 +223,15 @@ def main(
         "--detection-rate",
         help="Fraction of true I and R observed (1.0=full, 0.3=COVID-realistic).",
     ),
+    noise_stds: Optional[List[float]] = typer.Option(
+        None,
+        "--noise-stds",
+        help=(
+            "Per-compartment multiplicative noise stds matching current obs shape. "
+            "Pass once per compartment: e.g. --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 "
+            "for [S, I, R] when --no-exposed is set. None = disabled."
+        ),
+    ),
     deterministic: bool = typer.Option(
         False,
         "--deterministic",
@@ -227,19 +239,14 @@ def main(
     ),
 ):
     """
-    Run epidemic control experiment with multi-seed training and evaluation.
-
-    Examples:
-        python main.py --scenario mdp
-        python main.py --scenario mdp --skip-training all
-        python main.py --scenario no_exposed_underreporting -t 200000 --num-seeds 5
-        python main.py --no-exposed --detection-rate 0.3
+    Run epidemic control experiment with multi-seed training and evaluation
     """
     agents_to_skip = _parse_skip_training(skip_training)
     training_seeds = generate_seeds(num_seeds)
 
     exp_config = _build_experiment_config(
-        scenario, no_exposed, detection_rate, total_timesteps, num_seeds, training_seeds,
+        scenario, no_exposed, detection_rate, noise_stds,
+        total_timesteps, num_seeds, training_seeds,
         deterministic=deterministic,
     )
 

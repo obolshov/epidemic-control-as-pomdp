@@ -30,28 +30,21 @@ PREDEFINED_SCENARIOS = {
             "include_exposed": False,
         },
     },
-    "no_exposed_underreporting": {
+    "underreporting": {
         "description": "POMDP Experiment 2: Masked E + Under-reporting (detection_rate=0.3)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": 0.3,
         },
     },
-    # Future experiments can be added here:
-    # "noisy_observations": {
-    #     "description": "POMDP Experiment 2: Observations with Gaussian noise",
-    #     "pomdp_params": {
-    #         "include_exposed": True,
-    #         "noise_std": 0.1,
-    #     },
-    # },
-    # "delayed_observations": {
-    #     "description": "POMDP Experiment 3: Delayed observations",
-    #     "pomdp_params": {
-    #         "include_exposed": True,
-    #         "delay": 5,
-    #     },
-    # },
+    "noisy_pomdp": {
+        "description": "POMDP Experiment 3: Masked E + under-reporting (k=0.3) + multiplicative noise",
+        "pomdp_params": {
+            "include_exposed": False,
+            "detection_rate": 0.3,
+            "noise_stds": [0.05, 0.30, 0.15],
+        },
+    },
 }
 
 
@@ -108,6 +101,10 @@ def create_custom_scenario_name(pomdp_params: Dict[str, Any]) -> str:
     if "detection_rate" in pomdp_params and pomdp_params["detection_rate"] < 1.0:
         k = pomdp_params["detection_rate"]
         parts.append(f"k{k:.2g}")
+
+    if pomdp_params.get("noise_stds") and any(s > 0 for s in pomdp_params["noise_stds"]):
+        stds = pomdp_params["noise_stds"]
+        parts.append(f"noise{'_'.join(f'{s:.2g}' for s in stds)}")
 
     # Add more parameters as needed in the future
     # if "frame_stack" in pomdp_params and pomdp_params["frame_stack"] > 1:

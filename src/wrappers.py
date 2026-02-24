@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import gymnasium as gym
 import numpy as np
@@ -131,6 +131,56 @@ class UnderReportingWrapper(gym.ObservationWrapper):
         return scaled.astype(self.observation_space.dtype)
 
 
+class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
+    """Simulates per-compartment multiplicative measurement noise.
+
+    Each compartment is multiplied by an independent noise factor:
+        obs_noisy[i] = obs[i] * (1 + N(0, noise_stds[i]))
+
+    Typical noise levels by compartment (epidemiological motivation):
+    - S: 0.05 — population size is well known
+    - E: 0.30 — pre-symptomatic, rarely directly detected (only when E is observed)
+    - I: 0.30 — false positive/negative testing
+    - R: 0.15 — incomplete recovery statistics
+
+    Must be applied LAST (after EpidemicObservationWrapper and
+    UnderReportingWrapper). The length of noise_stds must match the
+    current observation shape (3 or 4) — a ValueError is raised otherwise.
+
+    Args:
+        env: Wrapped environment. Observation shape must be (3,) or (4,).
+        noise_stds: Per-compartment noise stds matching the current observation
+                    shape. E.g. [0.05, 0.30, 0.15] for [S, I, R] or
+                    [0.05, 0.30, 0.30, 0.15] for [S, E, I, R].
+    """
+
+    def __init__(self, env: gym.Env, noise_stds: List[float]) -> None:
+        super().__init__(env)
+        obs_size = env.observation_space.shape[0]
+        if len(noise_stds) != obs_size:
+            raise ValueError(
+                f"noise_stds length ({len(noise_stds)}) must match observation "
+                f"size ({obs_size}). Current obs shape: {env.observation_space.shape}"
+            )
+        if any(s < 0 for s in noise_stds):
+            raise ValueError(f"All noise_stds must be >= 0, got {noise_stds}")
+        self._noise_stds = np.array(noise_stds, dtype=np.float32)
+        self._pop_size: float = float(env.observation_space.high[0])
+
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        """Apply per-compartment multiplicative noise and clip.
+
+        Args:
+            obs: Observation vector of shape (3,) or (4,).
+
+        Returns:
+            Noisy observation clipped to [0, N]. Shape unchanged.
+        """
+        noise_factors = 1.0 + self.np_random.normal(0.0, self._noise_stds).astype(np.float32)
+        noisy = obs * noise_factors
+        return np.clip(noisy, 0.0, self._pop_size).astype(self.observation_space.dtype)
+
+
 def create_environment(config: Config, pomdp_params: Dict[str, Any]) -> gym.Env:
     """
     Create environment with appropriate POMDP wrappers.
@@ -152,5 +202,9 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any]) -> gym.Env:
     detection_rate = pomdp_params.get("detection_rate", 1.0)
     if detection_rate < 1.0:
         env = UnderReportingWrapper(env, detection_rate=detection_rate)
+
+    noise_stds = pomdp_params.get("noise_stds")
+    if noise_stds is not None:
+        env = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds)
 
     return env
