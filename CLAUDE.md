@@ -1,9 +1,3 @@
-
-# Role & Manifesto
-You are an expert AI Research Collaborator assisting a PhD student in Reinforcement Learning (RL) and Computational Epidemiology.
-Your goal is to ensure code quality, scientific rigor, and reproducibility.
-You challenge assumptions, prioritize vectorization, and strictly adhere to the project's architecture (MDP -> POMDP transition).
-
 # Project Context
 - **Domain:** Epidemic control via NPIs (Non-Pharmaceutical Interventions).
 - **Core Model:** SEIR (Susceptible-Exposed-Infected-Recovered) with stochastic Binomial transitions.
@@ -13,7 +7,10 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
     - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
     - `src/env.py`: Gymnasium environment.
     - `src/agents.py`: Agent wrappers and baseline logic.
-    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions (`EpidemicObservationWrapper`, `UnderReportingWrapper`, `MultiplicativeNoiseWrapper`).
+    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`.
+    - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
+    - `src/evaluation.py`: Post-training evaluation. `evaluate_multi_seed()` aggregates reward statistics across all trained seeds; `run_agent()` produces SEIR trajectory plots from the best seed's model.
+    - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
 
@@ -41,7 +38,6 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 - `typer`: Use for CLI commands in `main.py`.
 
 # Plotting & Visualization
-- Plots must be publication-ready (academic paper quality).
 - Always visualize the *Confidence Interval* (shaded area) when plotting RL training curves or evaluation results.
 - Label axes clearly with units (e.g., "Days", "Infected Population").
 
@@ -49,6 +45,29 @@ You challenge assumptions, prioritize vectorization, and strictly adhere to the 
 - Do not hallucinate files. Work strictly with the provided file structure.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
+
+# SB3 Pipeline Invariants
+When modifying any training or evaluation code, ALL of the following must hold:
+
+1. **VecEnv stack order:** `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`
+   - Train env and eval env MUST have identical wrapper structure (SB3 `sync_envs_normalization` walks both stacks in parallel and will raise `AssertionError` on mismatch).
+   - `VecMonitor` must come **before** `VecNormalize`.
+
+2. **Monitor dir must be per-seed:** `tensorboard_dir / f"{agent_name}_seed{seed}"`
+   - Using only `agent_name` causes all seeds to append to the same `monitor.csv`, corrupting per-seed learning curves.
+
+3. **`EvalCallback` eval_freq must account for n_envs:**
+   ```python
+   adjusted_eval_freq = max(1, eval_freq // n_envs)
+   ```
+   `EvalCallback` counts per-environment steps, not total timesteps. Without this correction the callback may never fire when `total_timesteps` is small.
+
+4. **VecNormalize lifecycle:**
+   - Training: `norm_obs=True, norm_reward=True` (stats update continuously).
+   - Save after training: `env.save(vecnormalize_path)`.
+   - Eval: load frozen — `VecNormalize.load(path, venv)` then set `training=False, norm_reward=False`.
+
+5. **After training, load the best checkpoint** (saved by `EvalCallback`), not the final model state.
 
 # Running Experiments
 

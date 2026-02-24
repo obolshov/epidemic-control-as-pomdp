@@ -89,10 +89,12 @@ python main.py --help
 Key options:
 - `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
-- `--timesteps, -t`: Training timesteps
+- `--timesteps, -t`: Training timesteps per seed (default: 200 000)
+- `--num-seeds, -n`: Number of independent training seeds (default: 5)
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
 - `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
+- `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
@@ -106,26 +108,31 @@ Each experiment creates a timestamped directory, while model weights are shared 
 ```
 experiments/
   mdp/
-    weights/                       # Shared weights (reused across runs)
-      ppo_baseline.zip
-      ppo_framestack.zip
-    2026-02-07_14-30-00/           # Timestamped experiment results
-      config.json                  # Full experiment configuration
-      summary.json                 # Key metrics for all agents
+    weights/                                    # Shared weights (reused across runs)
+      ppo_baseline_seed42.zip                   # Per-seed model checkpoint
+      ppo_baseline_seed42_vecnormalize.pkl      # VecNormalize running stats (frozen at eval)
+      best_ppo_baseline_seed42/
+        best_model.zip                          # Best checkpoint saved by EvalCallback
+    2026-02-07_14-30-00/                        # Timestamped experiment results
+      config.json                               # Full experiment configuration
+      summary.json                              # Key metrics for all agents
       plots/
-        comparison_all_agents.png  # Side-by-side SEIR curves
-        random_agent_seir.png      # Individual agent plots
+        comparison_all_agents.png               # Side-by-side SEIR curves
+        evaluation_curves.png                   # Mean ± 95% CI reward across seeds
+        random_agent_seir.png                   # Individual agent SEIR plots
         threshold_agent_seir.png
         ppo_baseline_seir.png
-        ppo_baseline_learning_*.png # Training curves
+        ppo_baseline_seed42_learning.png        # Per-seed monitor-based learning curve
       logs/
-        random_agent.txt           # Detailed action logs
+        random_agent.txt                        # Detailed action logs
         threshold_agent.txt
         ppo_baseline.txt
-        tensorboard/               # TensorBoard training logs
+        tensorboard/
+          ppo_baseline_seed42/                  # VecMonitor logs (per-seed)
+          ppo_baseline_seed42_1/                # TensorBoard logs (per-seed)
 ```
 
-**Note:** Weights are stored at `experiments/{scenario}/weights/` to enable reuse across multiple runs.
+**Note:** Weights are stored at `experiments/{scenario}/weights/` to enable reuse across multiple runs. Each seed produces its own weight file and VecNormalize stats.
 
 
 ## Model Verification
