@@ -72,28 +72,35 @@ def get_scenario(name: str) -> Dict[str, Any]:
     return scenario
 
 
-def create_custom_scenario_name(pomdp_params: Dict[str, Any]) -> str:
+def create_custom_scenario_name(
+    pomdp_params: Dict[str, Any],
+    total_timesteps: int = 0,
+    deterministic: bool = False,
+) -> str:
     """
     Generate a descriptive name for a custom scenario based on POMDP parameters.
-    
+
     This creates human-readable names by concatenating non-default parameter values.
-    Example: {"include_exposed": False, "delay": 5} -> "no_exposed_delay5"
-    
+    Example: {"include_exposed": False, "detection_rate": 0.3}, total_timesteps=10000
+        -> "custom_no_exposed_k0.3_t10000"
+
     Args:
         pomdp_params: Dictionary of POMDP parameters.
-        
+        total_timesteps: RL training budget. Appended as ``_t{n}`` when non-zero.
+        deterministic: If True, appends ``_det`` suffix.
+
     Returns:
         Generated scenario name string.
     """
     parts = []
-    
+
     # Check each possible parameter and add to name if non-default
     if not pomdp_params.get("include_exposed", True):
         parts.append("no_exposed")
-    
+
     if "delay" in pomdp_params and pomdp_params["delay"] > 0:
         parts.append(f"delay{pomdp_params['delay']}")
-    
+
     if "noise_std" in pomdp_params and pomdp_params["noise_std"] > 0:
         noise_val = pomdp_params["noise_std"]
         parts.append(f"noise{noise_val}")
@@ -109,12 +116,15 @@ def create_custom_scenario_name(pomdp_params: Dict[str, Any]) -> str:
     # Add more parameters as needed in the future
     # if "frame_stack" in pomdp_params and pomdp_params["frame_stack"] > 1:
     #     parts.append(f"framestack{pomdp_params['frame_stack']}")
-    
-    if not parts:
-        # All parameters are default, use generic name
-        return "custom"
 
-    return "custom_" + "_".join(parts)
+    base = "custom_" + "_".join(parts) if parts else "custom"
+
+    if deterministic:
+        base += "_det"
+    if total_timesteps:
+        base += f"_t{total_timesteps}"
+
+    return base
 
 
 def list_scenarios() -> List[str]:

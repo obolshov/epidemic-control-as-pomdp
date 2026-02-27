@@ -77,7 +77,7 @@ def _build_experiment_config(
         return ExperimentConfig(
             base_config=base_config,
             pomdp_params=scenario_config["pomdp_params"],
-            scenario_name=scenario + det_suffix,
+            scenario_name=scenario + det_suffix + f"_t{total_timesteps}",
             is_custom=False,
             target_agents=scenario_config["target_agents"],
             total_timesteps=total_timesteps,
@@ -94,7 +94,7 @@ def _build_experiment_config(
     return ExperimentConfig(
         base_config=base_config,
         pomdp_params=pomdp_params,
-        scenario_name=create_custom_scenario_name(pomdp_params) + det_suffix,
+        scenario_name=create_custom_scenario_name(pomdp_params, total_timesteps=total_timesteps, deterministic=deterministic),
         is_custom=True,
         target_agents=TARGET_AGENTS.copy(),
         total_timesteps=total_timesteps,
