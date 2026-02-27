@@ -179,7 +179,6 @@ class ExperimentDirectory:
                 "agent_name": result.agent_name,
                 "peak_infected": float(result.peak_infected),
                 "total_infected": float(result.total_infected),
-                "epidemic_duration": int(result.epidemic_duration),
                 "total_reward": float(result.total_reward),
                 "num_actions": len(result.actions),
             }

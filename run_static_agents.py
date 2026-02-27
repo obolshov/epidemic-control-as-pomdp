@@ -125,7 +125,6 @@ def plot_static_agents_comparison(results: List[SimulationResult], save_path: st
         # Add statistics box
         info_text = f"Peak I: {result.peak_infected:.1f}\n"
         info_text += f"Total infected: {result.total_infected:.1f}\n"
-        info_text += f"Duration: {result.epidemic_duration} days\n"
         info_text += f"Total Reward: {result.total_reward:.2f}"
         
         ax.text(
@@ -188,12 +187,11 @@ def main():
     print("\n" + "=" * 80)
     print("RESULTS SUMMARY")
     print("=" * 80)
-    print(f"{'Agent':<30} {'Peak I':<12} {'Total Infected':<15} {'Duration (days)':<15} {'Total Reward':<12}")
-    print("-" * 80)
+    print(f"{'Agent':<30} {'Peak I':<12} {'Total Infected':<15} {'Total Reward':<12}")
+    print("-" * 70)
     for result in results:
         print(f"{result.agent_name:<30} {result.peak_infected:<12.1f} "
-              f"{result.total_infected:<15.1f} {result.epidemic_duration:<15} "
-              f"{result.total_reward:<12.2f}")
+              f"{result.total_infected:<15.1f} {result.total_reward:<12.2f}")
     
     # Save comparison plot
     plot_path = os.path.join(output_dir, "static_agents_comparison.png")

@@ -146,11 +146,6 @@ class SimulationResult:
         return self.E[-1] + self.I[-1] + self.R[-1]
 
     @property
-    def epidemic_duration(self) -> int:
-        days_above_one = np.where(self.I >= 1.0)[0]
-        return days_above_one[-1] if len(days_above_one) > 0 else 0
-
-    @property
     def agent_name(self) -> str:
         # Use custom name if provided (for RL agents like ppo_baseline, ppo_framestack)
         if self.custom_name:

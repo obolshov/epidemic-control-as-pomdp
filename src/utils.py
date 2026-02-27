@@ -29,8 +29,7 @@ def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
     ax.grid(True, alpha=0.3)
 
     info_text = f"Peak I: {result.peak_infected:.1f}\n"
-    info_text += f"Total infected: {result.total_infected:.1f}\n"
-    info_text += f"Duration: {result.epidemic_duration} days"
+    info_text += f"Total infected: {result.total_infected:.1f}"
 
     if hasattr(result, "total_reward"):
         info_text += f"\nTotal Reward: {result.total_reward:.2f}"
@@ -183,7 +182,6 @@ def log_results(result: SimulationResult, log_path: str) -> None:
         f.write("Summary Statistics:\n")
         f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
         f.write(f"  Total Infected: {result.total_infected:.2f}\n")
-        f.write(f"  Epidemic Duration: {result.epidemic_duration} days\n")
         f.write(f"  Total Reward: {result.total_reward:.4f}\n")
         f.write(f"  Number of Actions: {len(result.actions)}\n")
 
