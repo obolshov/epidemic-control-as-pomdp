@@ -168,6 +168,7 @@ def _print_summary(
             print(
                 f"  - {result.agent_name}: "
                 f"Peak I = {result.peak_infected:.1f}, "
+                f"Total Infected = {result.total_infected:.1f}, "
                 f"Total Reward = {result.total_reward:.2f}"
             )
 
