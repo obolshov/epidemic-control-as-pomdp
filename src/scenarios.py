@@ -113,8 +113,8 @@ def create_custom_scenario_name(pomdp_params: Dict[str, Any]) -> str:
     if not parts:
         # All parameters are default, use generic name
         return "custom"
-    
-    return "_".join(parts)
+
+    return "custom_" + "_".join(parts)
 
 
 def list_scenarios() -> List[str]:
