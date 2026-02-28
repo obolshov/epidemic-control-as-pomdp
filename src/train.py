@@ -227,6 +227,7 @@ def train_ppo_agent(
     callbacks = create_training_callbacks(
         eval_env, experiment_dir, agent_name, seed,
         n_envs=config.n_envs,
+        n_eval_episodes=config.n_eval_episodes,
         patience=config.early_stop_patience,
         min_evals=config.early_stop_min_evals,
     )
