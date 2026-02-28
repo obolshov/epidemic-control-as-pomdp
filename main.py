@@ -52,6 +52,7 @@ def _build_experiment_config(
     num_seeds: int,
     training_seeds: List[int],
     deterministic: bool = False,
+    lag: Optional[List[int]] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -64,6 +65,7 @@ def _build_experiment_config(
         num_seeds: Number of training seeds.
         training_seeds: Deterministic seed list.
         deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
+        lag: Lag range [min_lag, max_lag] in days, or None to disable.
 
     Returns:
         Fully populated ExperimentConfig.
@@ -90,6 +92,7 @@ def _build_experiment_config(
         "include_exposed": not no_exposed,
         "detection_rate": detection_rate,
         "noise_stds": noise_stds,
+        "lag": lag,
     }
     return ExperimentConfig(
         base_config=base_config,
@@ -238,6 +241,14 @@ def main(
         "--deterministic",
         help="Use deterministic ODE dynamics instead of stochastic Binomial transitions.",
     ),
+    lag: Optional[List[int]] = typer.Option(
+        None,
+        "--lag",
+        help=(
+            "Temporal lag range [min, max] in days. "
+            "Pass twice: e.g. --lag 5 --lag 14. None = disabled."
+        ),
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation
@@ -249,6 +260,7 @@ def main(
         scenario, no_exposed, detection_rate, noise_stds,
         total_timesteps, num_seeds, training_seeds,
         deterministic=deterministic,
+        lag=lag,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

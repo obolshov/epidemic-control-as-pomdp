@@ -43,7 +43,7 @@ def create_eval_vec_env(
     Returns:
         Evaluation VecEnv ready for inference.
     """
-    env = create_environment(config, pomdp_params)
+    env = create_environment(config, pomdp_params, seed=seed)
     env.reset(seed=seed)
     venv = DummyVecEnv([lambda: env])
     venv = VecMonitor(venv)
@@ -334,7 +334,7 @@ def run_evaluation(
     multi_seed_stats: Dict[str, dict] = {}
 
     # Evaluate non-RL agents (single-episode trajectory)
-    env = create_environment(exp_config.base_config, exp_config.pomdp_params)
+    env = create_environment(exp_config.base_config, exp_config.pomdp_params, seed=exp_config.training_seeds[0])
     agents = create_baseline_agents(exp_config.base_config, exp_config.target_agents)
 
     for agent in agents:

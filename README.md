@@ -55,9 +55,17 @@ python main.py --scenario underreporting
 ### **noisy_pomdp** (POMDP Experiment 3)
 Masked E + under-reporting (k=0.3) + per-compartment multiplicative noise.
 Simulates false-positive/negative testing (I, E: σ=0.30) and incomplete recovery
-statistics (R: σ=0.15). The most realistic surveillance scenario.
+statistics (R: σ=0.15).
 ```bash
 python main.py --scenario noisy_pomdp
+```
+
+### **pomdp** (POMDP Experiment 4)
+Masked E + under-reporting (k=0.3) + multiplicative noise + temporal lag (5–14 days).
+The agent receives observations from a random number of days in the past, simulating
+bureaucratic and laboratory reporting delays. The most challenging and realistic scenario.
+```bash
+python main.py --scenario pomdp
 ```
 
 ### Custom Scenarios
@@ -87,13 +95,14 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`)
+- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps per seed (default: 200 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
 - `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
+- `--lag`: Temporal lag range in days (pass twice: `--lag 5 --lag 14`). Disabled if omitted.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 
 **Training behavior:**
@@ -157,11 +166,8 @@ python main.py --scenario mdp --skip-training all
 # Train only new agents, skip ppo_baseline
 python main.py --scenario mdp --skip-training ppo_baseline
 
-# POMDP: masked E + under-reporting
-python main.py --scenario underreporting
-
-# POMDP: masked E + under-reporting + multiplicative noise
-python main.py --scenario noisy_pomdp
+# POMDP: full distortions including temporal lag
+python main.py --scenario pomdp
 
 # POMDP: custom detection rate
 python main.py --no-exposed --detection-rate 0.5

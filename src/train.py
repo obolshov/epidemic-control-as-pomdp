@@ -58,7 +58,7 @@ def make_env(
     """
 
     def _init() -> gym.Env:
-        env = create_environment(config, pomdp_params)
+        env = create_environment(config, pomdp_params, seed=seed + rank)
         env.reset(seed=seed + rank)
         return env
 

@@ -7,7 +7,7 @@
     - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
     - `src/env.py`: Gymnasium environment.
     - `src/agents.py`: Agent wrappers and baseline logic.
-    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`.
+    - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
     - `src/evaluation.py`: Post-training evaluation. `evaluate_multi_seed()` aggregates reward statistics across all trained seeds; `run_agent()` produces SEIR trajectory plots from the best seed's model.
     - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
@@ -45,6 +45,7 @@
 - Do not hallucinate files. Work strictly with the provided file structure.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
+- `pomdp_params["lag"]` is a **list `[min_lag, max_lag]`** (e.g. `[5, 14]`), not a boolean. `None` or absent key means lag disabled.
 
 # SB3 Pipeline Invariants
 When modifying any training or evaluation code, ALL of the following must hold:
@@ -95,8 +96,11 @@ python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
 
 # Equivalent to --scenario noisy_pomdp, but writes to a unique dir
 python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 -t 10000 --num-seeds 1
+
+# Equivalent to --scenario pomdp, but writes to a unique dir
+python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 --lag 5 --lag 14 -t 10000 --num-seeds 1
 ```
-Custom scenarios generate a unique `scenario_name` (e.g. `no_exposed_k0.3`) and never collide with the user's predefined experiment weights.
+Custom scenarios generate a unique `scenario_name` (e.g. `custom_no_exposed_k0.3_lag5_14_t10000`) and never collide with the user's predefined experiment weights.
 
 ## Keep -t small for smoke tests
 One full training run for RecurrentPPO takes ~25 minutes. Use `-t 10000` for any validation or smoke test — it is sufficient to confirm the pipeline works end-to-end:

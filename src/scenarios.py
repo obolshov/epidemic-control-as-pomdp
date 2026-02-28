@@ -45,6 +45,15 @@ PREDEFINED_SCENARIOS = {
             "noise_stds": [0.05, 0.30, 0.15],
         },
     },
+    "pomdp": {
+        "description": "POMDP Experiment 4: Masked E + under-reporting (k=0.3) + noise + temporal lag (5–14 days)",
+        "pomdp_params": {
+            "include_exposed": False,
+            "detection_rate": 0.3,
+            "noise_stds": [0.05, 0.30, 0.15],
+            "lag": [5, 14],
+        },
+    },
 }
 
 
@@ -113,9 +122,9 @@ def create_custom_scenario_name(
         stds = pomdp_params["noise_stds"]
         parts.append(f"noise{'_'.join(f'{s:.2g}' for s in stds)}")
 
-    # Add more parameters as needed in the future
-    # if "frame_stack" in pomdp_params and pomdp_params["frame_stack"] > 1:
-    #     parts.append(f"framestack{pomdp_params['frame_stack']}")
+    if pomdp_params.get("lag"):
+        min_lag, max_lag = pomdp_params["lag"]
+        parts.append(f"lag{min_lag}_{max_lag}")
 
     base = "custom_" + "_".join(parts) if parts else "custom"
 

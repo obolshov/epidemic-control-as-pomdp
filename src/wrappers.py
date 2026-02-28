@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Any, Dict, List
 
 import gymnasium as gym
@@ -181,13 +182,61 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
         return np.clip(noisy, 0.0, self._pop_size).astype(self.observation_space.dtype)
 
 
-def create_environment(config: Config, pomdp_params: Dict[str, Any]) -> gym.Env:
+class TemporalLagWrapper(gym.ObservationWrapper):
+    """Simulates delayed reporting by returning observations from L steps ago.
+
+    At each step, the current observation is pushed into a circular buffer and
+    a lag L ~ Uniform[min_lag, max_lag] is sampled. The observation returned is
+    the one from L steps ago. During the warmup period (buffer not yet full),
+    lag is clamped to the current buffer size.
+
+    Args:
+        env: Wrapped environment.
+        min_lag: Minimum lag in days (default 5).
+        max_lag: Maximum lag in days (default 14).
+        seed: RNG seed for reproducible lag sampling (default 42).
+    """
+
+    def __init__(self, env: gym.Env, min_lag: int = 5, max_lag: int = 14, seed: int = 42) -> None:
+        super().__init__(env)
+        if min_lag < 1:
+            raise ValueError(f"min_lag must be >= 1, got {min_lag}")
+        if max_lag < min_lag:
+            raise ValueError(f"max_lag ({max_lag}) must be >= min_lag ({min_lag})")
+        self.min_lag = min_lag
+        self.max_lag = max_lag
+        self._rng = np.random.default_rng(seed)
+        self._cache: deque = deque(maxlen=max_lag)
+
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        """Push obs into buffer and return the observation from lag steps ago.
+
+        Args:
+            obs: Current observation vector.
+
+        Returns:
+            Observation from L ~ Uniform[min_lag, max_lag] steps ago,
+            clamped to buffer size during warmup.
+        """
+        self._cache.append(obs.copy())
+        lag = int(self._rng.integers(self.min_lag, self.max_lag + 1))
+        lag = min(lag, len(self._cache))
+        return self._cache[len(self._cache) - lag].copy()
+
+    def reset(self, **kwargs):
+        """Clear the observation buffer before resetting the environment."""
+        self._cache.clear()
+        return super().reset(**kwargs)
+
+
+def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int = 42) -> gym.Env:
     """
     Create environment with appropriate POMDP wrappers.
 
     Args:
         config: Base configuration.
         pomdp_params: POMDP parameters for wrappers.
+        seed: RNG seed forwarded to stochastic wrappers (e.g. TemporalLagWrapper).
 
     Returns:
         Environment with wrappers applied.
@@ -202,6 +251,11 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any]) -> gym.Env:
     detection_rate = pomdp_params.get("detection_rate", 1.0)
     if detection_rate < 1.0:
         env = UnderReportingWrapper(env, detection_rate=detection_rate)
+
+    lag_range = pomdp_params.get("lag")
+    if lag_range is not None:
+        min_lag, max_lag = lag_range
+        env = TemporalLagWrapper(env, min_lag=min_lag, max_lag=max_lag, seed=seed)
 
     noise_stds = pomdp_params.get("noise_stds")
     if noise_stds is not None:
