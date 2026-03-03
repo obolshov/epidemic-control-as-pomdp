@@ -76,9 +76,9 @@ def evaluate_agent_statistics(
         deterministic: Whether to use deterministic actions.
 
     Returns:
-        Dict with mean_reward, std_reward, ci_low, ci_high, episode_rewards, episode_lengths.
+        Dict with mean_reward, std_reward, ci_low, ci_high, episode_rewards.
     """
-    episode_rewards, episode_lengths = evaluate_policy(
+    episode_rewards, _ = evaluate_policy(
         model,
         eval_env,
         n_eval_episodes=n_eval_episodes,
@@ -97,7 +97,6 @@ def evaluate_agent_statistics(
         "ci_low": mean_reward - ci_margin,
         "ci_high": mean_reward + ci_margin,
         "episode_rewards": [float(r) for r in episode_rewards],
-        "episode_lengths": [int(el) for el in episode_lengths],
     }
 
 
