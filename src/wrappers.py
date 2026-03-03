@@ -183,12 +183,16 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
 
 
 class TemporalLagWrapper(gym.ObservationWrapper):
-    """Simulates delayed reporting by returning observations from L steps ago.
+    """Simulates delayed reporting with FIFO monotonicity and a random-walk lag.
 
-    At each step, the current observation is pushed into a circular buffer and
-    a lag L ~ Uniform[min_lag, max_lag] is sampled. The observation returned is
-    the one from L steps ago. During the warmup period (buffer not yet full),
-    lag is clamped to the current buffer size.
+    The lag evolves as a random walk: L_t = clip(L_{t-1} + noise, min_lag, max_lag)
+    where noise ~ DiscreteUniform{-1, 0, 1}. The observation pointer never goes
+    backward (FIFO monotonicity), so the agent never sees older data after having
+    seen newer data — matching real-world batch-reporting behaviour (e.g. weekends
+    hold, Mondays catch up by jumping forward).
+
+    During warmup (first min_lag steps), the pointer clamps to 0 so the agent
+    sees the episode's first observation until enough history accumulates.
 
     Args:
         env: Wrapped environment.
@@ -206,26 +210,52 @@ class TemporalLagWrapper(gym.ObservationWrapper):
         self.min_lag = min_lag
         self.max_lag = max_lag
         self._rng = np.random.default_rng(seed)
-        self._cache: deque = deque(maxlen=max_lag)
+        # maxlen=max_lag+1 keeps obs[t-max_lag] in buffer when obs[t] is appended
+        self._cache: deque = deque(maxlen=max_lag + 1)
+        self._current_lag: int = min_lag
+        self._last_pointer: int = -1
+        self._step: int = 0
+
+    def _advance_lag(self) -> None:
+        """Advance lag by one random-walk step: noise ~ DiscreteUniform{-1, 0, 1}."""
+        noise = int(self._rng.integers(-1, 2))
+        self._current_lag = int(np.clip(self._current_lag + noise, self.min_lag, self.max_lag))
 
     def observation(self, obs: np.ndarray) -> np.ndarray:
-        """Push obs into buffer and return the observation from lag steps ago.
+        """Push obs into buffer and return the observation at the FIFO-monotone pointer.
 
         Args:
-            obs: Current observation vector.
+            obs: Current true observation vector.
 
         Returns:
-            Observation from L ~ Uniform[min_lag, max_lag] steps ago,
-            clamped to buffer size during warmup.
+            Observation from the FIFO-monotone delayed pointer.
         """
         self._cache.append(obs.copy())
-        lag = int(self._rng.integers(self.min_lag, self.max_lag + 1))
-        lag = min(lag, len(self._cache))
-        return self._cache[len(self._cache) - lag].copy()
+        t = self._step
+        self._step += 1
+
+        available_index = t - self._current_lag
+        # FIFO: pointer never goes backward
+        pointer = max(self._last_pointer, available_index)
+        # Warmup safety: clamp into [0, t]
+        pointer = int(np.clip(pointer, 0, t))
+        self._last_pointer = pointer
+
+        oldest_in_buffer = max(0, t - self.max_lag)
+        buffer_idx = max(0, pointer - oldest_in_buffer)
+        return self._cache[buffer_idx].copy()
+
+    def step(self, action):
+        """Advance the lag random walk before the environment steps."""
+        self._advance_lag()
+        return super().step(action)
 
     def reset(self, **kwargs):
-        """Clear the observation buffer before resetting the environment."""
+        """Clear buffer and state, sample a new initial lag, then reset env."""
         self._cache.clear()
+        self._current_lag = int(self._rng.integers(self.min_lag, self.max_lag + 1))
+        self._last_pointer = -1
+        self._step = 0
         return super().reset(**kwargs)
 
 
