@@ -53,6 +53,7 @@ def _build_experiment_config(
     training_seeds: List[int],
     deterministic: bool = False,
     lag: Optional[List[int]] = None,
+    testing_capacity: Optional[float] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -66,6 +67,7 @@ def _build_experiment_config(
         training_seeds: Deterministic seed list.
         deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
         lag: Lag range [min_lag, max_lag] in days, or None to disable.
+        testing_capacity: Fraction of population testable per day, or None to disable.
 
     Returns:
         Fully populated ExperimentConfig.
@@ -93,6 +95,7 @@ def _build_experiment_config(
         "detection_rate": detection_rate,
         "noise_stds": noise_stds,
         "lag": lag,
+        "testing_capacity": testing_capacity,
     }
     return ExperimentConfig(
         base_config=base_config,
@@ -236,6 +239,14 @@ def main(
             "for [S, I, R] when --no-exposed is set. None = disabled."
         ),
     ),
+    testing_capacity: Optional[float] = typer.Option(
+        None,
+        "--testing-capacity",
+        help=(
+            "Fraction of population testable per day. When set, detection rate "
+            "drops during surges (Michaelis-Menten saturation). E.g. 0.015 = 1.5%%/day."
+        ),
+    ),
     deterministic: bool = typer.Option(
         False,
         "--deterministic",
@@ -261,6 +272,7 @@ def main(
         total_timesteps, num_seeds, training_seeds,
         deterministic=deterministic,
         lag=lag,
+        testing_capacity=testing_capacity,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

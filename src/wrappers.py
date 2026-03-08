@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -86,8 +86,22 @@ class UnderReportingWrapper(gym.ObservationWrapper):
     """Simulates under-reporting by scaling the observed I and R compartments.
 
     In reality, only a fraction of infected (and recovered) individuals are
-    officially detected via testing. The agent sees k*I and k*R instead of the
-    true values. COVID-19 research suggests k ≈ 0.1–0.3 depending on the country.
+    officially detected via testing. The agent sees k_eff*I and k_eff*R instead
+    of the true values. Undetected individuals are redistributed into S,
+    preserving population accounting and preventing the agent from inferring
+    true infection levels via the S dynamics channel.
+
+    Supports optional testing capacity saturation: when the infected fraction
+    exceeds the testing system's throughput, k_effective drops below k_base.
+    This models real-world testing bottlenecks observed during COVID-19
+    surges (Lau et al. 2021).
+
+    The effective detection rate follows Michaelis-Menten saturation kinetics:
+        k_eff(I) = k_base * r / (k_base * (I/N) + r)
+    where r is the testing capacity ratio (fraction of population testable per
+    day). When I/N is small, k_eff ≈ k_base. When I/N >> r/k_base, I_obs
+    plateaus at ~r*N (testing ceiling). The formula is scale-invariant —
+    it depends only on the infected fraction, not absolute population size.
 
     Must be applied AFTER EpidemicObservationWrapper (if E masking is used),
     since it infers I and R indices from the current observation shape.
@@ -95,15 +109,29 @@ class UnderReportingWrapper(gym.ObservationWrapper):
     Args:
         env: Wrapped environment. Observation shape must be (3,) [S, I, R]
              or (4,) [S, E, I, R].
-        detection_rate: Fraction of true I and R observed. Must be in (0.0, 1.0].
+        detection_rate: Base fraction of true I and R observed. Must be in (0.0, 1.0].
                         1.0 = full observation (no distortion); 0.3 = COVID-realistic.
+        testing_capacity: Fraction of the population that can be tested per day.
+                         When None, detection_rate is constant (no saturation).
+                         E.g. 0.015 means 1.5% of population/day (~3000 for N=200k).
     """
 
-    def __init__(self, env: gym.Env, detection_rate: float = 1.0) -> None:
+    S_INDEX = 0  # S is always the first compartment
+
+    def __init__(
+        self,
+        env: gym.Env,
+        detection_rate: float = 1.0,
+        testing_capacity: Optional[float] = None,
+    ) -> None:
         super().__init__(env)
         if not (0.0 < detection_rate <= 1.0):
             raise ValueError(f"detection_rate must be in (0, 1], got {detection_rate}")
+        if testing_capacity is not None and testing_capacity <= 0.0:
+            raise ValueError(f"testing_capacity must be > 0, got {testing_capacity}")
         self.detection_rate = detection_rate
+        self.testing_capacity = testing_capacity
+        self._pop_size: float = float(env.observation_space.high[0])
 
         obs_size = env.observation_space.shape[0]
         if obs_size == 4:    # [S, E, I, R]
@@ -117,18 +145,47 @@ class UnderReportingWrapper(gym.ObservationWrapper):
                 f"Unexpected observation size {obs_size}; expected 3 ([S, I, R]) or 4 ([S, E, I, R])."
             )
 
+    def _effective_rate(self, true_I: float) -> float:
+        """Compute effective detection rate accounting for testing saturation.
+
+        Uses Michaelis-Menten kinetics in fraction form:
+            k_eff = k_base * r / (k_base * (I/N) + r)
+        When testing_capacity is None, returns k_base unchanged.
+
+        Args:
+            true_I: True infected count (before any scaling).
+
+        Returns:
+            Effective detection rate in (0, k_base].
+        """
+        if self.testing_capacity is None:
+            return self.detection_rate
+        k = self.detection_rate
+        r = self.testing_capacity
+        infected_fraction = true_I / self._pop_size
+        return k * r / (k * infected_fraction + r)
+
     def observation(self, obs: np.ndarray) -> np.ndarray:
-        """Scale I and R compartments by detection_rate.
+        """Scale I and R by effective detection rate, redistribute undetected into S.
+
+        Undetected individuals are absorbed into the susceptible pool, matching
+        real-world surveillance where unconfirmed cases remain in the "healthy"
+        population statistics.
 
         Args:
             obs: Observation vector of shape (3,) or (4,).
 
         Returns:
-            Observation with I and R scaled by detection_rate. Shape unchanged.
+            Observation with I and R scaled down, S inflated by undetected. Shape unchanged.
         """
         scaled = obs.copy()
-        scaled[self.i_index] *= self.detection_rate
-        scaled[self.r_index] *= self.detection_rate
+        true_I = scaled[self.i_index]
+        k_eff = self._effective_rate(true_I)
+        hidden_I = scaled[self.i_index] * (1.0 - k_eff)
+        hidden_R = scaled[self.r_index] * (1.0 - k_eff)
+        scaled[self.i_index] *= k_eff
+        scaled[self.r_index] *= k_eff
+        scaled[self.S_INDEX] += hidden_I + hidden_R
         return scaled.astype(self.observation_space.dtype)
 
 
@@ -279,8 +336,11 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
         env = EpidemicObservationWrapper(env, include_exposed=False)
 
     detection_rate = pomdp_params.get("detection_rate", 1.0)
-    if detection_rate < 1.0:
-        env = UnderReportingWrapper(env, detection_rate=detection_rate)
+    testing_capacity = pomdp_params.get("testing_capacity")
+    if detection_rate < 1.0 or testing_capacity is not None:
+        env = UnderReportingWrapper(
+            env, detection_rate=detection_rate, testing_capacity=testing_capacity,
+        )
 
     lag_range = pomdp_params.get("lag")
     if lag_range is not None:

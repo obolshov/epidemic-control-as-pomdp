@@ -2,7 +2,7 @@
 - **Domain:** Epidemic control via NPIs (Non-Pharmaceutical Interventions).
 - **Core Model:** SEIR (Susceptible-Exposed-Infected-Recovered) with stochastic Binomial transitions.
 - **RL Framework:** Stable Baselines 3 (SB3), Gymnasium.
-- **Key Innovation:** Transitioning from MDP (Oracle) to POMDP (Blind, FrameStack, Recurrent).
+- **Main idea:** Performance comparison of RL algorithms with and without memory (FrameStack, Recurrent) in MDP and POMDP scenarios.
 - **Architecture:**
     - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
     - `src/env.py`: Gymnasium environment.
@@ -42,10 +42,8 @@
 - Label axes clearly with units (e.g., "Days", "Infected Population").
 
 # Workflow constraints
-- Do not hallucinate files. Work strictly with the provided file structure.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
-- `pomdp_params["lag"]` is a **list `[min_lag, max_lag]`** (e.g. `[5, 14]`), not a boolean. `None` or absent key means lag disabled.
 
 # SB3 Pipeline Invariants
 When modifying any training or evaluation code, ALL of the following must hold:

@@ -47,7 +47,8 @@ python main.py --scenario no_exposed
 
 ### **underreporting** (POMDP Experiment 2)
 Masked E compartment + under-reporting of active cases (detection rate k=0.3).
-The agent observes 30% of true I and R — consistent with COVID-19 surveillance estimates.
+The agent observes 30% of true I and R; undetected cases are absorbed into S,
+matching real-world surveillance where unconfirmed infections appear as healthy population.
 ```bash
 python main.py --scenario underreporting
 ```
@@ -101,6 +102,7 @@ Key options:
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
+- `--testing-capacity`: Fraction of population testable per day. When set, detection rate drops during surges via Michaelis-Menten saturation (e.g. `--testing-capacity 0.015` = 1.5%/day)
 - `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
 - `--lag`: Temporal lag range in days (pass twice: `--lag 5 --lag 14`). Disabled if omitted.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
@@ -169,8 +171,8 @@ python main.py --scenario mdp --skip-training ppo_baseline
 # POMDP: full distortions including temporal lag
 python main.py --scenario pomdp
 
-# POMDP: custom detection rate
-python main.py --no-exposed --detection-rate 0.5
+# POMDP: under-reporting with testing capacity saturation
+python main.py --no-exposed --detection-rate 0.3 --testing-capacity 0.015
 
 # POMDP: custom noise levels
 python main.py --no-exposed --detection-rate 0.3 \
