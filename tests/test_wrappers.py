@@ -52,38 +52,43 @@ def get_wrapper_chain(env: gym.Env) -> list:
 class TestEpidemicObservationWrapper:
 
     def test_include_exposed_true_identity(self, base_env):
-        """include_exposed=True → shape (4,), obs unchanged."""
+        """include_exposed=True → shape (6,), obs unchanged."""
         wrapped = EpidemicObservationWrapper(base_env, include_exposed=True)
         obs, _ = wrapped.reset(seed=42)
-        assert obs.shape == (4,)
+        assert obs.shape == (6,)
         raw_obs = base_env._get_obs()
         np.testing.assert_array_equal(obs, raw_obs)
 
     def test_include_exposed_false_removes_E(self, base_env):
-        """include_exposed=False → shape (3,) = [S, I, R]."""
+        """include_exposed=False → shape (5,) = [S, I, R, prev_action, day_frac]."""
         wrapped = EpidemicObservationWrapper(base_env, include_exposed=False)
         obs, _ = wrapped.reset(seed=42)
-        assert obs.shape == (3,)
+        assert obs.shape == (5,)
         raw = base_env._get_obs()
-        np.testing.assert_array_equal(obs, np.array([raw[0], raw[2], raw[3]], dtype=np.float32))
+        np.testing.assert_array_equal(
+            obs, np.array([raw[0], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32)
+        )
 
     def test_observation_space_bounds(self, small_config):
-        """low=0, high=N, dtype=float32."""
+        """Per-element bounds: [N, N, N, n_actions-1, 1.0], dtype=float32."""
         env = EpidemicEnv(small_config)
         wrapped = EpidemicObservationWrapper(env, include_exposed=False)
         space = wrapped.observation_space
-        assert space.shape == (3,)
+        assert space.shape == (5,)
         assert space.dtype == np.float32
-        np.testing.assert_array_equal(space.low, np.zeros(3, dtype=np.float32))
-        np.testing.assert_array_equal(space.high, np.full(3, small_config.N, dtype=np.float32))
+        np.testing.assert_array_equal(space.low, np.zeros(5, dtype=np.float32))
+        expected_high = np.array(
+            [small_config.N, small_config.N, small_config.N, 3.0, 1.0], dtype=np.float32
+        )
+        np.testing.assert_array_equal(space.high, expected_high)
 
     def test_step_obs_shape_consistent(self, small_config):
-        """step() returns obs with shape (3,) within observation_space."""
+        """step() returns obs with shape (5,) within observation_space."""
         env = EpidemicEnv(small_config)
         wrapped = EpidemicObservationWrapper(env, include_exposed=False)
         wrapped.reset(seed=42)
         obs, _, _, _, _ = wrapped.step(0)
-        assert obs.shape == (3,)
+        assert obs.shape == (5,)
         assert wrapped.observation_space.contains(obs)
 
     def test_rejects_non_box_space(self):
@@ -95,10 +100,10 @@ class TestEpidemicObservationWrapper:
             EpidemicObservationWrapper(env, include_exposed=False)
 
     def test_rejects_wrong_shape(self):
-        """ValueError on shape != (4,)."""
-        env = gym.make("CartPole-v1")  # CartPole has shape (4,) but wrong bounds
+        """ValueError on shape != (6,)."""
+        env = gym.make("CartPole-v1")
         env.observation_space = spaces.Box(low=0, high=1, shape=(5,), dtype=np.float32)
-        with pytest.raises(ValueError, match="Expected observation shape \\(4,\\)"):
+        with pytest.raises(ValueError, match="Expected observation shape \\(6,\\)"):
             EpidemicObservationWrapper(env, include_exposed=False)
 
 
@@ -127,23 +132,23 @@ class TestUnderReportingWrapper:
         wrapped = self._make_wrapped(base_env, detection_rate=0.3, mask_E=True)
         obs, _ = wrapped.reset(seed=42)
         N = base_env.config.N
-        assert obs.shape == (3,)
-        np.testing.assert_allclose(obs.sum(), N - base_env.current_state.E, atol=1.0)
+        assert obs.shape == (5,)
+        np.testing.assert_allclose(obs[:3].sum(), N - base_env.current_state.E, atol=1.0)
 
         # Also check after a few steps
         for _ in range(5):
             obs, _, _, _, _ = wrapped.step(0)
             raw = base_env._get_obs()
             expected_sum = raw[0] + raw[2] + raw[3]  # S + I + R (before under-reporting)
-            np.testing.assert_allclose(obs.sum(), expected_sum, atol=1.0)
+            np.testing.assert_allclose(obs[:3].sum(), expected_sum, atol=1.0)
 
     def test_population_conservation_4d(self, small_config):
         """S+E+I+R sum = N when E is included."""
         env = EpidemicEnv(small_config)
         wrapped = UnderReportingWrapper(env, detection_rate=0.3)
         obs, _ = wrapped.reset(seed=42)
-        assert obs.shape == (4,)
-        np.testing.assert_allclose(obs.sum(), small_config.N, atol=1.0)
+        assert obs.shape == (6,)
+        np.testing.assert_allclose(obs[:4].sum(), small_config.N, atol=1.0)
 
     def test_exact_scaling_without_saturation(self, base_env):
         """I_obs = k*I, R_obs = k*R, S_obs = S + (1-k)*(I+R)."""
@@ -226,13 +231,13 @@ class TestMultiplicativeNoiseWrapper:
         return wrapped
 
     def test_zero_noise_identity(self, small_config):
-        """noise_stds=[0,0,0] → obs unchanged."""
+        """noise_stds=[0,0,0] → compartments unchanged, trailing elements pass through."""
         env = EpidemicEnv(small_config)
         env_masked = EpidemicObservationWrapper(env, include_exposed=False)
         wrapped = MultiplicativeNoiseWrapper(env_masked, noise_stds=[0.0, 0.0, 0.0])
         obs, _ = wrapped.reset(seed=42)
-        raw = env._get_obs()
-        expected = np.array([raw[0], raw[2], raw[3]], dtype=np.float32)
+        raw = env._get_obs()  # [S, E, I, R, prev_action, day_frac]
+        expected = np.array([raw[0], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32)
         np.testing.assert_allclose(obs, expected, atol=1e-5)
 
     def test_noise_changes_obs(self, small_config):
@@ -278,6 +283,24 @@ class TestMultiplicativeNoiseWrapper:
             if terminated:
                 wrapped.reset(seed=42)
 
+    def test_invalid_noise_stds_length(self, small_config):
+        """ValueError when noise_stds length doesn't match compartment count."""
+        env = EpidemicEnv(small_config)
+        env_masked = EpidemicObservationWrapper(env, include_exposed=False)
+        # obs size is 5, compartments = 3; passing 5 stds should fail
+        with pytest.raises(ValueError, match="compartment"):
+            MultiplicativeNoiseWrapper(env_masked, noise_stds=[0.1, 0.1, 0.1, 0.1, 0.1])
+
+    def test_trailing_elements_pass_through(self, small_config):
+        """prev_action and day_frac pass through noise wrapper unchanged."""
+        env = EpidemicEnv(small_config)
+        env_masked = EpidemicObservationWrapper(env, include_exposed=False)
+        wrapped = MultiplicativeNoiseWrapper(env_masked, noise_stds=[2.0, 2.0, 2.0])
+        obs, _ = wrapped.reset(seed=42)
+        # prev_action=0.0 at reset, day_frac=0.0 at reset
+        assert obs[3] == 0.0, f"prev_action should be 0.0, got {obs[3]}"
+        assert obs[4] == 0.0, f"day_frac should be 0.0, got {obs[4]}"
+
     def test_statistical_properties(self, small_config):
         """Over many samples: mean(ratio) ≈ 1.0, std(ratio) ≈ noise_std."""
         noise_std = 0.1
@@ -294,7 +317,7 @@ class TestMultiplicativeNoiseWrapper:
             # Avoid division by zero — only check compartments with positive truth
             mask = truth > 1.0
             if mask.any():
-                ratios[i, mask] = obs[mask] / truth[mask]
+                ratios[i, mask] = obs[:3][mask] / truth[mask]
             else:
                 ratios[i] = 1.0
 
@@ -437,10 +460,10 @@ class TestTemporalLagWrapper:
 class TestCreateEnvironment:
 
     def test_mdp_no_wrappers(self, small_config):
-        """Empty pomdp_params → obs shape (4,), base env type."""
+        """Empty pomdp_params → obs shape (6,), base env type."""
         env = create_environment(small_config, {}, seed=42)
         obs, _ = env.reset(seed=42)
-        assert obs.shape == (4,)
+        assert obs.shape == (6,)
         assert isinstance(env, EpidemicEnv)
 
     def test_full_pomdp_chain(self, small_config):

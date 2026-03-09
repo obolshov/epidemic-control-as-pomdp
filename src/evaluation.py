@@ -210,11 +210,16 @@ def run_agent(
         I_init = state.I
         R_init = state.R
     else:
-        if len(obs_flat) == 3:
-            S_init, I_init, R_init = obs_flat[-3:]
+        if len(obs_flat) == 6 or (len(obs_flat) > 6 and len(obs_flat) % 6 == 0):
+            S_init, E_init, I_init, R_init = obs_flat[-6:-2]
+        elif len(obs_flat) == 5 or (len(obs_flat) > 5 and len(obs_flat) % 5 == 0):
+            S_init, I_init, R_init = obs_flat[-5:-2]
             E_init = 0.0
         elif len(obs_flat) == 4:
             S_init, E_init, I_init, R_init = obs_flat[-4:]
+        elif len(obs_flat) == 3:
+            S_init, I_init, R_init = obs_flat[-3:]
+            E_init = 0.0
         else:
             if len(obs_flat) % 4 == 0:
                 S_init, E_init, I_init, R_init = obs_flat[-4:]

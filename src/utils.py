@@ -183,7 +183,6 @@ def log_results(result: SimulationResult, log_path: str) -> None:
         f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
         f.write(f"  Total Infected: {result.total_infected:.2f}\n")
         f.write(f"  Total Reward: {result.total_reward:.4f}\n")
-        f.write(f"  Number of Actions: {len(result.actions)}\n")
 
 
 def plot_learning_curve(

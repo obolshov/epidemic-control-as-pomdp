@@ -42,24 +42,24 @@ class EpidemicObservationWrapper(gym.ObservationWrapper):
             )
         
         original_shape = original_space.shape
-        if len(original_shape) != 1 or original_shape[0] != 4:
+        if len(original_shape) != 1 or original_shape[0] != 6:
             raise ValueError(
-                f"Expected observation shape (4,), got {original_shape}"
+                f"Expected observation shape (6,), got {original_shape}"
             )
-        
+
         # Determine which indices to keep
-        # Original: [S, E, I, R] = [0, 1, 2, 3]
+        # Original: [S, E, I, R, prev_action, day_frac] = [0, 1, 2, 3, 4, 5]
         if include_exposed:
-            self.keep_indices = np.array([0, 1, 2, 3])  # Keep all
+            self.keep_indices = np.array([0, 1, 2, 3, 4, 5])  # Keep all
         else:
-            self.keep_indices = np.array([0, 2, 3])  # Remove E (index 1)
-        
-        # Update observation space
-        new_shape = (len(self.keep_indices),)
+            self.keep_indices = np.array([0, 2, 3, 4, 5])  # Remove E (index 1)
+
+        # Update observation space with per-element bounds
+        new_low = original_space.low[self.keep_indices]
+        new_high = original_space.high[self.keep_indices]
         self.observation_space = spaces.Box(
-            low=original_space.low[0],  # Same bounds for all compartments
-            high=original_space.high[0],
-            shape=new_shape,
+            low=new_low,
+            high=new_high,
             dtype=original_space.dtype,
         )
 
@@ -134,15 +134,15 @@ class UnderReportingWrapper(gym.ObservationWrapper):
         self._pop_size: float = float(env.observation_space.high[0])
 
         obs_size = env.observation_space.shape[0]
-        if obs_size == 4:    # [S, E, I, R]
+        if obs_size == 6:    # [S, E, I, R, prev_action, day_frac]
             self.i_index = 2
             self.r_index = 3
-        elif obs_size == 3:  # [S, I, R] — E already masked
+        elif obs_size == 5:  # [S, I, R, prev_action, day_frac] — E already masked
             self.i_index = 1
             self.r_index = 2
         else:
             raise ValueError(
-                f"Unexpected observation size {obs_size}; expected 3 ([S, I, R]) or 4 ([S, E, I, R])."
+                f"Unexpected observation size {obs_size}; expected 5 or 6."
             )
 
     def _effective_rate(self, true_I: float) -> float:
@@ -215,10 +215,11 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
     def __init__(self, env: gym.Env, noise_stds: List[float]) -> None:
         super().__init__(env)
         obs_size = env.observation_space.shape[0]
-        if len(noise_stds) != obs_size:
+        n_compartments = obs_size - 2  # Exclude prev_action and day_frac
+        if len(noise_stds) != n_compartments:
             raise ValueError(
-                f"noise_stds length ({len(noise_stds)}) must match observation "
-                f"size ({obs_size}). Current obs shape: {env.observation_space.shape}"
+                f"noise_stds length ({len(noise_stds)}) must match compartment "
+                f"count ({n_compartments}) for obs size {obs_size}."
             )
         if any(s < 0 for s in noise_stds):
             raise ValueError(f"All noise_stds must be >= 0, got {noise_stds}")
@@ -228,15 +229,22 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
     def observation(self, obs: np.ndarray) -> np.ndarray:
         """Apply per-compartment multiplicative noise and clip.
 
+        Noise is applied only to the epidemic compartments (all elements except
+        the trailing prev_action and day_frac). Those two pass through unchanged.
+
         Args:
-            obs: Observation vector of shape (3,) or (4,).
+            obs: Observation vector of shape (5,) or (6,).
 
         Returns:
-            Noisy observation clipped to [0, N]. Shape unchanged.
+            Noisy observation with compartments clipped to [0, N]. Shape unchanged.
         """
+        n_compartments = len(self._noise_stds)
+        result = obs.copy().astype(np.float32)
         noise_factors = 1.0 + self.np_random.normal(0.0, self._noise_stds).astype(np.float32)
-        noisy = obs * noise_factors
-        return np.clip(noisy, 0.0, self._pop_size).astype(self.observation_space.dtype)
+        result[:n_compartments] = np.clip(
+            obs[:n_compartments] * noise_factors, 0.0, self._pop_size
+        )
+        return result.astype(self.observation_space.dtype)
 
 
 class TemporalLagWrapper(gym.ObservationWrapper):

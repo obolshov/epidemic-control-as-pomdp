@@ -45,6 +45,13 @@
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
 
+# Observation Space Invariants
+
+- Base `EpidemicEnv._get_obs()` returns shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`. 
+- After `EpidemicObservationWrapper(include_exposed=False)`: shape `(5,)` → `[S, I, R, prev_action_idx, day_frac]`.
+- Observation space bounds are **per-element** (not uniform): high = `[N, N, N, N, 3.0, 1.0]` (6-element) or `[N, N, N, 3.0, 1.0]` (5-element).
+- `MultiplicativeNoiseWrapper` expects `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_action_idx` and `day_frac` **pass through unchanged** and must NOT be included in `noise_stds`.
+
 # SB3 Pipeline Invariants
 When modifying any training or evaluation code, ALL of the following must hold:
 

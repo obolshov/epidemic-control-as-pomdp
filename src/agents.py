@@ -93,15 +93,15 @@ class ThresholdAgent(Agent):
             Index of I compartment (1 if E is masked, 2 if E is included).
         """
         obs_len = len(observation)
-        if obs_len == 4:
-            # Full observability: [S, E, I, R] -> I is at index 2
+        if obs_len == 6:
+            # Full observability: [S, E, I, R, prev_action, day_frac] -> I is at index 2
             return 2
-        elif obs_len == 3:
-            # Partial observability: [S, I, R] -> I is at index 1
+        elif obs_len == 5:
+            # Partial observability: [S, I, R, prev_action, day_frac] -> I is at index 1
             return 1
         else:
             raise ValueError(
-                f"Unexpected observation shape: {obs_len}. Expected 3 or 4 elements."
+                f"Unexpected observation shape: {obs_len}. Expected 5 or 6 elements."
             )
     
     def predict(self, observation, state=None, episode_start=None, deterministic=True):
@@ -120,7 +120,7 @@ class ThresholdAgent(Agent):
         observation = np.asarray(observation)
         
         # Auto-detect I index on first call or if observation shape changed
-        if self.i_idx is None or len(observation) != (4 if self.i_idx == 2 else 3):
+        if self.i_idx is None or len(observation) != (6 if self.i_idx == 2 else 5):
             self.i_idx = self._detect_i_index(observation)
         
         # Extract infected count

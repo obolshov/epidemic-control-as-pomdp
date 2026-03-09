@@ -5,26 +5,39 @@ from src.env import EpidemicEnv, calculate_reward
 from src.agents import StaticAgent, InterventionAction
 from src.seir import EpidemicState
 from src.config import Config
-from src.utils import get_timestamped_results_dir
 import os
+from datetime import datetime
 
 
 def calculate_reward_components(
-    I_t: float, action: InterventionAction, config: Config
+    I_t: float, action: InterventionAction, config: Config, prev_action_idx: int = 0
 ):
     """
     Calculate reward components separately for visualization.
+
+    Args:
+        I_t: Infected count.
+        action: Current action.
+        config: Experiment config.
+        prev_action_idx: Index of the previous action (for switching penalty).
+
+    Returns:
+        Tuple of (total_reward, infection_penalty, stringency_penalty, switching_penalty).
     """
     infection_ratio = (I_t / config.N) ** 2
     infection_penalty = config.w_I * max(0, infection_ratio)
     stringency_penalty = config.w_S * (1 - action.value)
+    action_idx = list(InterventionAction).index(action)
+    delta = action_idx - prev_action_idx
+    switching_penalty = config.w_switch * delta ** 2
 
-    reward = calculate_reward(I_t, action, config)
+    reward = calculate_reward(I_t, action, config, prev_action_idx)
 
     return (
         reward,
         infection_penalty,
         stringency_penalty,
+        switching_penalty,
     )
 
 
@@ -34,8 +47,8 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     """
     obs, _ = env.reset()
 
-    # Reconstruct initial state from observation
-    S_curr, E_curr, I_curr, R_curr = obs
+    # Reconstruct initial state from observation (6-element: S, E, I, R, prev_action_idx, day_frac)
+    S_curr, E_curr, I_curr, R_curr = obs[0], obs[1], obs[2], obs[3]
     current_state = EpidemicState(
         N=env.config.N, S=S_curr, E=E_curr, I=I_curr, R=R_curr
     )
@@ -50,7 +63,9 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     rewards = []
     infection_penalties = []
     stringency_penalties = []
+    switching_penalties = []
     action_states = []
+    prev_action_idx = 0
 
     terminated = False
     truncated = False
@@ -82,13 +97,16 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
 
         # Calculate reward components
         reward_components = calculate_reward_components(
-            current_state.I, action, env.config
+            current_state.I, action, env.config, prev_action_idx
         )
-        _, infection_penalty, stringency_penalty = reward_components
+        _, infection_penalty, stringency_penalty, switching_penalty = reward_components
 
         rewards.append(reward)
         infection_penalties.append(infection_penalty)
         stringency_penalties.append(stringency_penalty)
+        switching_penalties.append(switching_penalty)
+
+        prev_action_idx = action_idx
 
     t = np.arange(len(all_S))
 
@@ -103,6 +121,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
         "rewards": rewards,
         "infection_penalties": infection_penalties,
         "stringency_penalties": stringency_penalties,
+        "switching_penalties": switching_penalties,
         "action_states": action_states,
     }
 
@@ -128,9 +147,11 @@ if __name__ == "__main__":
         rewards = result["rewards"]
         infection_penalties = result["infection_penalties"]
         stringency_penalties = result["stringency_penalties"]
+        switching_penalties = result["switching_penalties"]
         all_values.extend(rewards)
         all_values.extend(infection_penalties)
         all_values.extend(stringency_penalties)
+        all_values.extend(switching_penalties)
 
     global_min = min(all_values)
     global_max = max(all_values)
@@ -148,8 +169,9 @@ if __name__ == "__main__":
         rewards = result["rewards"]
         infection_penalties = result["infection_penalties"]
         stringency_penalties = result["stringency_penalties"]
+        switching_penalties = result["switching_penalties"]
 
-        # Plot the three components
+        # Plot the four components
         ax.plot(
             action_timesteps,
             rewards,
@@ -177,6 +199,15 @@ if __name__ == "__main__":
             marker="v",
             markersize=4,
         )
+        ax.plot(
+            action_timesteps,
+            switching_penalties,
+            "r-",
+            label="Switching Penalty",
+            linewidth=2,
+            marker="s",
+            markersize=4,
+        )
 
         # Add zero line
         ax.axhline(y=0, color="k", linestyle="--", alpha=0.3, linewidth=1)
@@ -199,10 +230,12 @@ if __name__ == "__main__":
 
         total_infection_penalties = sum(infection_penalties)
         total_stringency_penalties = sum(stringency_penalties)
+        total_switching_penalties = sum(switching_penalties)
         total_reward = sum(rewards)
 
         info_text = f"Infection Penalty: {total_infection_penalties:.2f}\n"
         info_text += f"Stringency Penalty: {total_stringency_penalties:.2f}\n"
+        info_text += f"Switching Penalty: {total_switching_penalties:.2f}\n"
         info_text += f"Total Reward: {total_reward:.2f}"
 
         ax.text(
@@ -227,7 +260,9 @@ if __name__ == "__main__":
     )
 
     # Create timestamped results directory
-    results_dir = get_timestamped_results_dir()
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    results_dir = os.path.join("experiments", "reward_visualization", timestamp)
+    os.makedirs(results_dir, exist_ok=True)
     save_path = os.path.join(results_dir, "reward_components_plot.png")
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f"Plot saved to: {save_path}")

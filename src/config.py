@@ -22,6 +22,7 @@ class Config:
     # Reward function parameters
     w_I: float = 10.0   # Weight on infection penalty
     w_S: float = 0.1    # Weight on stringency penalty
+    w_switch: float = 0.05  # Weight on quadratic distance switching penalty
 
     # ThresholdAgent parameters
     thresholds: List[float] = field(default_factory=lambda: [0.01, 0.05, 0.09])

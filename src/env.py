@@ -9,17 +9,21 @@ from src.agents import InterventionAction, Agent, StaticAgent
 
 
 def calculate_reward(
-    I_t: float, action: InterventionAction, config: Config
+    I_t: float, action: InterventionAction, config: Config, prev_action_idx: int = 0
 ) -> float:
     """
     :param I_t: Infected count
     :param action: Action taken
+    :param prev_action_idx: Index of the previous action (for switching penalty)
     :return: Reward value
     """
     infection_penalty = config.w_I * (I_t / config.N) ** 2
     stringency_penalty = config.w_S * (1 - action.value)
+    action_idx = list(InterventionAction).index(action)
+    delta = action_idx - prev_action_idx
+    switching_penalty = config.w_switch * delta ** 2
 
-    return -(infection_penalty + stringency_penalty)
+    return -(infection_penalty + stringency_penalty + switching_penalty)
 
 
 class EpidemicEnv(gym.Env):
@@ -32,12 +36,17 @@ class EpidemicEnv(gym.Env):
         self.action_space = spaces.Discrete(len(InterventionAction))
         self.action_map = list(InterventionAction)
 
-        self.observation_space = spaces.Box(
-            low=0, high=self.config.N, shape=(4,), dtype=np.float32
+        n_actions = len(InterventionAction)
+        obs_low = np.zeros(6, dtype=np.float32)
+        obs_high = np.array(
+            [self.config.N, self.config.N, self.config.N, self.config.N, n_actions - 1, 1.0],
+            dtype=np.float32,
         )
+        self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
 
         self.current_state = None
         self.current_day = 0
+        self.prev_action_idx: int = 0
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -51,6 +60,7 @@ class EpidemicEnv(gym.Env):
             R=0,
         )
         self.current_day = 0
+        self.prev_action_idx = 0
 
         return self._get_obs(), {}
 
@@ -82,7 +92,8 @@ class EpidemicEnv(gym.Env):
                 R=R[-1],
             )
 
-        reward = calculate_reward(self.current_state.I, action_enum, self.config)
+        reward = calculate_reward(self.current_state.I, action_enum, self.config, self.prev_action_idx)
+        self.prev_action_idx = action_idx
 
         self.current_day += days_to_simulate
 
@@ -100,6 +111,8 @@ class EpidemicEnv(gym.Env):
                 self.current_state.E,
                 self.current_state.I,
                 self.current_state.R,
+                float(self.prev_action_idx),
+                self.current_day / self.config.days,
             ],
             dtype=np.float32,
         )
