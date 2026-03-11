@@ -1,4 +1,3 @@
-import random
 from enum import Enum
 from typing import List
 
@@ -36,8 +35,11 @@ class StaticAgent(Agent):
 
 
 class RandomAgent(Agent):
+    def __init__(self, seed: int = 0):
+        self._rng = np.random.default_rng(seed)
+
     def predict(self, observation, state=None, episode_start=None, deterministic=True):
-        action_idx = random.choice(range(len(InterventionAction)))
+        action_idx = int(self._rng.integers(len(InterventionAction)))
         return action_idx, state
 
 

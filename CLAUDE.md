@@ -9,7 +9,7 @@
     - `src/agents.py`: Agent wrappers and baseline logic.
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
-    - `src/evaluation.py`: Post-training evaluation. `evaluate_multi_seed()` aggregates reward statistics across all trained seeds; `run_agent()` produces SEIR trajectory plots from the best seed's model.
+    - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation (mean ± SD) for ANY agent type on fixed eval seeds; `select_best_model()` selects the best training seed via reward-only eval; `run_evaluation()` is the unified pipeline for baselines and RL agents.
     - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
@@ -38,12 +38,15 @@
 - `typer`: Use for CLI commands in `main.py`.
 
 # Plotting & Visualization
-- Always visualize the *Confidence Interval* (shaded area) when plotting RL training curves or evaluation results.
+- Always visualize the *Standard Deviation* (shaded area) when plotting RL training curves or evaluation results.
 - Label axes clearly with units (e.g., "Days", "Infected Population").
 
 # Workflow constraints
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
+- **After completing any non-trivial change**, always check:
+  - `README.md`: is the output structure, CLI options, or agent descriptions still accurate?
+  - `CLAUDE.md`: does the Architecture section still describe the actual module responsibilities? Are any invariants stale?
 
 # Observation Space Invariants
 
@@ -98,9 +101,6 @@ For smoke tests and validation, always use the **custom scenario flags** instead
 ```bash
 # Equivalent to --scenario underreporting, but writes to a unique dir
 python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
-
-# Equivalent to --scenario noisy_pomdp, but writes to a unique dir
-python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 -t 10000 --num-seeds 1
 
 # Equivalent to --scenario pomdp, but writes to a unique dir
 python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 --lag 5 --lag 14 -t 10000 --num-seeds 1

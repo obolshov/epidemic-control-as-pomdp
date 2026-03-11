@@ -6,19 +6,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3.common import results_plotter
 
-from .env import SimulationResult
+from .env import AggregatedResult, SimulationResult
 
 
-def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
-    """
-    Helper function to plot SEIR curves on a given axes.
+def _plot_aggregated_seir(ax, agg: AggregatedResult, title: Optional[str] = None) -> None:
+    """Plot mean +/- SD shaded SEIR curves for an AggregatedResult.
+
+    Args:
+        ax: Matplotlib axes.
+        agg: AggregatedResult with mean/std arrays.
+        title: Optional subplot title.
     """
     colors = {"S": "blue", "E": "orange", "I": "red", "R": "green"}
+    labels = {"S": "Susceptible (S)", "E": "Exposed (E)", "I": "Infected (I)", "R": "Recovered (R)"}
 
-    ax.plot(result.t, result.S, color=colors["S"], label="Susceptible (S)", linewidth=2)
-    ax.plot(result.t, result.E, color=colors["E"], label="Exposed (E)", linewidth=2)
-    ax.plot(result.t, result.I, color=colors["I"], label="Infected (I)", linewidth=2)
-    ax.plot(result.t, result.R, color=colors["R"], label="Recovered (R)", linewidth=2)
+    for comp, color in colors.items():
+        mean = getattr(agg, f"{comp}_mean")
+        std = getattr(agg, f"{comp}_std")
+        ax.plot(agg.t, mean, color=color, label=labels[comp], linewidth=2)
+        ax.fill_between(agg.t, mean - std, mean + std, color=color, alpha=0.2)
 
     if title:
         ax.set_title(title, fontsize=12, fontweight="bold")
@@ -28,75 +34,63 @@ def _plot_seir_curves(ax, result: SimulationResult, title: str = None) -> None:
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    info_text = f"Peak I: {result.peak_infected:.1f}\n"
-    info_text += f"Total infected: {result.total_infected:.1f}"
-
-    if hasattr(result, "total_reward"):
-        info_text += f"\nTotal Reward: {result.total_reward:.2f}"
+    info_text = (
+        f"Reward: {agg.mean_reward:.2f} ± {agg.std_reward:.2f}\n"
+        f"Peak I: {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}\n"
+        f"Total inf: {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f}\n"
+        f"n = {agg.n_episodes} episodes"
+    )
 
     ax.text(
-        0.98,
-        0.98,
-        info_text,
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
+        0.98, 0.98, info_text,
+        transform=ax.transAxes, ha="right", va="top",
         bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
         fontsize=9,
     )
 
-    for timestep in result.timesteps[1:]:
-        ax.axvline(timestep, color="gray", linestyle="--", alpha=0.3, linewidth=1)
-
 
 def plot_all_results(
-    results: List[SimulationResult], save_path: Optional[str] = None
+    results: Dict[str, AggregatedResult], save_path: Optional[str] = None
 ) -> None:
-    """
-    Creates a comparison plot of SEIR curves from simulation results.
-    
+    """Creates a comparison plot of mean +/- SD SEIR curves from aggregated results.
+
     Dynamically adjusts layout based on number of agents:
     - 1-5 agents: Single row
     - 6+ agents: Two rows
 
-    :param results: List of simulation results to plot
-    :param save_path: Optional path to save the plot. If None, displays the plot.
+    Args:
+        results: Dict mapping agent_name -> AggregatedResult.
+        save_path: Optional path to save the plot. If None, displays the plot.
     """
     num_agents = len(results)
-    
+
     if num_agents == 0:
         print("Warning: No results to plot")
         return
-    
-    # Determine layout: prefer single row for 1-5 agents
+
     if num_agents <= 5:
         nrows = 1
         ncols = num_agents
         figsize = (7 * num_agents, 6)
     else:
-        # Two rows for 6+ agents
         nrows = 2
         ncols = ceil(num_agents / 2)
         figsize = (7 * ncols, 12)
-    
+
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-    
-    # Handle single plot case
+
     if num_agents == 1:
         axes = [axes]
     else:
         axes = axes.flatten()
-    
-    # Plot each result
-    for idx, result in enumerate(results):
+
+    for idx, (agent_name, agg) in enumerate(results.items()):
         ax = axes[idx]
-        title = f"{result.agent_name}"
-        _plot_seir_curves(ax, result, title)
-    
-    # Hide extra subplots if any (for 2-row layouts with odd numbers)
+        _plot_aggregated_seir(ax, agg, title=agent_name)
+
     for idx in range(num_agents, len(axes)):
         axes[idx].set_visible(False)
-    
+
     plt.tight_layout()
 
     if save_path:
@@ -110,23 +104,21 @@ def plot_all_results(
         plt.close()
 
 
-def plot_single_result(
-    result: SimulationResult, title: str = None, save_path: str = None
+def plot_single_aggregated(
+    agg: AggregatedResult, title: Optional[str] = None, save_path: Optional[str] = None
 ) -> None:
-    """
-    Creates a simple plot of a single SEIR simulation result.
-    
-    Saves with consistent naming: {agent_name}_seir.png
+    """Creates a standalone plot of mean +/- SD SEIR curves for one agent.
 
-    :param result: SimulationResult to visualize
-    :param title: Optional custom title
-    :param save_path: Optional path to save the plot
+    Args:
+        agg: AggregatedResult to visualize.
+        title: Optional custom title (defaults to agent_name).
+        save_path: Optional path to save the plot.
     """
     if title is None:
-        title = f"{result.agent_name}"
+        title = agg.agent_name
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    _plot_seir_curves(ax, result, title)
+    _plot_aggregated_seir(ax, agg, title)
 
     if save_path:
         dir_path = os.path.dirname(save_path)
@@ -140,13 +132,11 @@ def plot_single_result(
 
 
 def log_results(result: SimulationResult, log_path: str) -> None:
-    """
-    Logs simulation results to text files with table format.
-    
-    Saves with consistent naming: {agent_name}.txt
+    """Logs simulation results to text files with table format.
 
-    :param result: SimulationResult to log
-    :param log_path: Full path to save log file
+    Args:
+        result: SimulationResult to log.
+        log_path: Full path to save log file.
     """
     dir_path = os.path.dirname(log_path)
     if dir_path:
@@ -167,9 +157,6 @@ def log_results(result: SimulationResult, log_path: str) -> None:
                 result.rewards,
             )
         ):
-            # Use full state from result arrays (not agent observations which may be partial)
-            # timesteps[i] corresponds to the day when the decision was made
-            # Ensure index is within bounds
             day_idx = min(int(day), len(result.S) - 1) if len(result.S) > 0 else 0
             S = result.S[day_idx]
             E = result.E[day_idx]
@@ -188,17 +175,14 @@ def log_results(result: SimulationResult, log_path: str) -> None:
 def plot_learning_curve(
     log_folder: str, title: str = "Learning Curve", save_path: Optional[str] = None
 ) -> None:
-    """
-    Plot learning curves from SB3 training logs.
-    
-    Saves with consistent naming: {agent_name}_learning_episodes.png and {agent_name}_learning_timesteps.png
-    
-    :param log_folder: Path to folder containing monitor logs
-    :param title: Title for the plot
-    :param save_path: Base path for saving plots (will append _episodes.png and _timesteps.png)
+    """Plot learning curves from SB3 training logs.
+
+    Args:
+        log_folder: Path to folder containing monitor logs.
+        title: Title for the plot.
+        save_path: Base path for saving plots.
     """
     x_axes = {
-        # "episodes": results_plotter.X_EPISODES,
         "timesteps": results_plotter.X_TIMESTEPS,
     }
 
@@ -233,11 +217,10 @@ def plot_evaluation_curves(
     title: str = "Evaluation During Training",
     save_path: Optional[str] = None,
 ) -> None:
-    """Plot evaluation reward curves aggregated across seeds with 95% CI.
+    """Plot evaluation reward curves aggregated across seeds with SD band.
 
     For each agent, loads all seed evaluations.npz files, truncates to the
-    shortest common timestep range, and plots mean ± 95% CI across seeds.
-    Produces one clean curve per agent instead of one per seed.
+    shortest common timestep range, and plots mean ± SD across seeds.
 
     Args:
         eval_log_paths_by_agent: Dict mapping agent_name -> list of npz
@@ -250,7 +233,6 @@ def plot_evaluation_curves(
     colors = plt.cm.tab10.colors
 
     for idx, (agent_name, log_dirs) in enumerate(eval_log_paths_by_agent.items()):
-        # Load all seeds for this agent
         seed_means: List[np.ndarray] = []
         min_len = None
 
@@ -259,7 +241,6 @@ def plot_evaluation_curves(
             if not os.path.exists(npz_path):
                 continue
             data = np.load(npz_path)
-            # results shape: (n_evals, n_eval_episodes) — mean over episodes
             per_eval_mean = np.mean(data["results"], axis=1)
             seed_means.append((data["timesteps"], per_eval_mean))
             if min_len is None or len(per_eval_mean) < min_len:
@@ -269,24 +250,20 @@ def plot_evaluation_curves(
             print(f"Warning: no eval data found for {agent_name}, skipping.")
             continue
 
-        # Use timesteps from the first seed (deterministic eval_freq → same grid)
         timesteps = seed_means[0][0][:min_len]
-        # Stack seed curves truncated to the shortest run (early stopping)
         stacked = np.stack([m[:min_len] for _, m in seed_means], axis=0)
-        # stacked shape: (n_seeds, n_evals)
 
-        n_seeds = stacked.shape[0]
         mean_curve = np.mean(stacked, axis=0)
         std_curve = np.std(stacked, axis=0)
-        ci = 1.96 * std_curve / np.sqrt(n_seeds) if n_seeds > 1 else np.zeros_like(std_curve)
 
         color = colors[idx % len(colors)]
+        n_seeds = stacked.shape[0]
         label = f"{agent_name} (n={n_seeds} seeds)"
         ax.plot(timesteps, mean_curve, linewidth=2, label=label, color=color)
         ax.fill_between(
             timesteps,
-            mean_curve - ci,
-            mean_curve + ci,
+            mean_curve - std_curve,
+            mean_curve + std_curve,
             alpha=0.25,
             color=color,
         )

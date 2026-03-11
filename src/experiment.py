@@ -36,6 +36,18 @@ def generate_seeds(num_seeds: int) -> List[int]:
     return base_seeds + extra
 
 
+def generate_eval_seeds(n: int) -> List[int]:
+    """Generate a deterministic list of evaluation seeds (non-overlapping with training seeds).
+
+    Args:
+        n: Number of evaluation seeds to generate.
+
+    Returns:
+        List of integer seeds starting from 2024.
+    """
+    return list(range(2024, 2024 + n))
+
+
 @dataclass
 class ExperimentConfig:
     """
@@ -64,7 +76,13 @@ class ExperimentConfig:
     training_seeds: List[int] = field(
         default_factory=lambda: [42, 123, 456, 789, 1024]
     )
+    eval_seeds: List[int] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+
+    def __post_init__(self) -> None:
+        """Auto-populate eval_seeds if not provided."""
+        if not self.eval_seeds:
+            self.eval_seeds = generate_eval_seeds(self.num_eval_episodes)
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -84,6 +102,7 @@ class ExperimentConfig:
             "total_timesteps": self.total_timesteps,
             "num_training_seeds": self.num_training_seeds,
             "training_seeds": self.training_seeds,
+            "eval_seeds": self.eval_seeds,
         }
 
 
@@ -153,38 +172,40 @@ class ExperimentDirectory:
 
     def save_summary(
         self,
-        results: List[Any],
-        multi_seed_stats: Optional[Dict[str, Any]] = None,
+        aggregated_results: Dict[str, Any],
+        per_seed_stats: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """
-        Save experiment summary with key metrics from all agents.
+        """Save experiment summary with aggregated metrics from all agents.
 
         Args:
-            results: List of SimulationResult objects (best seed trajectories).
-            multi_seed_stats: Optional dict mapping agent_name -> multi-seed statistics
-                with keys: overall_mean, overall_std, ci_low, ci_high, per_seed.
+            aggregated_results: Dict mapping agent_name -> AggregatedResult.
+            per_seed_stats: Optional dict mapping RL agent_name -> per-seed
+                training statistics (for reference in summary.json).
         """
         summary_path = self.root / "summary.json"
 
         summary_data = {
             "scenario_name": self.config.scenario_name,
             "timestamp": self.config.timestamp,
-            "num_agents": len(results),
+            "num_agents": len(aggregated_results),
             "num_training_seeds": self.config.num_training_seeds,
+            "eval_seeds": self.config.eval_seeds,
             "agents": [],
         }
 
-        for result in results:
+        for agent_name, agg in aggregated_results.items():
             agent_summary = {
-                "agent_name": result.agent_name,
-                "peak_infected": float(result.peak_infected),
-                "total_infected": float(result.total_infected),
-                "total_reward": float(result.total_reward),
-                "num_actions": len(result.actions),
+                "agent_name": agent_name,
+                "mean_reward": agg.mean_reward,
+                "std_reward": agg.std_reward,
+                "mean_peak_infected": agg.mean_peak_infected,
+                "std_peak_infected": agg.std_peak_infected,
+                "mean_total_infected": agg.mean_total_infected,
+                "std_total_infected": agg.std_total_infected,
+                "n_episodes": agg.n_episodes,
             }
-            # Attach multi-seed stats if available
-            if multi_seed_stats and result.agent_name in multi_seed_stats:
-                agent_summary["multi_seed"] = multi_seed_stats[result.agent_name]
+            if per_seed_stats and agent_name in per_seed_stats:
+                agent_summary["per_seed"] = per_seed_stats[agent_name]
 
             summary_data["agents"].append(agent_summary)
 

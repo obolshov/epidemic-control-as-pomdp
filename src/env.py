@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from typing import List
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
@@ -173,3 +175,59 @@ class SimulationResult:
     @property
     def total_reward(self) -> float:
         return sum(self.rewards)
+
+
+@dataclass
+class AggregatedResult:
+    """Multi-episode aggregated evaluation result for any agent type.
+
+    Attributes:
+        agent_name: Name of the agent.
+        t: Shared time axis, shape (n_days,).
+        S_mean, S_std: Mean/std of Susceptible over episodes, shape (n_days,).
+        E_mean, E_std: Mean/std of Exposed over episodes, shape (n_days,).
+        I_mean, I_std: Mean/std of Infected over episodes, shape (n_days,).
+        R_mean, R_std: Mean/std of Recovered over episodes, shape (n_days,).
+        episode_rewards: Total reward per episode.
+        peak_infected_per_episode: Peak I per episode.
+        total_infected_per_episode: Total infected (E[-1]+I[-1]+R[-1]) per episode.
+        n_episodes: Number of evaluation episodes.
+    """
+    agent_name: str
+    t: np.ndarray
+    S_mean: np.ndarray
+    S_std: np.ndarray
+    E_mean: np.ndarray
+    E_std: np.ndarray
+    I_mean: np.ndarray
+    I_std: np.ndarray
+    R_mean: np.ndarray
+    R_std: np.ndarray
+    episode_rewards: List[float]
+    peak_infected_per_episode: List[float]
+    total_infected_per_episode: List[float]
+    n_episodes: int
+
+    @property
+    def mean_reward(self) -> float:
+        return float(np.mean(self.episode_rewards))
+
+    @property
+    def std_reward(self) -> float:
+        return float(np.std(self.episode_rewards))
+
+    @property
+    def mean_peak_infected(self) -> float:
+        return float(np.mean(self.peak_infected_per_episode))
+
+    @property
+    def std_peak_infected(self) -> float:
+        return float(np.std(self.peak_infected_per_episode))
+
+    @property
+    def mean_total_infected(self) -> float:
+        return float(np.mean(self.total_infected_per_episode))
+
+    @property
+    def std_total_infected(self) -> float:
+        return float(np.std(self.total_infected_per_episode))

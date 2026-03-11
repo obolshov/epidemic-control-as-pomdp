@@ -2,25 +2,26 @@
 Evaluation module for epidemic control agents.
 
 Provides:
-- run_agent(): Single-episode trajectory evaluation for SEIR plots.
-- evaluate_agent_statistics(): Multi-episode reward statistics using SB3's evaluate_policy.
-- evaluate_multi_seed(): Aggregate statistics across multiple independently-trained models.
+- _collect_trajectory(): Single-episode trajectory collection (no I/O).
+- evaluate_agent(): Multi-episode evaluation for ANY agent, returns AggregatedResult.
+- select_best_model(): Quick reward-only model selection across training seeds.
+- run_evaluation(): Unified evaluation pipeline for baselines and RL agents.
 """
 
 import numpy as np
 import os
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecFrameStack, VecMonitor, VecNormalize
 from sb3_contrib import RecurrentPPO
 
-from src.agents import Agent, create_baseline_agents
+from src.agents import Agent, RandomAgent, create_baseline_agents
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.config import Config
-from src.env import EpidemicEnv, SimulationResult
-from src.utils import log_results, plot_single_result
+from src.env import AggregatedResult, EpidemicEnv, SimulationResult
+from src.utils import log_results, plot_single_aggregated
 from src.wrappers import create_environment
 
 
@@ -61,131 +62,25 @@ def create_eval_vec_env(
     return venv
 
 
-def evaluate_agent_statistics(
-    model: Union[PPO, RecurrentPPO],
-    eval_env: VecEnv,
-    n_eval_episodes: int = 10,
-    deterministic: bool = True,
-) -> Dict[str, Any]:
-    """Evaluate agent over multiple episodes and return reward statistics.
-
-    Args:
-        model: Trained RL model.
-        eval_env: Evaluation environment (with frozen VecNormalize).
-        n_eval_episodes: Number of evaluation episodes.
-        deterministic: Whether to use deterministic actions.
-
-    Returns:
-        Dict with mean_reward, std_reward, ci_low, ci_high, episode_rewards.
-    """
-    episode_rewards, _ = evaluate_policy(
-        model,
-        eval_env,
-        n_eval_episodes=n_eval_episodes,
-        deterministic=deterministic,
-        return_episode_rewards=True,
-    )
-
-    mean_reward = float(np.mean(episode_rewards))
-    std_reward = float(np.std(episode_rewards))
-    n = len(episode_rewards)
-    ci_margin = 1.96 * std_reward / np.sqrt(n) if n > 1 else 0.0
-
-    return {
-        "mean_reward": mean_reward,
-        "std_reward": std_reward,
-        "ci_low": mean_reward - ci_margin,
-        "ci_high": mean_reward + ci_margin,
-        "episode_rewards": [float(r) for r in episode_rewards],
-    }
-
-
-def evaluate_multi_seed(
-    models: List[Union[PPO, RecurrentPPO]],
-    seeds: List[int],
-    config: Config,
-    pomdp_params: Dict[str, Any],
-    agent_name: str,
-    experiment_dir: "ExperimentDirectory",
-    n_eval_episodes_per_seed: int = 10,
-) -> Dict[str, Any]:
-    """Evaluate multiple independently-trained models and aggregate statistics.
-
-    Args:
-        models: List of trained models (one per seed).
-        seeds: List of training seeds corresponding to models.
-        config: Base configuration.
-        pomdp_params: POMDP wrapper parameters.
-        agent_name: Agent name.
-        experiment_dir: Experiment directory for VecNormalize paths.
-        n_eval_episodes_per_seed: Episodes per seed evaluation.
-
-    Returns:
-        Dict with overall_mean, overall_std, ci_low, ci_high, per_seed stats, best_seed_idx.
-    """
-    all_rewards = []
-    per_seed_stats = []
-
-    for model, seed in zip(models, seeds):
-        vecnorm_path = str(experiment_dir.get_vecnormalize_path(agent_name, seed))
-        eval_env = create_eval_vec_env(
-            config, pomdp_params, agent_name, vecnorm_path, seed=seed
-        )
-
-        stats = evaluate_agent_statistics(
-            model, eval_env, n_eval_episodes_per_seed
-        )
-        stats["seed"] = seed
-        per_seed_stats.append(stats)
-        all_rewards.extend(stats["episode_rewards"])
-
-        eval_env.close()
-
-    overall_mean = float(np.mean(all_rewards))
-    overall_std = float(np.std(all_rewards))
-    n = len(all_rewards)
-    ci_margin = 1.96 * overall_std / np.sqrt(n) if n > 1 else 0.0
-
-    best_seed_idx = int(np.argmax([s["mean_reward"] for s in per_seed_stats]))
-
-    return {
-        "overall_mean": overall_mean,
-        "overall_std": overall_std,
-        "ci_low": overall_mean - ci_margin,
-        "ci_high": overall_mean + ci_margin,
-        "per_seed": per_seed_stats,
-        "best_seed_idx": best_seed_idx,
-        "best_seed": seeds[best_seed_idx],
-    }
-
-
-def run_agent(
+def _collect_trajectory(
     agent: Agent,
-    env: EpidemicEnv,
-    experiment_dir: Optional["ExperimentDirectory"] = None,
-    agent_name: Optional[str] = None,
+    env: Union[EpidemicEnv, VecEnv],
 ) -> SimulationResult:
-    """
-    Runs a simulation for a single agent (single-episode trajectory).
+    """Run a single episode and collect the full SEIR trajectory.
 
-    Used for generating SEIR trajectory plots. For statistical evaluation,
-    use evaluate_agent_statistics() or evaluate_multi_seed() instead.
+    Pure computation — no I/O (no log/plot saving).
 
     Args:
-        agent: The agent to evaluate.
-        env: The environment to run the simulation in (can be VecEnv or regular Env).
-        experiment_dir: ExperimentDirectory for saving outputs. If None, saves to default locations.
-        agent_name: Override name for saving files. If None, uses agent's class name.
+        agent: Agent (baseline or RL model) with SB3-compatible predict().
+        env: Environment (VecEnv for RL agents, raw Gymnasium env for baselines).
 
     Returns:
-        A SimulationResult object containing the results of the simulation.
+        SimulationResult with full SEIR trajectory arrays.
     """
-    # Check if this is a VecEnv (used for framestack)
     is_vec_env = isinstance(env, VecEnv)
 
     obs = env.reset()
 
-    # VecEnv returns obs without info dict in reset
     if is_vec_env:
         obs_flat = obs[0] if len(obs.shape) > 1 else obs
     else:
@@ -281,9 +176,7 @@ def run_agent(
 
     t = np.arange(len(all_S))
 
-    save_name = agent_name if agent_name else None
-
-    result = SimulationResult(
+    return SimulationResult(
         agent=agent,
         t=t,
         S=np.array(all_S),
@@ -294,33 +187,168 @@ def run_agent(
         timesteps=timesteps,
         rewards=rewards,
         observations=observations,
-        custom_name=save_name,
     )
 
-    if save_name is None:
-        save_name = result.agent_name.lower().replace(" ", "_").replace("-", "_")
 
-    # Save logs and plots
-    if experiment_dir is not None:
-        log_path = experiment_dir.get_log_path(save_name)
-        plot_path = experiment_dir.get_plot_path(f"{save_name}_seir.png")
-    else:
-        log_path = os.path.join("logs", f"{save_name}.txt")
-        os.makedirs("results", exist_ok=True)
-        plot_path = os.path.join("results", f"{save_name}_seir.png")
+def evaluate_agent(
+    agent: Agent,
+    config: Config,
+    pomdp_params: Dict[str, Any],
+    agent_name: str,
+    eval_seeds: List[int],
+    vecnorm_path: Optional[str] = None,
+) -> tuple[AggregatedResult, List[SimulationResult]]:
+    """Unified multi-episode evaluation for ANY agent type.
 
-    log_results(result, log_path=str(log_path))
-    plot_single_result(result, save_path=str(plot_path))
+    For each eval_seed, creates a fresh environment, collects a full SEIR
+    trajectory, and aggregates statistics (mean +/- SD) across episodes.
 
-    return result
+    Args:
+        agent: Agent to evaluate (baseline or RL model).
+        config: Base SEIR configuration.
+        pomdp_params: POMDP wrapper parameters.
+        agent_name: Name of the agent (also determines VecFrameStack for RL).
+        eval_seeds: List of evaluation seeds (one episode per seed).
+        vecnorm_path: Path to frozen VecNormalize stats (RL agents only).
+
+    Returns:
+        Tuple of (AggregatedResult, list of per-episode SimulationResults).
+    """
+    is_rl = isinstance(agent, (PPO, RecurrentPPO))
+
+    all_results: List[SimulationResult] = []
+
+    for seed in eval_seeds:
+        if is_rl:
+            env = create_eval_vec_env(config, pomdp_params, agent_name, vecnorm_path, seed=seed)
+        else:
+            env = create_environment(config, pomdp_params, seed=seed)
+
+        result = _collect_trajectory(agent, env)
+        result.custom_name = agent_name
+        all_results.append(result)
+
+        if is_rl:
+            env.close()
+
+    all_S = [r.S for r in all_results]
+    all_E = [r.E for r in all_results]
+    all_I = [r.I for r in all_results]
+    all_R = [r.R for r in all_results]
+
+    # Truncate to shortest trajectory length (stochastic envs may differ slightly)
+    min_len = min(len(s) for s in all_S)
+    S_stack = np.stack([s[:min_len] for s in all_S], axis=0)
+    E_stack = np.stack([e[:min_len] for e in all_E], axis=0)
+    I_stack = np.stack([i[:min_len] for i in all_I], axis=0)
+    R_stack = np.stack([r[:min_len] for r in all_R], axis=0)
+
+    t = np.arange(min_len)
+
+    agg = AggregatedResult(
+        agent_name=agent_name,
+        t=t,
+        S_mean=np.mean(S_stack, axis=0),
+        S_std=np.std(S_stack, axis=0),
+        E_mean=np.mean(E_stack, axis=0),
+        E_std=np.std(E_stack, axis=0),
+        I_mean=np.mean(I_stack, axis=0),
+        I_std=np.std(I_stack, axis=0),
+        R_mean=np.mean(R_stack, axis=0),
+        R_std=np.std(R_stack, axis=0),
+        episode_rewards=[r.total_reward for r in all_results],
+        peak_infected_per_episode=[float(r.peak_infected) for r in all_results],
+        total_infected_per_episode=[float(r.total_infected) for r in all_results],
+        n_episodes=len(eval_seeds),
+    )
+
+    return agg, all_results
+
+
+def select_best_model(
+    models: List[Union[PPO, RecurrentPPO]],
+    seeds: List[int],
+    config: Config,
+    pomdp_params: Dict[str, Any],
+    agent_name: str,
+    experiment_dir: "ExperimentDirectory",
+    n_eval_episodes: int = 10,
+) -> tuple:
+    """Quick reward-only evaluation to select the best training seed model.
+
+    Uses SB3's evaluate_policy for fast reward-only evaluation (no trajectory
+    collection). Full trajectory evaluation is done afterwards by evaluate_agent().
+
+    Args:
+        models: List of trained models (one per training seed).
+        seeds: List of training seeds corresponding to models.
+        config: Base configuration.
+        pomdp_params: POMDP wrapper parameters.
+        agent_name: Agent name.
+        experiment_dir: Experiment directory for VecNormalize paths.
+        n_eval_episodes: Episodes for model selection evaluation.
+
+    Returns:
+        Tuple of (best_model, best_seed, per_seed_mean_rewards).
+    """
+    per_seed_mean_rewards: List[Dict[str, Any]] = []
+
+    for model, seed in zip(models, seeds):
+        vecnorm_path = str(experiment_dir.get_vecnormalize_path(agent_name, seed))
+        eval_env = create_eval_vec_env(
+            config, pomdp_params, agent_name, vecnorm_path, seed=seed
+        )
+
+        episode_rewards, _ = evaluate_policy(
+            model,
+            eval_env,
+            n_eval_episodes=n_eval_episodes,
+            deterministic=True,
+            return_episode_rewards=True,
+        )
+
+        mean_reward = float(np.mean(episode_rewards))
+        std_reward = float(np.std(episode_rewards))
+        per_seed_mean_rewards.append({
+            "seed": seed,
+            "mean_reward": mean_reward,
+            "std_reward": std_reward,
+            "episode_rewards": [float(r) for r in episode_rewards],
+        })
+
+        eval_env.close()
+
+    best_idx = int(np.argmax([s["mean_reward"] for s in per_seed_mean_rewards]))
+    best_model = models[best_idx]
+    best_seed = seeds[best_idx]
+
+    return best_model, best_seed, per_seed_mean_rewards
+
+
+def _save_episode_logs(
+    experiment_dir: ExperimentDirectory,
+    agent_name: str,
+    eval_seeds: List[int],
+    episode_results: List[SimulationResult],
+) -> None:
+    """Save per-episode action logs to logs/{agent_name}/seed_{seed}.txt."""
+    agent_log_dir = experiment_dir.logs_dir / agent_name
+    agent_log_dir.mkdir(parents=True, exist_ok=True)
+
+    for seed, result in zip(eval_seeds, episode_results):
+        log_path = agent_log_dir / f"seed_{seed}.txt"
+        log_results(result, log_path=str(log_path))
 
 
 def run_evaluation(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
     rl_models: Dict[str, List[Union[PPO, RecurrentPPO]]],
-) -> tuple[List[SimulationResult], Dict[str, dict]]:
-    """Run multi-seed statistical evaluation and best-seed trajectory evaluation.
+) -> tuple[Dict[str, AggregatedResult], Dict[str, Any]]:
+    """Run unified multi-episode evaluation for all agents.
+
+    Phase 1: Baselines — evaluate_agent() on eval_seeds.
+    Phase 2: RL agents — select_best_model(), then evaluate_agent() on same eval_seeds.
 
     Args:
         exp_config: Experiment configuration.
@@ -328,66 +356,87 @@ def run_evaluation(
         rl_models: Dict mapping agent_name -> list of models (one per seed).
 
     Returns:
-        Tuple of (trajectory results for best seeds, multi-seed statistics dict).
+        Tuple of (Dict[agent_name -> AggregatedResult], Dict[rl_agent_name -> per_seed_stats]).
     """
     print("\n" + "=" * 80)
     print("RUNNING EVALUATION")
     print("=" * 80)
 
-    results: List[SimulationResult] = []
-    multi_seed_stats: Dict[str, dict] = {}
+    aggregated_results: Dict[str, AggregatedResult] = {}
+    per_seed_stats: Dict[str, Any] = {}
+    eval_seeds = exp_config.eval_seeds
 
-    # Evaluate non-RL agents (single-episode trajectory)
-    env = create_environment(exp_config.base_config, exp_config.pomdp_params, seed=exp_config.training_seeds[0])
+    # Phase 1: Evaluate baselines
     agents = create_baseline_agents(exp_config.base_config, exp_config.target_agents)
 
     for agent in agents:
         agent_name = agent.__class__.__name__.lower()
-        print(f"\nEvaluating {agent.__class__.__name__}...")
-        result = run_agent(agent, env, experiment_dir=experiment_dir, agent_name=agent_name)
-        results.append(result)
+        print(f"\nEvaluating {agent.__class__.__name__} ({len(eval_seeds)} episodes)...")
 
-    # Evaluate RL agents: multi-seed statistics + best-seed trajectory
+        # Re-seed RandomAgent per evaluation for reproducibility
+        if isinstance(agent, RandomAgent):
+            agent = RandomAgent(seed=eval_seeds[0])
+
+        agg, episode_results = evaluate_agent(
+            agent=agent,
+            config=exp_config.base_config,
+            pomdp_params=exp_config.pomdp_params,
+            agent_name=agent_name,
+            eval_seeds=eval_seeds,
+        )
+        aggregated_results[agent_name] = agg
+
+        # Save per-agent aggregated SEIR plot
+        plot_path = experiment_dir.get_plot_path(f"{agent_name}_seir.png")
+        plot_single_aggregated(agg, save_path=str(plot_path))
+
+        # Save per-episode logs
+        _save_episode_logs(experiment_dir, agent_name, eval_seeds, episode_results)
+
+        print(
+            f"  {agent_name}: reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
+            f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}"
+        )
+
+    # Phase 2: Evaluate RL agents
     for agent_name, models in rl_models.items():
         print(f"\nEvaluating {agent_name} ({len(models)} seeds)...")
 
-        # Phase 1: Multi-seed statistical evaluation
-        stats = evaluate_multi_seed(
+        # Select best model across training seeds
+        best_model, best_seed, seed_stats = select_best_model(
             models=models,
-            seeds=exp_config.training_seeds[: len(models)],
+            seeds=exp_config.training_seeds[:len(models)],
             config=exp_config.base_config,
             pomdp_params=exp_config.pomdp_params,
             agent_name=agent_name,
             experiment_dir=experiment_dir,
-            n_eval_episodes_per_seed=exp_config.num_eval_episodes,
+            n_eval_episodes=exp_config.num_eval_episodes,
         )
-        multi_seed_stats[agent_name] = stats
+        per_seed_stats[agent_name] = seed_stats
+        print(f"  Best seed: {best_seed}")
+
+        # Full trajectory evaluation on eval_seeds
+        vecnorm_path = str(experiment_dir.get_vecnormalize_path(agent_name, best_seed))
+        agg, episode_results = evaluate_agent(
+            agent=best_model,
+            config=exp_config.base_config,
+            pomdp_params=exp_config.pomdp_params,
+            agent_name=agent_name,
+            eval_seeds=eval_seeds,
+            vecnorm_path=vecnorm_path,
+        )
+        aggregated_results[agent_name] = agg
+
+        # Save per-agent aggregated SEIR plot
+        plot_path = experiment_dir.get_plot_path(f"{agent_name}_seir.png")
+        plot_single_aggregated(agg, save_path=str(plot_path))
+
+        # Save per-episode logs
+        _save_episode_logs(experiment_dir, agent_name, eval_seeds, episode_results)
 
         print(
-            f"  {agent_name}: mean={stats['overall_mean']:.2f} "
-            f"± {stats['overall_std']:.2f} "
-            f"(95% CI: [{stats['ci_low']:.2f}, {stats['ci_high']:.2f}])"
-        )
-        print(f"  Best seed: {stats['best_seed']} (idx={stats['best_seed_idx']})")
-
-        # Phase 2: Trajectory evaluation for the best seed model
-        best_model = models[stats["best_seed_idx"]]
-        best_seed = stats["best_seed"]
-        vecnorm_path = str(
-            experiment_dir.get_vecnormalize_path(agent_name, best_seed)
+            f"  {agent_name}: reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
+            f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}"
         )
 
-        eval_env = create_eval_vec_env(
-            exp_config.base_config,
-            exp_config.pomdp_params,
-            agent_name,
-            vecnorm_path,
-            seed=best_seed,
-        )
-        result = run_agent(
-            best_model, eval_env, experiment_dir=experiment_dir, agent_name=agent_name
-        )
-        results.append(result)
-        eval_env.close()
-
-    return results, multi_seed_stats
+    return aggregated_results, per_seed_stats

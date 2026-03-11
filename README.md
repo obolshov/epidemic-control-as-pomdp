@@ -128,16 +128,19 @@ experiments/
       config.json                               # Full experiment configuration
       summary.json                              # Key metrics for all agents
       plots/
-        comparison_all_agents.png               # Side-by-side SEIR curves
-        evaluation_curves.png                   # Mean ± 95% CI reward across seeds
-        random_agent_seir.png                   # Individual agent SEIR plots
-        threshold_agent_seir.png
+        comparison_all_agents.png               # Side-by-side SEIR curves (mean ± SD shaded)
+        evaluation_curves.png                   # Mean ± SD reward across training seeds
+        randomagent_seir.png                    # Individual agent SEIR plots (mean ± SD shaded)
+        thresholdagent_seir.png
         ppo_baseline_seir.png
-        ppo_baseline_seed42_learning.png        # Per-seed monitor-based learning curve
+        ppo_baseline_seed42_learning_timesteps.png  # Per-seed monitor-based learning curve
       logs/
-        random_agent.txt                        # Detailed action logs
-        threshold_agent.txt
-        ppo_baseline.txt
+        randomagent/                            # Per-agent action logs
+          seed_2024.txt                         # One log per eval episode
+          seed_2025.txt
+          ...
+        thresholdagent/
+        ppo_baseline/
         tensorboard/
           ppo_baseline_seed42/                  # VecMonitor logs (per-seed)
           ppo_baseline_seed42_1/                # TensorBoard logs (per-seed)

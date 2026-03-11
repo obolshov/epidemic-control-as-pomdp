@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import typer
 
 from src.config import Config
+from src.env import AggregatedResult
 from src.evaluation import run_evaluation
 from src.experiment import ExperimentConfig, ExperimentDirectory, generate_seeds
 from src.scenarios import (
@@ -112,7 +113,7 @@ def _build_experiment_config(
 def _create_plots(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
-    results: list,
+    aggregated_results: Dict[str, AggregatedResult],
     rl_models: dict,
 ) -> None:
     """Generate comparison and evaluation-curve plots.
@@ -120,7 +121,7 @@ def _create_plots(
     Args:
         exp_config: Experiment configuration (for scenario name and seeds).
         experiment_dir: Experiment directory (for plot paths and logs dir).
-        results: Best-seed trajectory SimulationResult list.
+        aggregated_results: Dict mapping agent_name -> AggregatedResult.
         rl_models: Dict mapping agent_name -> list of models.
     """
     print("\n" + "=" * 80)
@@ -128,7 +129,7 @@ def _create_plots(
     print("=" * 80)
 
     comparison_path = experiment_dir.get_plot_path("comparison_all_agents.png")
-    plot_all_results(results, save_path=str(comparison_path))
+    plot_all_results(aggregated_results, save_path=str(comparison_path))
 
     eval_log_paths_by_agent: Dict[str, List[str]] = {
         agent_name: [
@@ -150,47 +151,32 @@ def _create_plots(
 def _print_summary(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
-    results: list,
-    multi_seed_stats: dict,
+    aggregated_results: Dict[str, AggregatedResult],
 ) -> None:
     """Print final experiment summary to stdout.
 
     Args:
         exp_config: Experiment configuration.
         experiment_dir: Experiment directory (for root path).
-        results: All SimulationResult objects.
-        multi_seed_stats: Multi-seed statistics dict from run_evaluation.
+        aggregated_results: Dict mapping agent_name -> AggregatedResult.
     """
     print("\n" + "=" * 80)
     print("EXPERIMENT COMPLETE")
     print("=" * 80)
     print(f"\nScenario: {exp_config.scenario_name}")
     print(f"Training seeds: {exp_config.training_seeds}")
+    print(f"Eval seeds: {exp_config.eval_seeds}")
     print(f"Results directory: {experiment_dir.root}")
 
-    print("\nNon-RL agents:")
-    for result in results:
-        if not result.agent_name.startswith("ppo_"):
-            print(
-                f"  - {result.agent_name}: "
-                f"Peak I = {result.peak_infected:.1f}, "
-                f"Total Infected = {result.total_infected:.1f}, "
-                f"Total Reward = {result.total_reward:.2f}"
-            )
-
-    if multi_seed_stats:
-        print("\nRL agents (multi-seed evaluation):")
-        for agent_name, stats in multi_seed_stats.items():
-            print(
-                f"  - {agent_name}: "
-                f"mean={stats['overall_mean']:.2f} ± {stats['overall_std']:.2f} "
-                f"(95% CI: [{stats['ci_low']:.2f}, {stats['ci_high']:.2f}])"
-            )
-            for seed_stat in stats["per_seed"]:
-                print(
-                    f"      seed={seed_stat['seed']}: "
-                    f"mean={seed_stat['mean_reward']:.2f} ± {seed_stat['std_reward']:.2f}"
-                )
+    print("\nAll agents:")
+    for agent_name, agg in aggregated_results.items():
+        print(
+            f"  - {agent_name}: "
+            f"reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
+            f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}, "
+            f"total inf = {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f} "
+            f"(n={agg.n_episodes})"
+        )
 
     print("\n" + "=" * 80)
 
@@ -281,11 +267,11 @@ def main(
     experiment_dir.save_config()
 
     rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip)
-    results, multi_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
+    aggregated_results, per_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
 
-    _create_plots(exp_config, experiment_dir, results, rl_models)
-    experiment_dir.save_summary(results, multi_seed_stats)
-    _print_summary(exp_config, experiment_dir, results, multi_seed_stats)
+    _create_plots(exp_config, experiment_dir, aggregated_results, rl_models)
+    experiment_dir.save_summary(aggregated_results, per_seed_stats)
+    _print_summary(exp_config, experiment_dir, aggregated_results)
 
 
 if __name__ == "__main__":
