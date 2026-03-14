@@ -48,13 +48,14 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "pomdp": {
-        "description": "POMDP Experiment 4: Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + noise + temporal lag (5–14 days)",
+        "description": "POMDP Experiment 4: Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + noise + temporal lag (5–14 days) + action delay (5 days)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": 0.3,
             "testing_capacity": 0.015,
             "noise_stds": [0.05, 0.30, 0.15],
             "lag": [5, 14],
+            "action_delay": 5,
         },
     },
 }
@@ -110,8 +111,8 @@ def create_custom_scenario_name(
     if not pomdp_params.get("include_exposed", True):
         parts.append("no_exposed")
 
-    if "delay" in pomdp_params and pomdp_params["delay"] > 0:
-        parts.append(f"delay{pomdp_params['delay']}")
+    if pomdp_params.get("action_delay") and pomdp_params["action_delay"] > 0:
+        parts.append(f"adelay{pomdp_params['action_delay']}")
 
     if "noise_std" in pomdp_params and pomdp_params["noise_std"] > 0:
         noise_val = pomdp_params["noise_std"]

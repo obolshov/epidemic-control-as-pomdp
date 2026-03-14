@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass
 from typing import List
 
@@ -31,9 +32,10 @@ def calculate_reward(
 class EpidemicEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, action_delay: int = 0):
         super().__init__()
         self.config = config
+        self.action_delay = action_delay
 
         self.action_space = spaces.Discrete(len(InterventionAction))
         self.action_map = list(InterventionAction)
@@ -49,6 +51,7 @@ class EpidemicEnv(gym.Env):
         self.current_state = None
         self.current_day = 0
         self.prev_action_idx: int = 0
+        self._action_queue: deque = deque()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -63,11 +66,18 @@ class EpidemicEnv(gym.Env):
         )
         self.current_day = 0
         self.prev_action_idx = 0
+        self._action_queue = deque([0] * self.action_delay)
 
         return self._get_obs(), {}
 
     def step(self, action_idx):
-        action_enum = self.action_map[action_idx]
+        if self.action_delay > 0:
+            self._action_queue.append(action_idx)
+            applied_action_idx = self._action_queue.popleft()
+        else:
+            applied_action_idx = action_idx
+
+        action_enum = self.action_map[applied_action_idx]
         beta = self.config.beta_0 * action_enum.value
 
         days_to_simulate = min(
@@ -95,7 +105,7 @@ class EpidemicEnv(gym.Env):
             )
 
         reward = calculate_reward(self.current_state.I, action_enum, self.config, self.prev_action_idx)
-        self.prev_action_idx = action_idx
+        self.prev_action_idx = applied_action_idx
 
         self.current_day += days_to_simulate
 

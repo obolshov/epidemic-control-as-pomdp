@@ -65,6 +65,11 @@
   max_lag_steps = max(min_lag_steps, round(max_lag_days / action_interval))  # e.g. 14/5 ≈ 3
   ```
   Always specify lag in **days** in `PREDEFINED_SCENARIOS` and CLI (`--lag`). Never pass raw step counts.
+- **`action_delay`** is in **days** in `pomdp_params` and CLI (`--action-delay`). `create_environment()` converts to steps:
+  ```python
+  action_delay_steps = max(0, round(action_delay_days / config.action_interval))  # e.g. 5/5 = 1
+  ```
+  The env uses a FIFO queue: `reset()` pre-fills queue with `action_delay` default actions (idx 0); each `step()` enqueues the new action and dequeues the oldest. `prev_action_idx` in obs reflects the **applied** action.
 
 # SB3 Pipeline Invariants
 When modifying any training or evaluation code, ALL of the following must hold:

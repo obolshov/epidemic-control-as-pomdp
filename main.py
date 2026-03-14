@@ -55,6 +55,7 @@ def _build_experiment_config(
     deterministic: bool = False,
     lag: Optional[List[int]] = None,
     testing_capacity: Optional[float] = None,
+    action_delay: Optional[int] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -69,6 +70,7 @@ def _build_experiment_config(
         deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
         lag: Lag range [min_lag, max_lag] in days, or None to disable.
         testing_capacity: Fraction of population testable per day, or None to disable.
+        action_delay: Action implementation delay in days, or None to disable.
 
     Returns:
         Fully populated ExperimentConfig.
@@ -97,6 +99,7 @@ def _build_experiment_config(
         "noise_stds": noise_stds,
         "lag": lag,
         "testing_capacity": testing_capacity,
+        "action_delay": action_delay,
     }
     return ExperimentConfig(
         base_config=base_config,
@@ -246,6 +249,11 @@ def main(
             "Pass twice: e.g. --lag 5 --lag 14. None = disabled."
         ),
     ),
+    action_delay: Optional[int] = typer.Option(
+        None,
+        "--action-delay",
+        help="Action implementation delay in days. None = disabled.",
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation
@@ -259,6 +267,7 @@ def main(
         deterministic=deterministic,
         lag=lag,
         testing_capacity=testing_capacity,
+        action_delay=action_delay,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

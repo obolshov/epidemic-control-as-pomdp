@@ -338,6 +338,9 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
             must be a ``[min_lag_days, max_lag_days]`` pair specified in **days**
             (e.g. ``[5, 14]``). It is converted to steps internally via
             ``config.action_interval`` before being passed to TemporalLagWrapper.
+            The ``action_delay`` key, if present, specifies the delay in **days**
+            between action selection and application (e.g. ``5`` → 1 step). It is
+            converted to steps and passed directly to ``EpidemicEnv``.
         seed: RNG seed forwarded to stochastic wrappers (e.g. TemporalLagWrapper).
 
     Returns:
@@ -345,7 +348,9 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
     """
     from src.env import EpidemicEnv
 
-    env = EpidemicEnv(config)
+    action_delay_days = pomdp_params.get("action_delay")
+    action_delay_steps = max(0, round(action_delay_days / config.action_interval)) if action_delay_days else 0
+    env = EpidemicEnv(config, action_delay=action_delay_steps)
 
     if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
