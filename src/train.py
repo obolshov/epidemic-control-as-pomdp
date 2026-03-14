@@ -243,7 +243,9 @@ def train_ppo_agent(
             f"Training config: n_steps={config.recurrent_n_steps}, "
             f"batch_size={config.recurrent_batch_size}, "
             f"n_epochs={config.recurrent_n_epochs}, "
-            f"ent_coef={config.ent_coef}"
+            f"ent_coef={config.recurrent_ent_coef}, "
+            f"clip_range={config.recurrent_clip_range}, "
+            f"lr={config.recurrent_learning_rate}"
         )
 
         policy_kwargs = {
@@ -260,8 +262,9 @@ def train_ppo_agent(
             n_steps=config.recurrent_n_steps,
             batch_size=config.recurrent_batch_size,
             n_epochs=config.recurrent_n_epochs,
-            ent_coef=config.ent_coef,
-            learning_rate=linear_schedule(3e-4),
+            ent_coef=config.recurrent_ent_coef,
+            clip_range=config.recurrent_clip_range,
+            learning_rate=linear_schedule(config.recurrent_learning_rate),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
     else:
