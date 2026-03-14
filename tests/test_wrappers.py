@@ -221,12 +221,12 @@ class TestUnderReportingWrapper:
 
 class TestMultiplicativeNoiseWrapper:
 
-    def _make_wrapped(self, small_config, noise_stds, seed=42, mask_E=True):
+    def _make_wrapped(self, small_config, noise_stds, seed=42, mask_E=True, noise_rho=0.0):
         """Helper: create env → optionally mask E → noise wrapper."""
         env = EpidemicEnv(small_config)
         if mask_E:
             env = EpidemicObservationWrapper(env, include_exposed=False)
-        wrapped = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds)
+        wrapped = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds, noise_rho=noise_rho)
         wrapped.reset(seed=seed)
         return wrapped
 
@@ -330,6 +330,118 @@ class TestMultiplicativeNoiseWrapper:
                                            err_msg=f"Mean ratio for compartment {j} not ≈ 1.0")
                 np.testing.assert_allclose(valid.std(), noise_std, atol=0.05,
                                            err_msg=f"Std ratio for compartment {j} not ≈ {noise_std}")
+
+    # --- AR(1) autocorrelated noise tests ---
+
+    def test_ar1_rho_zero_matches_iid(self, small_config):
+        """Explicit rho=0.0 produces same output as default (no rho arg)."""
+        env1 = EpidemicEnv(small_config)
+        env1m = EpidemicObservationWrapper(env1, include_exposed=False)
+        w1 = MultiplicativeNoiseWrapper(env1m, noise_stds=[0.1, 0.3, 0.15], noise_rho=0.0)
+        o1, _ = w1.reset(seed=42)
+
+        env2 = EpidemicEnv(small_config)
+        env2m = EpidemicObservationWrapper(env2, include_exposed=False)
+        w2 = MultiplicativeNoiseWrapper(env2m, noise_stds=[0.1, 0.3, 0.15])
+        o2, _ = w2.reset(seed=42)
+
+        np.testing.assert_array_equal(o1, o2)
+        for _ in range(5):
+            o1, _, _, _, _ = w1.step(0)
+            o2, _, _, _, _ = w2.step(0)
+            np.testing.assert_array_equal(o1, o2)
+
+    def test_ar1_bias_resets_on_episode_reset(self, small_config):
+        """After stepping with rho=0.9, reset clears accumulated bias.
+
+        Note: reset() zeros _bias, then super().reset() calls observation()
+        which applies one innovation step. So after reset, _bias = scale * ε
+        (a single fresh draw), NOT the accumulated value from pre-reset.
+        """
+        wrapped = self._make_wrapped(small_config, [0.1, 0.3, 0.15], seed=42, noise_rho=0.9)
+        for _ in range(10):
+            wrapped.step(0)
+        bias_before = wrapped._bias.copy()
+        assert not np.allclose(bias_before, 0.0), "Bias should be non-zero after steps"
+        wrapped.reset(seed=42)
+        # After reset, bias should be a single innovation (not accumulated)
+        # It differs from the pre-reset accumulated bias
+        assert not np.array_equal(wrapped._bias, bias_before), \
+            "Bias should change after reset"
+        # Single innovation magnitude: scale * N(0, σ) where scale = sqrt(1 - 0.81) ≈ 0.436
+        # So |bias| should be small relative to accumulated bias
+        innovation_scale = np.sqrt(1.0 - 0.9 ** 2)
+        stds = np.array([0.1, 0.3, 0.15])
+        # Each element should be within ~4σ of zero for the single innovation
+        for j in range(3):
+            assert abs(wrapped._bias[j]) < 4 * innovation_scale * stds[j], \
+                f"Post-reset bias[{j}]={wrapped._bias[j]} too large for single innovation"
+
+    def test_ar1_autocorrelation(self, small_config):
+        """Lag-1 autocorrelation of noise ≈ ρ (statistical, generous tolerance)."""
+        rho = 0.7
+        n_steps = 2000
+        noise_std = 0.2
+        wrapped = self._make_wrapped(small_config, [noise_std, noise_std, noise_std],
+                                     seed=42, noise_rho=rho)
+        biases = []
+        for _ in range(n_steps):
+            wrapped.step(0)
+            biases.append(wrapped._bias.copy())
+
+        biases = np.array(biases)  # (n_steps, 3)
+        for j in range(3):
+            series = biases[:, j]
+            # Lag-1 autocorrelation
+            corr = np.corrcoef(series[:-1], series[1:])[0, 1]
+            np.testing.assert_allclose(corr, rho, atol=0.1,
+                                       err_msg=f"Lag-1 autocorr for compartment {j}: {corr} ≠ {rho}")
+
+    def test_ar1_marginal_variance_preserved(self, small_config):
+        """Std of bias ≈ σ after burn-in, regardless of ρ."""
+        rho = 0.7
+        noise_std = 0.2
+        n_steps = 3000
+        wrapped = self._make_wrapped(small_config, [noise_std, noise_std, noise_std],
+                                     seed=42, noise_rho=rho)
+        biases = []
+        # Burn-in
+        for _ in range(100):
+            wrapped.step(0)
+        for _ in range(n_steps):
+            wrapped.step(0)
+            biases.append(wrapped._bias.copy())
+
+        biases = np.array(biases)
+        for j in range(3):
+            np.testing.assert_allclose(biases[:, j].std(), noise_std, atol=0.05,
+                                       err_msg=f"Marginal std for compartment {j} not ≈ {noise_std}")
+
+    def test_ar1_invalid_rho(self, small_config):
+        """ValueError for rho=1.0, rho=-0.1, rho=1.5."""
+        env = EpidemicEnv(small_config)
+        env = EpidemicObservationWrapper(env, include_exposed=False)
+        for bad_rho in [1.0, -0.1, 1.5]:
+            with pytest.raises(ValueError, match="noise_rho"):
+                MultiplicativeNoiseWrapper(env, noise_stds=[0.1, 0.3, 0.15], noise_rho=bad_rho)
+
+    def test_ar1_trailing_elements_unchanged(self, small_config):
+        """prev_action and day_frac unaffected with rho=0.7."""
+        env = EpidemicEnv(small_config)
+        env_masked = EpidemicObservationWrapper(env, include_exposed=False)
+        wrapped = MultiplicativeNoiseWrapper(env_masked, noise_stds=[2.0, 2.0, 2.0], noise_rho=0.7)
+        obs, _ = wrapped.reset(seed=42)
+        assert obs[3] == 0.0, f"prev_action should be 0.0, got {obs[3]}"
+        assert obs[4] == 0.0, f"day_frac should be 0.0, got {obs[4]}"
+
+    def test_ar1_reproducibility(self, small_config):
+        """Same seed + rho → identical sequences."""
+        w1 = self._make_wrapped(small_config, [0.1, 0.3, 0.15], seed=42, noise_rho=0.7)
+        w2 = self._make_wrapped(small_config, [0.1, 0.3, 0.15], seed=42, noise_rho=0.7)
+        for _ in range(10):
+            o1, _, _, _, _ = w1.step(0)
+            o2, _, _, _, _ = w2.step(0)
+            np.testing.assert_array_equal(o1, o2)
 
 
 # ===========================================================================

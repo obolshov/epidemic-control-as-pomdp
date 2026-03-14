@@ -190,10 +190,16 @@ class UnderReportingWrapper(gym.ObservationWrapper):
 
 
 class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
-    """Simulates per-compartment multiplicative measurement noise.
+    """Simulates per-compartment multiplicative measurement noise via AR(1).
 
-    Each compartment is multiplied by an independent noise factor:
-        obs_noisy[i] = obs[i] * (1 + N(0, noise_stds[i]))
+    Each compartment accumulates an autocorrelated bias that evolves as:
+        bias_t[i] = ρ * bias_{t-1}[i] + √(1 - ρ²) * ε_t[i],  ε_t ~ N(0, σ_i)
+        obs_noisy[i] = obs[i] * (1 + bias_t[i])
+
+    The √(1 - ρ²) scaling preserves the marginal variance at σ² regardless of ρ.
+    When ρ=0 this reduces to iid multiplicative noise (backward compatible).
+    When ρ>0 the bias persists across steps, creating measurement drift that
+    rewards memory-based agents who can track and compensate for it.
 
     Typical noise levels by compartment (epidemiological motivation):
     - S: 0.05 — population size is well known
@@ -210,9 +216,12 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
         noise_stds: Per-compartment noise stds matching the current observation
                     shape. E.g. [0.05, 0.30, 0.15] for [S, I, R] or
                     [0.05, 0.30, 0.30, 0.15] for [S, E, I, R].
+        noise_rho: AR(1) autocorrelation coefficient in [0, 1). Controls how
+                   persistent the measurement bias is across steps.
+                   0.0 = iid noise (default), 0.7 = decorrelation half-life ≈ 2 steps.
     """
 
-    def __init__(self, env: gym.Env, noise_stds: List[float]) -> None:
+    def __init__(self, env: gym.Env, noise_stds: List[float], noise_rho: float = 0.0) -> None:
         super().__init__(env)
         obs_size = env.observation_space.shape[0]
         n_compartments = obs_size - 2  # Exclude prev_action and day_frac
@@ -223,11 +232,21 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
             )
         if any(s < 0 for s in noise_stds):
             raise ValueError(f"All noise_stds must be >= 0, got {noise_stds}")
+        if not (0.0 <= noise_rho < 1.0):
+            raise ValueError(f"noise_rho must be in [0, 1), got {noise_rho}")
         self._noise_stds = np.array(noise_stds, dtype=np.float32)
+        self._noise_rho = noise_rho
+        self._innovation_scale = np.sqrt(1.0 - noise_rho ** 2)
+        self._bias = np.zeros(n_compartments, dtype=np.float32)
         self._pop_size: float = float(env.observation_space.high[0])
 
+    def reset(self, **kwargs):
+        """Reset AR(1) bias state and delegate to wrapped environment."""
+        self._bias = np.zeros(len(self._noise_stds), dtype=np.float32)
+        return super().reset(**kwargs)
+
     def observation(self, obs: np.ndarray) -> np.ndarray:
-        """Apply per-compartment multiplicative noise and clip.
+        """Apply per-compartment AR(1) multiplicative noise and clip.
 
         Noise is applied only to the epidemic compartments (all elements except
         the trailing prev_action and day_frac). Those two pass through unchanged.
@@ -240,9 +259,10 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
         """
         n_compartments = len(self._noise_stds)
         result = obs.copy().astype(np.float32)
-        noise_factors = 1.0 + self.np_random.normal(0.0, self._noise_stds).astype(np.float32)
+        innovation = self.np_random.normal(0.0, self._noise_stds).astype(np.float32)
+        self._bias = self._noise_rho * self._bias + self._innovation_scale * innovation
         result[:n_compartments] = np.clip(
-            obs[:n_compartments] * noise_factors, 0.0, self._pop_size
+            obs[:n_compartments] * (1.0 + self._bias), 0.0, self._pop_size
         )
         return result.astype(self.observation_space.dtype)
 
@@ -372,6 +392,7 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
 
     noise_stds = pomdp_params.get("noise_stds")
     if noise_stds is not None:
-        env = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds)
+        noise_rho = pomdp_params.get("noise_rho", 0.0)
+        env = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds, noise_rho=noise_rho)
 
     return env

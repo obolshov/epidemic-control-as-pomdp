@@ -54,6 +54,7 @@
 - After `EpidemicObservationWrapper(include_exposed=False)`: shape `(5,)` → `[S, I, R, prev_action_idx, day_frac]`.
 - Observation space bounds are **per-element** (not uniform): high = `[N, N, N, N, 3.0, 1.0]` (6-element) or `[N, N, N, 3.0, 1.0]` (5-element).
 - `MultiplicativeNoiseWrapper` expects `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_action_idx` and `day_frac` **pass through unchanged** and must NOT be included in `noise_stds`.
+- `MultiplicativeNoiseWrapper` supports AR(1) autocorrelated noise via `noise_rho` ∈ [0, 1). `noise_rho=0` → iid (backward compatible). `noise_rho=0.7` → persistent measurement bias (decorrelation half-life ≈ 2 steps). The `√(1 - ρ²)` innovation scaling preserves marginal variance = σ² regardless of ρ.
 
 # Temporal Resolution Invariants
 

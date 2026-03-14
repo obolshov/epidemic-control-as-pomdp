@@ -56,6 +56,7 @@ def _build_experiment_config(
     lag: Optional[List[int]] = None,
     testing_capacity: Optional[float] = None,
     action_delay: Optional[int] = None,
+    noise_rho: float = 0.0,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -71,6 +72,7 @@ def _build_experiment_config(
         lag: Lag range [min_lag, max_lag] in days, or None to disable.
         testing_capacity: Fraction of population testable per day, or None to disable.
         action_delay: Action implementation delay in days, or None to disable.
+        noise_rho: AR(1) autocorrelation coefficient for multiplicative noise.
 
     Returns:
         Fully populated ExperimentConfig.
@@ -97,6 +99,7 @@ def _build_experiment_config(
         "include_exposed": not no_exposed,
         "detection_rate": detection_rate,
         "noise_stds": noise_stds,
+        "noise_rho": noise_rho,
         "lag": lag,
         "testing_capacity": testing_capacity,
         "action_delay": action_delay,
@@ -228,6 +231,15 @@ def main(
             "for [S, I, R] when --no-exposed is set. None = disabled."
         ),
     ),
+    noise_rho: float = typer.Option(
+        0.0,
+        "--noise-rho",
+        help=(
+            "AR(1) autocorrelation coefficient for multiplicative noise in [0, 1). "
+            "0.0 = iid noise (default), 0.7 = persistent measurement bias "
+            "(decorrelation half-life ≈ 2 steps / 10 days)."
+        ),
+    ),
     testing_capacity: Optional[float] = typer.Option(
         None,
         "--testing-capacity",
@@ -268,6 +280,7 @@ def main(
         lag=lag,
         testing_capacity=testing_capacity,
         action_delay=action_delay,
+        noise_rho=noise_rho,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

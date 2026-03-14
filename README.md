@@ -54,15 +54,16 @@ python main.py --scenario underreporting
 ```
 
 ### **noisy_pomdp** (POMDP Experiment 3)
-Masked E + under-reporting (k=0.3) + per-compartment multiplicative noise.
-Simulates false-positive/negative testing (I, E: σ=0.30) and incomplete recovery
-statistics (R: σ=0.15).
+Masked E + under-reporting (k=0.3) + AR(1) autocorrelated multiplicative noise (ρ=0.7).
+Simulates persistent measurement bias from false-positive/negative testing (I: σ=0.30)
+and incomplete recovery statistics (R: σ=0.15). The autocorrelated noise creates
+measurement drift that rewards memory-based agents.
 ```bash
 python main.py --scenario noisy_pomdp
 ```
 
 ### **pomdp** (POMDP Experiment 4)
-Masked E + under-reporting (k=0.3) + multiplicative noise + temporal lag (5–14 days).
+Masked E + under-reporting (k=0.3) + AR(1) noise (ρ=0.7) + temporal lag (5–14 days).
 The agent receives observations from a random number of days in the past, simulating
 bureaucratic and laboratory reporting delays. The most challenging and realistic scenario.
 ```bash
@@ -104,6 +105,7 @@ Key options:
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
 - `--testing-capacity`: Fraction of population testable per day. When set, detection rate drops during surges via Michaelis-Menten saturation (e.g. `--testing-capacity 0.015` = 1.5%/day)
 - `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
+- `--noise-rho`: AR(1) autocorrelation coefficient for multiplicative noise in [0, 1). 0.0 = iid noise (default), 0.7 = persistent measurement bias (decorrelation half-life ≈ 2 steps / 10 days)
 - `--lag`: Temporal lag range in days (pass twice: `--lag 5 --lag 14`). Disabled if omitted.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 
