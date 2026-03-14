@@ -50,10 +50,21 @@
 
 # Observation Space Invariants
 
-- Base `EpidemicEnv._get_obs()` returns shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`. 
+- Base `EpidemicEnv._get_obs()` returns shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`.
 - After `EpidemicObservationWrapper(include_exposed=False)`: shape `(5,)` → `[S, I, R, prev_action_idx, day_frac]`.
 - Observation space bounds are **per-element** (not uniform): high = `[N, N, N, N, 3.0, 1.0]` (6-element) or `[N, N, N, 3.0, 1.0]` (5-element).
 - `MultiplicativeNoiseWrapper` expects `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_action_idx` and `day_frac` **pass through unchanged** and must NOT be included in `noise_stds`.
+
+# Temporal Resolution Invariants
+
+- **1 step = `action_interval` days** (default 5). One episode = `days / action_interval` steps (default 300/5 = 60 steps).
+- **FrameStack `n_stack`** is in **steps**, not days. `n_stack=10` → agent sees the last 10 decision points (50 days of history). This is the intended scope — calibrated to decision periods, not calendar days.
+- **`TemporalLagWrapper` min/max lag** is in **steps** internally. However, `create_environment()` accepts `pomdp_params["lag"] = [min_days, max_days]` and converts to steps automatically:
+  ```python
+  min_lag_steps = max(1, round(min_lag_days / action_interval))   # e.g. 5/5 = 1
+  max_lag_steps = max(min_lag_steps, round(max_lag_days / action_interval))  # e.g. 14/5 ≈ 3
+  ```
+  Always specify lag in **days** in `PREDEFINED_SCENARIOS` and CLI (`--lag`). Never pass raw step counts.
 
 # SB3 Pipeline Invariants
 When modifying any training or evaluation code, ALL of the following must hold:

@@ -259,14 +259,18 @@ class TemporalLagWrapper(gym.ObservationWrapper):
     During warmup (first min_lag steps), the pointer clamps to 0 so the agent
     sees the episode's first observation until enough history accumulates.
 
+    NOTE: Lag is specified in **environment steps**, not days. Since one step
+    corresponds to action_interval days (default 5), use create_environment()
+    which accepts lag in days and converts automatically.
+
     Args:
         env: Wrapped environment.
-        min_lag: Minimum lag in days (default 5).
-        max_lag: Maximum lag in days (default 14).
+        min_lag: Minimum lag in **steps** (default 1 → 5 days with action_interval=5).
+        max_lag: Maximum lag in **steps** (default 3 → ~15 days with action_interval=5).
         seed: RNG seed for reproducible lag sampling (default 42).
     """
 
-    def __init__(self, env: gym.Env, min_lag: int = 5, max_lag: int = 14, seed: int = 42) -> None:
+    def __init__(self, env: gym.Env, min_lag: int = 1, max_lag: int = 3, seed: int = 42) -> None:
         super().__init__(env)
         if min_lag < 1:
             raise ValueError(f"min_lag must be >= 1, got {min_lag}")
@@ -330,7 +334,10 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
 
     Args:
         config: Base configuration.
-        pomdp_params: POMDP parameters for wrappers.
+        pomdp_params: POMDP parameters for wrappers. The ``lag`` key, if present,
+            must be a ``[min_lag_days, max_lag_days]`` pair specified in **days**
+            (e.g. ``[5, 14]``). It is converted to steps internally via
+            ``config.action_interval`` before being passed to TemporalLagWrapper.
         seed: RNG seed forwarded to stochastic wrappers (e.g. TemporalLagWrapper).
 
     Returns:
@@ -352,8 +359,11 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
 
     lag_range = pomdp_params.get("lag")
     if lag_range is not None:
-        min_lag, max_lag = lag_range
-        env = TemporalLagWrapper(env, min_lag=min_lag, max_lag=max_lag, seed=seed)
+        min_lag_days, max_lag_days = lag_range
+        action_interval = config.action_interval
+        min_lag_steps = max(1, round(min_lag_days / action_interval))
+        max_lag_steps = max(min_lag_steps, round(max_lag_days / action_interval))
+        env = TemporalLagWrapper(env, min_lag=min_lag_steps, max_lag=max_lag_steps, seed=seed)
 
     noise_stds = pomdp_params.get("noise_stds")
     if noise_stds is not None:
