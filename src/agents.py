@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from src.config import Config
 import numpy as np
@@ -66,17 +66,26 @@ class ThresholdAgent(Agent):
         i_idx: Index of I compartment in observation vector (auto-detected on first call).
     """
 
-    def __init__(self, config: Config, name: str = "threshold"):
+    def __init__(
+        self,
+        config: Config,
+        name: str = "threshold",
+        detection_rate: float = 1.0,
+    ):
         """
         Initialize ThresholdAgent.
 
         Args:
             config: Configuration object with N (population size) and thresholds.
             name: Agent name used as result dict key in evaluation.
+            detection_rate: Nominal detection rate for underreporting compensation.
+                When < 1.0, observed I is divided by detection_rate before threshold
+                comparison, compensating for the known underreporting factor.
         """
         self.config = config
         self.thresholds = config.thresholds
         self.name = name
+        self.detection_rate = detection_rate
 
         if len(self.thresholds) != 3:
             raise ValueError(
@@ -131,11 +140,12 @@ class ThresholdAgent(Agent):
         if self.i_idx is None or len(observation) != (6 if self.i_idx == 2 else 5):
             self.i_idx = self._detect_i_index(observation)
 
-        # Extract infected count
+        # Extract infected count and compensate for underreporting
         I = observation[self.i_idx]
+        I_corrected = I / self.detection_rate if self.detection_rate < 1.0 else I
 
         # Calculate infected fraction
-        infected_fraction = I / self.config.N
+        infected_fraction = I_corrected / self.config.N
 
         # Map to action based on thresholds
         if infected_fraction < self.thresholds[0]:
@@ -150,12 +160,18 @@ class ThresholdAgent(Agent):
         return action_idx, state
 
 
-def create_baseline_agents(config: Config, agent_names: List[str]) -> List[Agent]:
+def create_baseline_agents(
+    config: Config,
+    agent_names: List[str],
+    pomdp_params: Optional[Dict[str, Any]] = None,
+) -> List[Agent]:
     """Initialize non-RL baseline agents for evaluation.
 
     Args:
         config: Configuration for agents.
         agent_names: List of agent names to initialize.
+        pomdp_params: POMDP wrapper parameters. Used to extract detection_rate
+            for ThresholdAgent underreporting compensation.
 
     Returns:
         List of initialized Agent objects.
@@ -168,5 +184,6 @@ def create_baseline_agents(config: Config, agent_names: List[str]) -> List[Agent
     if "random" in agent_names:
         agents.append(RandomAgent())
     if "threshold" in agent_names:
-        agents.append(ThresholdAgent(config))
+        detection_rate = (pomdp_params or {}).get("detection_rate", 1.0)
+        agents.append(ThresholdAgent(config, detection_rate=detection_rate))
     return agents

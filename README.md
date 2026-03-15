@@ -89,7 +89,7 @@ Seven agents evaluated in each experiment:
 - **no_action**: Always applies NO intervention — upper bound on infections, zero cost
 - **severe**: Always applies SEVERE lockdown — lower bound on infections, maximum cost
 - **RandomAgent**: Selects random interventions at each step
-- **ThresholdAgent**: Rule-based policy calibrated to match PPO performance (thresholds: 1%, 5%, 9%)
+- **ThresholdAgent**: Rule-based policy calibrated to match PPO performance (thresholds: 1%, 5%, 9%). In POMDP scenarios with underreporting, compensates by dividing observed I by the nominal `detection_rate` before threshold comparison.
 - **PPO (Baseline)**: Trained with standard PPO (single-step observations)
 - **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 decision points)
 - **PPO (Recurrent)**: LSTM-based policy that compresses temporal history into hidden state

@@ -374,7 +374,11 @@ def run_evaluation(
     eval_seeds = exp_config.eval_seeds
 
     # Phase 1: Evaluate baselines
-    agents = create_baseline_agents(exp_config.base_config, exp_config.target_agents)
+    agents = create_baseline_agents(
+        exp_config.base_config,
+        exp_config.target_agents,
+        pomdp_params=exp_config.pomdp_params,
+    )
 
     for agent in agents:
         agent_name = getattr(agent, 'name', agent.__class__.__name__.lower())
