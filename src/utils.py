@@ -144,17 +144,21 @@ def log_results(result: SimulationResult, log_path: str) -> None:
 
     with open(log_path, "w", encoding="utf-8") as f:
         f.write(f"Simulation Log: {result.agent_name}\n")
-        f.write("=" * 105 + "\n\n")
+        f.write("=" * 141 + "\n\n")
 
-        header = f"{'Day':<8} {'S':<14} {'E':<14} {'I':<14} {'R':<14} {'Reward':<12} {'Action':<15}\n"
+        header = (
+            f"{'Day':<8} {'S':<14} {'E':<14} {'I':<14} {'R':<14} "
+            f"{'Reward':<12} {'R_inf':<12} {'R_str':<12} {'R_sw':<12} {'Action':<15}\n"
+        )
         f.write(header)
-        f.write("-" * 105 + "\n")
+        f.write("-" * 141 + "\n")
 
-        for i, (day, action, reward) in enumerate(
+        for i, (day, action, reward, rc) in enumerate(
             zip(
                 result.timesteps,
                 result.actions,
                 result.rewards,
+                result.reward_components,
             )
         ):
             day_idx = min(int(day), len(result.S) - 1) if len(result.S) > 0 else 0
@@ -162,10 +166,15 @@ def log_results(result: SimulationResult, log_path: str) -> None:
             E = result.E[day_idx]
             I = result.I[day_idx]
             R = result.R[day_idx]
-            row = f"{day:<8} {S:<14.2f} {E:<14.2f} {I:<14.2f} {R:<14.2f} {reward:<12.4f} {action.name:<15}\n"
+            row = (
+                f"{day:<8} {S:<14.2f} {E:<14.2f} {I:<14.2f} {R:<14.2f} "
+                f"{reward:<12.4f} {rc['reward_infection']:<12.4f} "
+                f"{rc['reward_stringency']:<12.4f} {rc['reward_switching']:<12.4f} "
+                f"{action.name:<15}\n"
+            )
             f.write(row)
 
-        f.write("\n" + "=" * 105 + "\n")
+        f.write("\n" + "=" * 141 + "\n")
         f.write("Summary Statistics:\n")
         f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
         f.write(f"  Total Infected: {result.total_infected:.2f}\n")

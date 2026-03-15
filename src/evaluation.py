@@ -17,7 +17,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecFrameStack, VecMonitor, VecNormalize
 from sb3_contrib import RecurrentPPO
 
-from src.agents import Agent, RandomAgent, create_baseline_agents
+from src.agents import Agent, RandomAgent, ThresholdAgent, create_baseline_agents
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.config import Config
 from src.env import AggregatedResult, EpidemicEnv, SimulationResult
@@ -131,6 +131,7 @@ def _collect_trajectory(
     timesteps = []
     rewards = []
     observations = []
+    reward_components = []
 
     current_timestep = 0
 
@@ -173,6 +174,11 @@ def _collect_trajectory(
         action_enum = unwrapped_env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
+        reward_components.append({
+            "reward_infection": info.get("reward_infection", 0.0),
+            "reward_stringency": info.get("reward_stringency", 0.0),
+            "reward_switching": info.get("reward_switching", 0.0),
+        })
 
     t = np.arange(len(all_S))
 
@@ -187,6 +193,7 @@ def _collect_trajectory(
         timesteps=timesteps,
         rewards=rewards,
         observations=observations,
+        reward_components=reward_components,
     )
 
 
@@ -390,8 +397,9 @@ def run_evaluation(
         plot_path = experiment_dir.get_plot_path(f"{agent_name}_seir.png")
         plot_single_aggregated(agg, save_path=str(plot_path))
 
-        # Save per-episode logs
-        _save_episode_logs(experiment_dir, agent_name, eval_seeds, episode_results)
+        # Save per-episode logs (only for threshold agent — static/random logs are not useful)
+        if isinstance(agent, ThresholdAgent):
+            _save_episode_logs(experiment_dir, agent_name, eval_seeds, episode_results)
 
         print(
             f"  {agent_name}: reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "

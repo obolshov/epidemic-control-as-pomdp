@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 
 import gymnasium as gym
 import numpy as np
@@ -13,12 +13,17 @@ from src.agents import InterventionAction, Agent, StaticAgent
 
 def calculate_reward(
     I_t: float, action: InterventionAction, config: Config, prev_action_idx: int = 0
-) -> float:
+) -> tuple[float, Dict[str, float]]:
     """
-    :param I_t: Infected count
-    :param action: Action taken
-    :param prev_action_idx: Index of the previous action (for switching penalty)
-    :return: Reward value
+    Args:
+        I_t: Infected count.
+        action: Action taken.
+        config: Environment configuration with reward weights.
+        prev_action_idx: Index of the previous action (for switching penalty).
+
+    Returns:
+        Tuple of (total_reward, components_dict) where components_dict
+        contains the individual penalty terms (negative values).
     """
     infection_penalty = config.w_I * (I_t / config.N) ** 2
     stringency_penalty = config.w_S * (1 - action.value)
@@ -26,7 +31,13 @@ def calculate_reward(
     delta = action_idx - prev_action_idx
     switching_penalty = config.w_switch * delta ** 2
 
-    return -(infection_penalty + stringency_penalty + switching_penalty)
+    total = -(infection_penalty + stringency_penalty + switching_penalty)
+    components = {
+        "reward_infection": -infection_penalty,
+        "reward_stringency": -stringency_penalty,
+        "reward_switching": -switching_penalty,
+    }
+    return total, components
 
 
 class EpidemicEnv(gym.Env):
@@ -104,7 +115,7 @@ class EpidemicEnv(gym.Env):
                 R=R[-1],
             )
 
-        reward = calculate_reward(self.current_state.I, action_enum, self.config, self.prev_action_idx)
+        reward, reward_components = calculate_reward(self.current_state.I, action_enum, self.config, self.prev_action_idx)
         self.prev_action_idx = applied_action_idx
 
         self.current_day += days_to_simulate
@@ -112,7 +123,7 @@ class EpidemicEnv(gym.Env):
         terminated = self.current_day >= self.config.days
         truncated = False
 
-        info = {"S": S, "E": E, "I": I, "R": R}
+        info = {"S": S, "E": E, "I": I, "R": R, **reward_components}
 
         return self._get_obs(), reward, terminated, truncated, info
 
@@ -148,6 +159,7 @@ class SimulationResult:
         timesteps: List[int],
         rewards: List[float],
         observations: List[np.ndarray],
+        reward_components: List[Dict[str, float]],
         custom_name: str = None,
     ):
         self.agent = agent
@@ -160,6 +172,7 @@ class SimulationResult:
         self.timesteps = timesteps
         self.rewards = rewards
         self.observations = observations
+        self.reward_components = reward_components
         self.custom_name = custom_name
 
     @property

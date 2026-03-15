@@ -35,8 +35,8 @@ def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:
     obs, _ = env.reset(seed=42)
     done = False
     
-    # Extract initial state
-    S_init, E_init, I_init, R_init = obs
+    # Extract initial state (obs: [S, E, I, R, prev_action_idx, day_frac])
+    S_init, E_init, I_init, R_init = obs[0], obs[1], obs[2], obs[3]
     
     all_S = [S_init]
     all_E = [E_init]
@@ -47,36 +47,42 @@ def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:
     timesteps = []
     rewards = []
     observations = []
-    
+    reward_components = []
+
     current_timestep = 0
-    
+
     while not done:
         observations.append(obs)
         timesteps.append(current_timestep)
-        
+
         action_idx, _ = agent.predict(obs, deterministic=True)
-        
+
         obs, reward, done, truncated, info = env.step(action_idx)
-        
+
         S = info.get("S", [])
         E = info.get("E", [])
         I = info.get("I", [])
         R = info.get("R", [])
-        
+
         if len(S) > 0:
             all_S.extend(S)
             all_E.extend(E)
             all_I.extend(I)
             all_R.extend(R)
-        
+
         current_timestep += len(S)
-        
+
         action_enum = env.action_map[action_idx]
         actions_taken.append(action_enum)
         rewards.append(reward)
-    
+        reward_components.append({
+            "reward_infection": info.get("reward_infection", 0.0),
+            "reward_stringency": info.get("reward_stringency", 0.0),
+            "reward_switching": info.get("reward_switching", 0.0),
+        })
+
     t = np.arange(len(all_S))
-    
+
     result = SimulationResult(
         agent=agent,
         t=t,
@@ -88,6 +94,7 @@ def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:
         timesteps=timesteps,
         rewards=rewards,
         observations=observations,
+        reward_components=reward_components,
     )
     
     return result

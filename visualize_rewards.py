@@ -1,44 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-from src.env import EpidemicEnv, calculate_reward
+from src.env import EpidemicEnv
 from src.agents import StaticAgent, InterventionAction
 from src.seir import EpidemicState
 from src.config import Config
 import os
 from datetime import datetime
-
-
-def calculate_reward_components(
-    I_t: float, action: InterventionAction, config: Config, prev_action_idx: int = 0
-):
-    """
-    Calculate reward components separately for visualization.
-
-    Args:
-        I_t: Infected count.
-        action: Current action.
-        config: Experiment config.
-        prev_action_idx: Index of the previous action (for switching penalty).
-
-    Returns:
-        Tuple of (total_reward, infection_penalty, stringency_penalty, switching_penalty).
-    """
-    infection_ratio = (I_t / config.N) ** 2
-    infection_penalty = config.w_I * max(0, infection_ratio)
-    stringency_penalty = config.w_S * (1 - action.value)
-    action_idx = list(InterventionAction).index(action)
-    delta = action_idx - prev_action_idx
-    switching_penalty = config.w_switch * delta ** 2
-
-    reward = calculate_reward(I_t, action, config, prev_action_idx)
-
-    return (
-        reward,
-        infection_penalty,
-        stringency_penalty,
-        switching_penalty,
-    )
 
 
 def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
@@ -95,16 +63,10 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
         # Update current state
         current_state = env.current_state
 
-        # Calculate reward components
-        reward_components = calculate_reward_components(
-            current_state.I, action, env.config, prev_action_idx
-        )
-        _, infection_penalty, stringency_penalty, switching_penalty = reward_components
-
         rewards.append(reward)
-        infection_penalties.append(infection_penalty)
-        stringency_penalties.append(stringency_penalty)
-        switching_penalties.append(switching_penalty)
+        infection_penalties.append(-info["reward_infection"])
+        stringency_penalties.append(-info["reward_stringency"])
+        switching_penalties.append(-info["reward_switching"])
 
         prev_action_idx = action_idx
 
