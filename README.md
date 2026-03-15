@@ -46,15 +46,16 @@ python main.py --scenario no_exposed
 ```
 
 ### **underreporting** (POMDP Experiment 2)
-Masked E compartment + under-reporting of active cases (detection rate k=0.3).
+Masked E compartment + under-reporting (detection rate k=0.3) + testing capacity saturation (1.5%/day).
 The agent observes 30% of true I and R; undetected cases are absorbed into S,
 matching real-world surveillance where unconfirmed infections appear as healthy population.
+Detection rate further drops during surges via Michaelis-Menten saturation.
 ```bash
 python main.py --scenario underreporting
 ```
 
 ### **noisy_pomdp** (POMDP Experiment 3)
-Masked E + under-reporting (k=0.3) + AR(1) autocorrelated multiplicative noise (ρ=0.7).
+Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + AR(1) autocorrelated multiplicative noise (ρ=0.7).
 Simulates persistent measurement bias from false-positive/negative testing (I: σ=0.30)
 and incomplete recovery statistics (R: σ=0.15). The autocorrelated noise creates
 measurement drift that rewards memory-based agents.
@@ -63,9 +64,10 @@ python main.py --scenario noisy_pomdp
 ```
 
 ### **pomdp** (POMDP Experiment 4)
-Masked E + under-reporting (k=0.3) + AR(1) noise (ρ=0.7) + temporal lag (5–14 days).
+Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days).
 The agent receives observations from a random number of days in the past, simulating
-bureaucratic and laboratory reporting delays. The most challenging and realistic scenario.
+bureaucratic and laboratory reporting delays. Additionally, enacted interventions take
+5 days to come into effect. The most challenging and realistic scenario.
 ```bash
 python main.py --scenario pomdp
 ```
@@ -107,6 +109,7 @@ Key options:
 - `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
 - `--noise-rho`: AR(1) autocorrelation coefficient for multiplicative noise in [0, 1). 0.0 = iid noise (default), 0.7 = persistent measurement bias (decorrelation half-life ≈ 2 steps / 10 days)
 - `--lag`: Temporal lag range in days (pass twice: `--lag 5 --lag 14`). Disabled if omitted.
+- `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 
 **Training behavior:**
@@ -186,8 +189,3 @@ python main.py --no-exposed --detection-rate 0.3 \
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000
 ```
-
-## Extending the System
-
-To add new POMDP parameters, RL agents, or scenarios, see [EXTENDING.md](EXTENDING.md).
-
