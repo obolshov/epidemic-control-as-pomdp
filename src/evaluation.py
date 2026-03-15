@@ -377,7 +377,7 @@ def run_evaluation(
     agents = create_baseline_agents(exp_config.base_config, exp_config.target_agents)
 
     for agent in agents:
-        agent_name = agent.__class__.__name__.lower()
+        agent_name = getattr(agent, 'name', agent.__class__.__name__.lower())
         print(f"\nEvaluating {agent.__class__.__name__} ({len(eval_seeds)} episodes)...")
 
         # Re-seed RandomAgent per evaluation for reproducibility

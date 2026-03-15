@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from stable_baselines3.common import results_plotter
 
 from .env import AggregatedResult, SimulationResult
@@ -71,25 +72,33 @@ def plot_all_results(
     if num_agents <= 5:
         nrows = 1
         ncols = num_agents
-        figsize = (7 * num_agents, 6)
+        fig, ax_array = plt.subplots(nrows, ncols, figsize=(7 * ncols, 6))
+        axes = [ax_array] if num_agents == 1 else list(ax_array)
     else:
-        nrows = 2
         ncols = ceil(num_agents / 2)
+        second_row_count = num_agents - ncols
         figsize = (7 * ncols, 12)
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-
-    if num_agents == 1:
-        axes = [axes]
-    else:
-        axes = axes.flatten()
+        if second_row_count == ncols:
+            # Both rows are full — standard grid
+            fig, ax_array = plt.subplots(2, ncols, figsize=figsize)
+            axes = list(ax_array.flatten())
+        else:
+            # Second row is shorter — center it using GridSpec
+            # GridSpec with 2*ncols columns so each subplot spans 2 cols
+            gs_cols = 2 * ncols
+            left_pad = (gs_cols - second_row_count * 2) // 2
+            fig = plt.figure(figsize=figsize)
+            gs = GridSpec(2, gs_cols, figure=fig)
+            axes = []
+            for i in range(ncols):
+                axes.append(fig.add_subplot(gs[0, i * 2: i * 2 + 2]))
+            for i in range(second_row_count):
+                col_start = left_pad + i * 2
+                axes.append(fig.add_subplot(gs[1, col_start: col_start + 2]))
 
     for idx, (agent_name, agg) in enumerate(results.items()):
-        ax = axes[idx]
-        _plot_aggregated_seir(ax, agg, title=agent_name)
-
-    for idx in range(num_agents, len(axes)):
-        axes[idx].set_visible(False)
+        _plot_aggregated_seir(axes[idx], agg, title=agent_name)
 
     plt.tight_layout()
 

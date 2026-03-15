@@ -9,6 +9,8 @@ from typing import Dict, Any, List
 
 
 TARGET_AGENTS = [
+    "no_action",
+    "severe",
     "random",
     "threshold",
     "ppo_baseline",

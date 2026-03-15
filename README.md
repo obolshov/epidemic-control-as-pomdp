@@ -84,12 +84,14 @@ python main.py --no-exposed --detection-rate 0.3
 
 ## Agents
 
-Agents evaluated in each experiment:
+Seven agents evaluated in each experiment:
 
-- **RandomAgent**: Selects random interventions
-- **ThresholdAgent**: Rule-based policy using infection thresholds
+- **no_action**: Always applies NO intervention — upper bound on infections, zero cost
+- **severe**: Always applies SEVERE lockdown — lower bound on infections, maximum cost
+- **RandomAgent**: Selects random interventions at each step
+- **ThresholdAgent**: Rule-based policy calibrated to match PPO performance (thresholds: 1%, 5%, 9%)
 - **PPO (Baseline)**: Trained with standard PPO (single-step observations)
-- **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 time steps)
+- **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 decision points)
 - **PPO (Recurrent)**: LSTM-based policy that compresses temporal history into hidden state
 
 ## CLI Options
@@ -135,16 +137,20 @@ experiments/
       plots/
         comparison_all_agents.png               # Side-by-side SEIR curves (mean ± SD shaded)
         evaluation_curves.png                   # Mean ± SD reward across training seeds
-        randomagent_seir.png                    # Individual agent SEIR plots (mean ± SD shaded)
-        thresholdagent_seir.png
+        no_action_seir.png                      # Individual agent SEIR plots (mean ± SD shaded)
+        severe_seir.png
+        random_seir.png
+        threshold_seir.png
         ppo_baseline_seir.png
         ppo_baseline_seed42_learning_timesteps.png  # Per-seed monitor-based learning curve
       logs/
-        randomagent/                            # Per-agent action logs
+        no_action/                              # Per-agent action logs
           seed_2024.txt                         # One log per eval episode
           seed_2025.txt
           ...
-        thresholdagent/
+        severe/
+        random/
+        threshold/
         ppo_baseline/
         tensorboard/
           ppo_baseline_seed42/                  # VecMonitor logs (per-seed)
