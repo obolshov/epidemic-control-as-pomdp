@@ -7,7 +7,23 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from stable_baselines3.common import results_plotter
 
-from .env import AggregatedResult, SimulationResult
+from .results import AggregatedResult, SimulationResult
+
+
+def _save_or_show(save_path: Optional[str]) -> None:
+    """Save the current matplotlib figure to file, or show interactively.
+
+    Args:
+        save_path: Path to save the figure. If None, displays interactively.
+    """
+    if save_path:
+        dir_path = os.path.dirname(save_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    else:
+        plt.show()
+    plt.close()
 
 
 def _plot_aggregated_seir(ax, agg: AggregatedResult, title: Optional[str] = None) -> None:
@@ -101,16 +117,7 @@ def plot_all_results(
         _plot_aggregated_seir(axes[idx], agg, title=agent_name)
 
     plt.tight_layout()
-
-    if save_path:
-        dir_path = os.path.dirname(save_path)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.close()
-    else:
-        plt.show()
-        plt.close()
+    _save_or_show(save_path)
 
 
 def plot_single_aggregated(
@@ -128,16 +135,7 @@ def plot_single_aggregated(
 
     fig, ax = plt.subplots(figsize=(10, 6))
     _plot_aggregated_seir(ax, agg, title)
-
-    if save_path:
-        dir_path = os.path.dirname(save_path)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.close()
-    else:
-        plt.show()
-        plt.close()
+    _save_or_show(save_path)
 
 
 def log_results(result: SimulationResult, log_path: str) -> None:
@@ -217,14 +215,9 @@ def plot_learning_curve(
             if save_path:
                 base, ext = os.path.splitext(save_path)
                 current_save_path = f"{base}_{axis_name}{ext}"
-                dir_path = os.path.dirname(current_save_path)
-                if dir_path:
-                    os.makedirs(dir_path, exist_ok=True)
-                plt.savefig(current_save_path, dpi=300, bbox_inches="tight")
-                plt.close()
             else:
-                plt.show()
-                plt.close()
+                current_save_path = None
+            _save_or_show(current_save_path)
 
         except Exception as e:
             print(f"Error plotting {axis_name}: {e}")
@@ -292,12 +285,4 @@ def plot_evaluation_curves(
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    if save_path:
-        dir_path = os.path.dirname(save_path)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.close()
-    else:
-        plt.show()
-        plt.close()
+    _save_or_show(save_path)

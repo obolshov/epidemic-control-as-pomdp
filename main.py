@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import typer
 
 from src.config import Config
-from src.env import AggregatedResult
+from src.results import AggregatedResult
 from src.evaluation import run_evaluation
 from src.experiment import ExperimentConfig, ExperimentDirectory, generate_seeds
 from src.scenarios import (
@@ -42,6 +42,42 @@ def _parse_skip_training(skip_training: Optional[str]) -> set:
     if skip_training.lower() == "all" or skip_training == "":
         return {"all"}
     return set(agent.strip() for agent in skip_training.split(","))
+
+
+def _parse_csv_floats(raw: Optional[str], name: str) -> Optional[List[float]]:
+    """Parse a comma-separated string of floats (e.g. '0.05,0.3,0.15').
+
+    Args:
+        raw: Raw CLI string or None.
+        name: Argument name for error messages.
+
+    Returns:
+        List of floats, or None if raw is None.
+    """
+    if raw is None:
+        return None
+    try:
+        return [float(x.strip()) for x in raw.split(",")]
+    except ValueError:
+        raise typer.BadParameter(f"--{name} must be comma-separated numbers, got: '{raw}'")
+
+
+def _parse_csv_ints(raw: Optional[str], name: str) -> Optional[List[int]]:
+    """Parse a comma-separated string of ints (e.g. '5,14').
+
+    Args:
+        raw: Raw CLI string or None.
+        name: Argument name for error messages.
+
+    Returns:
+        List of ints, or None if raw is None.
+    """
+    if raw is None:
+        return None
+    try:
+        return [int(x.strip()) for x in raw.split(",")]
+    except ValueError:
+        raise typer.BadParameter(f"--{name} must be comma-separated integers, got: '{raw}'")
 
 
 def _build_experiment_config(
@@ -222,13 +258,13 @@ def main(
         "--detection-rate",
         help="Fraction of true I and R observed (1.0=full, 0.3=COVID-realistic).",
     ),
-    noise_stds: Optional[List[float]] = typer.Option(
+    noise_stds: Optional[str] = typer.Option(
         None,
         "--noise-stds",
         help=(
-            "Per-compartment multiplicative noise stds matching current obs shape. "
-            "Pass once per compartment: e.g. --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 "
-            "for [S, I, R] when --no-exposed is set. None = disabled."
+            "Per-compartment multiplicative noise stds (comma-separated). "
+            "E.g. --noise-stds 0.05,0.3,0.15 for [S, I, R] when --no-exposed is set. "
+            "None = disabled."
         ),
     ),
     noise_rho: float = typer.Option(
@@ -253,12 +289,12 @@ def main(
         "--deterministic",
         help="Use deterministic ODE dynamics instead of stochastic Binomial transitions.",
     ),
-    lag: Optional[List[int]] = typer.Option(
+    lag: Optional[str] = typer.Option(
         None,
         "--lag",
         help=(
-            "Temporal lag range [min, max] in days. "
-            "Pass twice: e.g. --lag 5 --lag 14. None = disabled."
+            "Temporal lag range [min,max] in days (comma-separated). "
+            "E.g. --lag 5,14. None = disabled."
         ),
     ),
     action_delay: Optional[int] = typer.Option(
@@ -272,12 +308,17 @@ def main(
     """
     agents_to_skip = _parse_skip_training(skip_training)
     training_seeds = generate_seeds(num_seeds)
+    parsed_noise_stds = _parse_csv_floats(noise_stds, "noise-stds")
+    parsed_lag = _parse_csv_ints(lag, "lag")
+
+    if parsed_lag is not None and len(parsed_lag) != 2:
+        raise typer.BadParameter(f"--lag requires exactly 2 values (min,max), got {len(parsed_lag)}")
 
     exp_config = _build_experiment_config(
-        scenario, no_exposed, detection_rate, noise_stds,
+        scenario, no_exposed, detection_rate, parsed_noise_stds,
         total_timesteps, num_seeds, training_seeds,
         deterministic=deterministic,
-        lag=lag,
+        lag=parsed_lag,
         testing_capacity=testing_capacity,
         action_delay=action_delay,
         noise_rho=noise_rho,

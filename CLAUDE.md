@@ -5,8 +5,9 @@
 - **Main idea:** Performance comparison of RL algorithms with and without memory (FrameStack, Recurrent) in MDP and POMDP scenarios.
 - **Architecture:**
     - `src/seir.py`: SEIR dynamics. Stochastic Binomial mode (`rng=np.random.Generator`) is the default used by the environment. Deterministic mode (`rng=None`) is also available.
-    - `src/env.py`: Gymnasium environment.
-    - `src/agents.py`: Agent wrappers and baseline logic.
+    - `src/env.py`: Gymnasium environment (`EpidemicEnv`) and `InterventionAction` enum (the domain action type).
+    - `src/agents.py`: Agent wrappers and baseline logic. Imports `InterventionAction` from `env.py`.
+    - `src/results.py`: Data containers — `SimulationResult` (single-episode trajectory) and `AggregatedResult` (multi-episode mean ± SD).
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
     - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation (mean ± SD) for ANY agent type on fixed eval seeds; `select_best_model()` selects the best training seed via reward-only eval; `run_evaluation()` is the unified pipeline for baselines and RL agents.
@@ -120,7 +121,7 @@ For smoke tests and validation, always use the **custom scenario flags** instead
 python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
 
 # Equivalent to --scenario pomdp, but writes to a unique dir
-python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15 --lag 5 --lag 14 -t 10000 --num-seeds 1
+python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05,0.3,0.15 --lag 5,14 -t 10000 --num-seeds 1
 ```
 Custom scenarios generate a unique `scenario_name` (e.g. `custom_no_exposed_k0.3_lag5_14_t10000`) and never collide with the user's predefined experiment weights.
 

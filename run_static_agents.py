@@ -16,9 +16,10 @@ from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.agents import StaticAgent, InterventionAction
+from src.agents import StaticAgent
 from src.config import Config
-from src.env import EpidemicEnv, SimulationResult
+from src.env import EpidemicEnv, InterventionAction
+from src.results import SimulationResult
 
 
 def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:

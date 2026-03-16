@@ -1,15 +1,8 @@
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from src.config import Config
+from src.env import InterventionAction
 import numpy as np
-
-
-class InterventionAction(Enum):
-    NO = 1.0
-    MILD = 0.75
-    MODERATE = 0.5
-    SEVERE = 0.25
 
 
 class Agent:
@@ -136,8 +129,8 @@ class ThresholdAgent(Agent):
         """
         observation = np.asarray(observation)
 
-        # Auto-detect I index on first call or if observation shape changed
-        if self.i_idx is None or len(observation) != (6 if self.i_idx == 2 else 5):
+        # Auto-detect I index on first call (obs shape is constant within an episode)
+        if self.i_idx is None:
             self.i_idx = self._detect_i_index(observation)
 
         # Extract infected count and compensate for underreporting

@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from src.env import EpidemicEnv
-from src.agents import StaticAgent, InterventionAction
+from src.agents import StaticAgent
+from src.env import InterventionAction
 from src.seir import EpidemicState
 from src.config import Config
 import os

@@ -1,14 +1,21 @@
 from collections import deque
-from dataclasses import dataclass
 from typing import Dict, List
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
+from enum import Enum
+
 from src.config import Config
 from src.seir import run_seir, EpidemicState
-from src.agents import InterventionAction, Agent, StaticAgent
+
+
+class InterventionAction(Enum):
+    NO = 1.0
+    MILD = 0.75
+    MODERATE = 0.5
+    SEVERE = 0.25
 
 
 def calculate_reward(
@@ -144,113 +151,3 @@ class EpidemicEnv(gym.Env):
         print(
             f"Day {self.current_day}: S={self.current_state.S:.0f}, E={self.current_state.E:.0f}, I={self.current_state.I:.0f}, R={self.current_state.R:.0f}"
         )
-
-
-class SimulationResult:
-    def __init__(
-        self,
-        agent: Agent,
-        t: np.ndarray,
-        S: np.ndarray,
-        E: np.ndarray,
-        I: np.ndarray,
-        R: np.ndarray,
-        actions: List[InterventionAction],
-        timesteps: List[int],
-        rewards: List[float],
-        observations: List[np.ndarray],
-        reward_components: List[Dict[str, float]],
-        custom_name: str = None,
-    ):
-        self.agent = agent
-        self.t = t
-        self.S = S
-        self.E = E
-        self.I = I
-        self.R = R
-        self.actions = actions
-        self.timesteps = timesteps
-        self.rewards = rewards
-        self.observations = observations
-        self.reward_components = reward_components
-        self.custom_name = custom_name
-
-    @property
-    def peak_infected(self) -> float:
-        return np.max(self.I)
-
-    @property
-    def total_infected(self) -> float:
-        return self.E[-1] + self.I[-1] + self.R[-1]
-
-    @property
-    def agent_name(self) -> str:
-        # Use custom name if provided (for RL agents like ppo_baseline, ppo_framestack)
-        if self.custom_name:
-            return self.custom_name
-        
-        if isinstance(self.agent, StaticAgent):
-            action_name = list(InterventionAction)[self.agent.action_idx].name
-            return f"StaticAgent - {action_name}"
-
-        return self.agent.__class__.__name__
-
-    @property
-    def total_reward(self) -> float:
-        return sum(self.rewards)
-
-
-@dataclass
-class AggregatedResult:
-    """Multi-episode aggregated evaluation result for any agent type.
-
-    Attributes:
-        agent_name: Name of the agent.
-        t: Shared time axis, shape (n_days,).
-        S_mean, S_std: Mean/std of Susceptible over episodes, shape (n_days,).
-        E_mean, E_std: Mean/std of Exposed over episodes, shape (n_days,).
-        I_mean, I_std: Mean/std of Infected over episodes, shape (n_days,).
-        R_mean, R_std: Mean/std of Recovered over episodes, shape (n_days,).
-        episode_rewards: Total reward per episode.
-        peak_infected_per_episode: Peak I per episode.
-        total_infected_per_episode: Total infected (E[-1]+I[-1]+R[-1]) per episode.
-        n_episodes: Number of evaluation episodes.
-    """
-    agent_name: str
-    t: np.ndarray
-    S_mean: np.ndarray
-    S_std: np.ndarray
-    E_mean: np.ndarray
-    E_std: np.ndarray
-    I_mean: np.ndarray
-    I_std: np.ndarray
-    R_mean: np.ndarray
-    R_std: np.ndarray
-    episode_rewards: List[float]
-    peak_infected_per_episode: List[float]
-    total_infected_per_episode: List[float]
-    n_episodes: int
-
-    @property
-    def mean_reward(self) -> float:
-        return float(np.mean(self.episode_rewards))
-
-    @property
-    def std_reward(self) -> float:
-        return float(np.std(self.episode_rewards))
-
-    @property
-    def mean_peak_infected(self) -> float:
-        return float(np.mean(self.peak_infected_per_episode))
-
-    @property
-    def std_peak_infected(self) -> float:
-        return float(np.std(self.peak_infected_per_episode))
-
-    @property
-    def mean_total_infected(self) -> float:
-        return float(np.mean(self.total_infected_per_episode))
-
-    @property
-    def std_total_infected(self) -> float:
-        return float(np.std(self.total_infected_per_episode))

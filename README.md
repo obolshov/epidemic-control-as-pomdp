@@ -108,9 +108,9 @@ Key options:
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
 - `--testing-capacity`: Fraction of population testable per day. When set, detection rate drops during surges via Michaelis-Menten saturation (e.g. `--testing-capacity 0.015` = 1.5%/day)
-- `--noise-stds`: Per-compartment multiplicative noise stds (pass once per value, e.g. `--noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15` for [S, I, R])
+- `--noise-stds`: Per-compartment multiplicative noise stds (comma-separated, e.g. `--noise-stds 0.05,0.3,0.15` for [S, I, R])
 - `--noise-rho`: AR(1) autocorrelation coefficient for multiplicative noise in [0, 1). 0.0 = iid noise (default), 0.7 = persistent measurement bias (decorrelation half-life ≈ 2 steps / 10 days)
-- `--lag`: Temporal lag range in days (pass twice: `--lag 5 --lag 14`). Disabled if omitted.
+- `--lag`: Temporal lag range in days (comma-separated, e.g. `--lag 5,14`). Disabled if omitted.
 - `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 
@@ -189,8 +189,7 @@ python main.py --scenario pomdp
 python main.py --no-exposed --detection-rate 0.3 --testing-capacity 0.015
 
 # POMDP: custom noise levels
-python main.py --no-exposed --detection-rate 0.3 \
-  --noise-stds 0.05 --noise-stds 0.3 --noise-stds 0.15
+python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05,0.3,0.15
 
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000

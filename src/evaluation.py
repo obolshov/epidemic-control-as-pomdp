@@ -20,7 +20,8 @@ from sb3_contrib import RecurrentPPO
 from src.agents import Agent, RandomAgent, ThresholdAgent, create_baseline_agents
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.config import Config
-from src.env import AggregatedResult, EpidemicEnv, SimulationResult
+from src.env import EpidemicEnv
+from src.results import AggregatedResult, SimulationResult
 from src.utils import log_results, plot_single_aggregated
 from src.wrappers import create_environment
 
@@ -97,30 +98,17 @@ def _collect_trajectory(
     else:
         unwrapped_env = env.unwrapped
 
-    # Get initial state from unwrapped env
-    if hasattr(unwrapped_env, 'current_state'):
-        state = unwrapped_env.current_state
-        S_init = state.S
-        E_init = state.E
-        I_init = state.I
-        R_init = state.R
-    else:
-        if len(obs_flat) == 6 or (len(obs_flat) > 6 and len(obs_flat) % 6 == 0):
-            S_init, E_init, I_init, R_init = obs_flat[-6:-2]
-        elif len(obs_flat) == 5 or (len(obs_flat) > 5 and len(obs_flat) % 5 == 0):
-            S_init, I_init, R_init = obs_flat[-5:-2]
-            E_init = 0.0
-        elif len(obs_flat) == 4:
-            S_init, E_init, I_init, R_init = obs_flat[-4:]
-        elif len(obs_flat) == 3:
-            S_init, I_init, R_init = obs_flat[-3:]
-            E_init = 0.0
-        else:
-            if len(obs_flat) % 4 == 0:
-                S_init, E_init, I_init, R_init = obs_flat[-4:]
-            else:
-                S_init, I_init, R_init = obs_flat[-3:]
-                E_init = 0.0
+    # Get initial state from unwrapped env (always EpidemicEnv with current_state)
+    if not hasattr(unwrapped_env, 'current_state'):
+        raise RuntimeError(
+            f"Unwrapped env {type(unwrapped_env).__name__} has no current_state attribute. "
+            "Expected EpidemicEnv at the bottom of the wrapper stack."
+        )
+    state = unwrapped_env.current_state
+    S_init = state.S
+    E_init = state.E
+    I_init = state.I
+    R_init = state.R
 
     all_S = [S_init]
     all_E = [E_init]
@@ -238,31 +226,21 @@ def evaluate_agent(
         if is_rl:
             env.close()
 
-    all_S = [r.S for r in all_results]
-    all_E = [r.E for r in all_results]
-    all_I = [r.I for r in all_results]
-    all_R = [r.R for r in all_results]
-
     # Truncate to shortest trajectory length (stochastic envs may differ slightly)
-    min_len = min(len(s) for s in all_S)
-    S_stack = np.stack([s[:min_len] for s in all_S], axis=0)
-    E_stack = np.stack([e[:min_len] for e in all_E], axis=0)
-    I_stack = np.stack([i[:min_len] for i in all_I], axis=0)
-    R_stack = np.stack([r[:min_len] for r in all_R], axis=0)
-
+    min_len = min(len(r.S) for r in all_results)
     t = np.arange(min_len)
+
+    # Stack and compute mean/std for each compartment
+    stats = {}
+    for comp in ("S", "E", "I", "R"):
+        stacked = np.stack([getattr(r, comp)[:min_len] for r in all_results], axis=0)
+        stats[f"{comp}_mean"] = np.mean(stacked, axis=0)
+        stats[f"{comp}_std"] = np.std(stacked, axis=0)
 
     agg = AggregatedResult(
         agent_name=agent_name,
         t=t,
-        S_mean=np.mean(S_stack, axis=0),
-        S_std=np.std(S_stack, axis=0),
-        E_mean=np.mean(E_stack, axis=0),
-        E_std=np.std(E_stack, axis=0),
-        I_mean=np.mean(I_stack, axis=0),
-        I_std=np.std(I_stack, axis=0),
-        R_mean=np.mean(R_stack, axis=0),
-        R_std=np.std(R_stack, axis=0),
+        **stats,
         episode_rewards=[r.total_reward for r in all_results],
         peak_infected_per_episode=[float(r.peak_infected) for r in all_results],
         total_infected_per_episode=[float(r.total_infected) for r in all_results],

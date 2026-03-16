@@ -23,6 +23,20 @@ from src.utils import plot_learning_curve
 from src.wrappers import create_environment
 
 
+def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
+    """Load a saved PPO or RecurrentPPO model based on agent name.
+
+    Args:
+        path: Path to model file (without .zip extension).
+        agent_name: Agent name (determines model class).
+
+    Returns:
+        Loaded model.
+    """
+    cls = RecurrentPPO if agent_name == "ppo_recurrent" else PPO
+    return cls.load(path)
+
+
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
     """Linear learning rate schedule for SB3.
 
@@ -300,10 +314,7 @@ def train_ppo_agent(
     best_model_path = best_model_dir / "best_model.zip"
     if best_model_path.exists():
         print(f"Loading best model from {best_model_path}")
-        if agent_name == "ppo_recurrent":
-            model = RecurrentPPO.load(str(best_model_path))
-        else:
-            model = PPO.load(str(best_model_path))
+        model = _load_model(str(best_model_path), agent_name)
 
     # Save final/best model to standard weight path
     weight_path = experiment_dir.get_weight_path(agent_name, seed)
@@ -357,10 +368,7 @@ def prepare_rl_agents(
                 weight_path = experiment_dir.get_weight_path(agent_name, seed)
                 if weight_path.exists():
                     print(f"\nLoading {agent_name} (seed={seed}) from {weight_path}...")
-                    if agent_name == "ppo_recurrent":
-                        model = RecurrentPPO.load(str(weight_path.with_suffix("")))
-                    else:
-                        model = PPO.load(str(weight_path.with_suffix("")))
+                    model = _load_model(str(weight_path.with_suffix("")), agent_name)
                     models.append(model)
                 else:
                     raise FileNotFoundError(

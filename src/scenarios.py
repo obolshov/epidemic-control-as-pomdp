@@ -118,10 +118,6 @@ def create_custom_scenario_name(
     if pomdp_params.get("action_delay") and pomdp_params["action_delay"] > 0:
         parts.append(f"adelay{pomdp_params['action_delay']}")
 
-    if "noise_std" in pomdp_params and pomdp_params["noise_std"] > 0:
-        noise_val = pomdp_params["noise_std"]
-        parts.append(f"noise{noise_val}")
-
     if "detection_rate" in pomdp_params and pomdp_params["detection_rate"] < 1.0:
         k = pomdp_params["detection_rate"]
         parts.append(f"k{k:.2g}")
