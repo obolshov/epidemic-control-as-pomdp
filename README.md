@@ -160,6 +160,18 @@ experiments/
 **Note:** Weights are stored at `experiments/{scenario}/weights/` to enable reuse across multiple runs. Each seed produces its own weight file and VecNormalize stats.
 
 
+## Cross-Scenario Analysis
+
+After running all predefined scenarios, generate a POMDP gap plot comparing how RL agents degrade under increasing partial observability:
+
+```bash
+python analyze_experiments.py
+```
+
+Produces `analysis_output/pomdp_gap_plot.png` — a 3-panel figure (Reward, Total Infected, Total Stringency) with error bars, showing PPO (no memory), PPO + FrameStack, and RecurrentPPO across all 5 scenarios.
+
+Requires experiments for all predefined scenarios (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`) to be present in `experiments/`.
+
 ## Model Verification
 
 For quick epidemic model sanity checks:
