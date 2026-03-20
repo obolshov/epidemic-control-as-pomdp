@@ -50,6 +50,11 @@ class SimulationResult:
         return self.agent.__class__.__name__
 
     @property
+    def total_stringency(self) -> float:
+        """Total societal stringency cost: Σ(1 - action.value) over the episode."""
+        return sum(1.0 - a.value for a in self.actions)
+
+    @property
     def total_reward(self) -> float:
         return sum(self.rewards)
 
@@ -83,6 +88,7 @@ class AggregatedResult:
     episode_rewards: List[float]
     peak_infected_per_episode: List[float]
     total_infected_per_episode: List[float]
+    total_stringency_per_episode: List[float]
     n_episodes: int
 
     @property
@@ -108,3 +114,11 @@ class AggregatedResult:
     @property
     def std_total_infected(self) -> float:
         return float(np.std(self.total_infected_per_episode))
+
+    @property
+    def mean_total_stringency(self) -> float:
+        return float(np.mean(self.total_stringency_per_episode))
+
+    @property
+    def std_total_stringency(self) -> float:
+        return float(np.std(self.total_stringency_per_episode))

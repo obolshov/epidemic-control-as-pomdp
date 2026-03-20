@@ -202,6 +202,8 @@ class ExperimentDirectory:
                 "std_peak_infected": agg.std_peak_infected,
                 "mean_total_infected": agg.mean_total_infected,
                 "std_total_infected": agg.std_total_infected,
+                "mean_total_stringency": agg.mean_total_stringency,
+                "std_total_stringency": agg.std_total_stringency,
                 "n_episodes": agg.n_episodes,
             }
             if per_seed_stats and agent_name in per_seed_stats:

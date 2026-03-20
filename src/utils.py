@@ -55,6 +55,7 @@ def _plot_aggregated_seir(ax, agg: AggregatedResult, title: Optional[str] = None
         f"Reward: {agg.mean_reward:.2f} ± {agg.std_reward:.2f}\n"
         f"Peak I: {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}\n"
         f"Total inf: {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f}\n"
+        f"Stringency: {agg.mean_total_stringency:.2f} ± {agg.std_total_stringency:.2f}\n"
         f"n = {agg.n_episodes} episodes"
     )
 
@@ -185,6 +186,7 @@ def log_results(result: SimulationResult, log_path: str) -> None:
         f.write("Summary Statistics:\n")
         f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
         f.write(f"  Total Infected: {result.total_infected:.2f}\n")
+        f.write(f"  Total Stringency: {result.total_stringency:.2f}\n")
         f.write(f"  Total Reward: {result.total_reward:.4f}\n")
 
 

@@ -216,7 +216,8 @@ def _print_summary(
             f"  - {agent_name}: "
             f"reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
             f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}, "
-            f"total inf = {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f} "
+            f"total inf = {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f}, "
+            f"stringency = {agg.mean_total_stringency:.2f} ± {agg.std_total_stringency:.2f} "
             f"(n={agg.n_episodes})"
         )
 
@@ -243,7 +244,7 @@ def main(
         help="Maximum timesteps for RL training (early stopping may stop sooner)",
     ),
     num_seeds: int = typer.Option(
-        5,
+        3,
         "--num-seeds",
         "-n",
         help="Number of independent training seeds per agent",

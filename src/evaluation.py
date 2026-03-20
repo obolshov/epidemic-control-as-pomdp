@@ -244,6 +244,7 @@ def evaluate_agent(
         episode_rewards=[r.total_reward for r in all_results],
         peak_infected_per_episode=[float(r.peak_infected) for r in all_results],
         total_infected_per_episode=[float(r.total_infected) for r in all_results],
+        total_stringency_per_episode=[float(r.total_stringency) for r in all_results],
         n_episodes=len(eval_seeds),
     )
 
