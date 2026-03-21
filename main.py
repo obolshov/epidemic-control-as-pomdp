@@ -93,6 +93,7 @@ def _build_experiment_config(
     testing_capacity: Optional[float] = None,
     action_delay: Optional[int] = None,
     noise_rho: float = 0.0,
+    lstm_hidden_size: Optional[int] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -109,11 +110,14 @@ def _build_experiment_config(
         testing_capacity: Fraction of population testable per day, or None to disable.
         action_delay: Action implementation delay in days, or None to disable.
         noise_rho: AR(1) autocorrelation coefficient for multiplicative noise.
+        lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
 
     Returns:
         Fully populated ExperimentConfig.
     """
     base_config = Config(stochastic=not deterministic)
+    if lstm_hidden_size is not None:
+        base_config.lstm_hidden_size = lstm_hidden_size
     det_suffix = "_det" if deterministic else ""
 
     if scenario:
@@ -143,7 +147,10 @@ def _build_experiment_config(
     return ExperimentConfig(
         base_config=base_config,
         pomdp_params=pomdp_params,
-        scenario_name=create_custom_scenario_name(pomdp_params, total_timesteps=total_timesteps, deterministic=deterministic),
+        scenario_name=create_custom_scenario_name(
+            pomdp_params, total_timesteps=total_timesteps, deterministic=deterministic,
+            lstm_hidden_size=lstm_hidden_size,
+        ),
         is_custom=True,
         target_agents=TARGET_AGENTS.copy(),
         total_timesteps=total_timesteps,
@@ -303,6 +310,11 @@ def main(
         "--action-delay",
         help="Action implementation delay in days. None = disabled.",
     ),
+    lstm_hidden_size: Optional[int] = typer.Option(
+        None,
+        "--lstm-hidden-size",
+        help="LSTM hidden size for RecurrentPPO (default: 32).",
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation
@@ -323,6 +335,7 @@ def main(
         testing_capacity=testing_capacity,
         action_delay=action_delay,
         noise_rho=noise_rho,
+        lstm_hidden_size=lstm_hidden_size,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

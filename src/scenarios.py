@@ -5,7 +5,7 @@ This module defines standard POMDP scenarios and utilities for creating custom s
 Each scenario specifies POMDP parameters. Target agents are defined globally.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 TARGET_AGENTS = [
@@ -93,6 +93,7 @@ def create_custom_scenario_name(
     pomdp_params: Dict[str, Any],
     total_timesteps: int = 0,
     deterministic: bool = False,
+    lstm_hidden_size: Optional[int] = None,
 ) -> str:
     """
     Generate a descriptive name for a custom scenario based on POMDP parameters.
@@ -135,6 +136,9 @@ def create_custom_scenario_name(
     if pomdp_params.get("lag"):
         min_lag, max_lag = pomdp_params["lag"]
         parts.append(f"lag{min_lag}_{max_lag}")
+
+    if lstm_hidden_size is not None and lstm_hidden_size != 32:
+        parts.append(f"lstm{lstm_hidden_size}")
 
     base = "custom_" + "_".join(parts) if parts else "custom"
 

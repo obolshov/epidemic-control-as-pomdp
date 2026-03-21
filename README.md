@@ -113,6 +113,7 @@ Key options:
 - `--lag`: Temporal lag range in days (comma-separated, e.g. `--lag 5,14`). Disabled if omitted.
 - `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
+- `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32)
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
