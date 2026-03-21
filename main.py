@@ -94,6 +94,7 @@ def _build_experiment_config(
     action_delay: Optional[int] = None,
     noise_rho: float = 0.0,
     lstm_hidden_size: Optional[int] = None,
+    n_stack: Optional[int] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -111,6 +112,7 @@ def _build_experiment_config(
         action_delay: Action implementation delay in days, or None to disable.
         noise_rho: AR(1) autocorrelation coefficient for multiplicative noise.
         lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
+        n_stack: FrameStack depth override for ppo_framestack, or None for default (10).
 
     Returns:
         Fully populated ExperimentConfig.
@@ -118,6 +120,8 @@ def _build_experiment_config(
     base_config = Config(stochastic=not deterministic)
     if lstm_hidden_size is not None:
         base_config.lstm_hidden_size = lstm_hidden_size
+    if n_stack is not None:
+        base_config.n_stack = n_stack
     det_suffix = "_det" if deterministic else ""
 
     if scenario:
@@ -150,6 +154,7 @@ def _build_experiment_config(
         scenario_name=create_custom_scenario_name(
             pomdp_params, total_timesteps=total_timesteps, deterministic=deterministic,
             lstm_hidden_size=lstm_hidden_size,
+            n_stack=n_stack,
         ),
         is_custom=True,
         target_agents=TARGET_AGENTS.copy(),
@@ -245,13 +250,13 @@ def main(
         help="Skip training for specified agents (comma-separated) or 'all'.",
     ),
     total_timesteps: int = typer.Option(
-        200_000,
+        300_000,
         "--timesteps",
         "-t",
         help="Maximum timesteps for RL training (early stopping may stop sooner)",
     ),
     num_seeds: int = typer.Option(
-        3,
+        5,
         "--num-seeds",
         "-n",
         help="Number of independent training seeds per agent",
@@ -315,6 +320,11 @@ def main(
         "--lstm-hidden-size",
         help="LSTM hidden size for RecurrentPPO (default: 32).",
     ),
+    n_stack: Optional[int] = typer.Option(
+        None,
+        "--n-stack",
+        help="FrameStack depth for ppo_framestack (default: 10).",
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation
@@ -336,6 +346,7 @@ def main(
         action_delay=action_delay,
         noise_rho=noise_rho,
         lstm_hidden_size=lstm_hidden_size,
+        n_stack=n_stack,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

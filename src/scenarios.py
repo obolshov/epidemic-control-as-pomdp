@@ -94,6 +94,7 @@ def create_custom_scenario_name(
     total_timesteps: int = 0,
     deterministic: bool = False,
     lstm_hidden_size: Optional[int] = None,
+    n_stack: Optional[int] = None,
 ) -> str:
     """
     Generate a descriptive name for a custom scenario based on POMDP parameters.
@@ -139,6 +140,9 @@ def create_custom_scenario_name(
 
     if lstm_hidden_size is not None and lstm_hidden_size != 32:
         parts.append(f"lstm{lstm_hidden_size}")
+
+    if n_stack is not None and n_stack != 10:
+        parts.append(f"nstack{n_stack}")
 
     base = "custom_" + "_".join(parts) if parts else "custom"
 

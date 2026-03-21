@@ -114,6 +114,7 @@ Key options:
 - `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 - `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32)
+- `--n-stack`: FrameStack depth for ppo_framestack (default: 10)
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
