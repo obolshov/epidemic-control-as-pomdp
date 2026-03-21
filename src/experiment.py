@@ -205,6 +205,9 @@ class ExperimentDirectory:
                 "mean_total_stringency": agg.mean_total_stringency,
                 "std_total_stringency": agg.std_total_stringency,
                 "n_episodes": agg.n_episodes,
+                "episode_rewards": [float(r) for r in agg.episode_rewards],
+                "total_infected_per_episode": [float(x) for x in agg.total_infected_per_episode],
+                "total_stringency_per_episode": [float(x) for x in agg.total_stringency_per_episode],
             }
             if per_seed_stats and agent_name in per_seed_stats:
                 agent_summary["per_seed"] = per_seed_stats[agent_name]
