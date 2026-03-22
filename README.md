@@ -164,15 +164,67 @@ experiments/
 
 ## Cross-Scenario Analysis
 
-After running all predefined scenarios, generate a POMDP gap plot comparing how RL agents degrade under increasing partial observability:
+Analysis scripts live in the `analysis/` package. They load experiment data via a manifest file (`analyses.json`) that maps analysis names to specific experiment runs.
+
+### Manifest (`analyses.json`)
+
+The manifest explicitly declares which experiment run to use for each analysis. Copy the example and fill in timestamps:
 
 ```bash
-python analyze_experiments.py
+cp analyses.json.example analyses.json
 ```
 
-Produces `analysis_output/pomdp_gap_plot.png` — a 3-panel figure (Reward, Total Infected, Total Stringency) with error bars, showing PPO (no memory), PPO + FrameStack, and RecurrentPPO across all 5 scenarios.
+```json
+{
+  "pomdp_gap": {
+    "mdp": "mdp_t200000/2026-03-21_01-42-45",
+    "no_exposed": "no_exposed_t200000/2026-03-21_01-43-42",
+    ...
+  },
+  "framestack_ablation": {
+    "n_stack=1": "pomdp_t300000/2026-03-22_00-36-08",
+    ...
+  }
+}
+```
 
-Requires experiments for all predefined scenarios (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`) to be present in `experiments/`.
+Values are relative paths under `experiments/`. Update this file when you run new experiments that should be included in analysis. The file is gitignored (local to each machine); `analyses.json.example` is tracked.
+
+### Validate manifest
+
+```bash
+python -m analysis.validate
+```
+
+Checks that all manifest entries point to existing directories with `config.json` and `summary.json`.
+
+### POMDP Gap Plot
+
+```bash
+python -m analysis.pomdp_gap
+```
+
+Produces `analysis_output/pomdp_gap_plot.png` — a 3-panel figure (Reward, Total Infected, Total Stringency) with error bars.
+
+### Statistical Significance Tests
+
+```bash
+python -m analysis.significance_tests
+```
+
+Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent comparisons across all 5 scenarios. Saves to `analysis_output/significance_tests.csv`.
+
+### Using the data loading library
+
+```python
+from analysis.data import load_analysis
+
+# Load runs for any analysis defined in analyses.json
+runs = load_analysis("pomdp_gap")
+for label, run in runs.items():
+    metrics = run.agent_metrics("ppo_baseline")
+    rewards = run.agent_episode_rewards("ppo_baseline")
+```
 
 ## Model Verification
 

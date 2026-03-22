@@ -1,0 +1,22 @@
+{
+  "pomdp_gap": {
+    "mdp": "mdp_t200000/<timestamp>",
+    "no_exposed": "no_exposed_t200000/<timestamp>",
+    "underreporting": "underreporting_t200000/<timestamp>",
+    "noisy_pomdp": "noisy_pomdp_t200000/<timestamp>",
+    "pomdp": "pomdp_t200000/<timestamp>"
+  },
+  "framestack_ablation": {
+    "n_stack=1": "pomdp_t300000/<timestamp>",
+    "n_stack=2": "pomdp_t300000/<timestamp>",
+    "n_stack=4": "pomdp_t300000/<timestamp>",
+    "n_stack=10": "pomdp_t300000/<timestamp>",
+    "n_stack=20": "pomdp_t300000/<timestamp>",
+    "n_stack=40": "pomdp_t300000/<timestamp>"
+  },
+  "lstm_ablation": {
+    "lstm=16": "pomdp_t300000/<timestamp>",
+    "lstm=32": "pomdp_t300000/<timestamp>",
+    "lstm=64": "pomdp_t300000/<timestamp>"
+  }
+}

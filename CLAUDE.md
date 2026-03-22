@@ -14,6 +14,10 @@
     - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
+    - `analysis/data.py`: Manifest-based experiment data loading. `AnalysisRun` dataclass wraps one run's config + summary. `load_analysis(name)` reads `analyses.json` and returns `dict[str, AnalysisRun]`.
+    - `analysis/pomdp_gap.py`: 3-panel POMDP gap plot. Run via `python -m analysis.pomdp_gap`.
+    - `analysis/significance_tests.py`: Wilcoxon signed-rank tests with Holm-Bonferroni correction. Run via `python -m analysis.significance_tests`.
+    - `analyses.json`: Manifest mapping analysis names to specific experiment run paths (relative to `experiments/`). Manually maintained.
 
 # Coding Standards & Style
 - **Python:** Use Python 3.10+. Enforce strict type hinting (`from typing import ...`).
@@ -46,8 +50,8 @@
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
 - **After completing any non-trivial change**, always check:
-  - `README.md`: is the output structure, CLI options, or agent descriptions still accurate?
-  - `CLAUDE.md`: does the Architecture section still describe the actual module responsibilities? Are any invariants stale?
+  - `README.md`: is the output structure, CLI options, or agent descriptions still accurate? Should the implemented changes be documented in the README?
+  - `CLAUDE.md`: does the Architecture section still describe the actual module responsibilities? Are any invariants stale? Is there anything that should be added or removed?
 
 # Observation Space Invariants
 
