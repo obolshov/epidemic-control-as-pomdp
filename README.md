@@ -182,7 +182,9 @@ cp analyses.json.example analyses.json
     ...
   },
   "framestack_ablation": {
-    "n_stack=1": "pomdp_t300000/2026-03-22_00-36-08",
+    "ppo_baseline": "pomdp_t300000/<timestamp>",
+    "ppo_recurrent": "pomdp_t300000/<timestamp>",
+    "n_stack=1": "pomdp_t300000/<timestamp>",
     ...
   }
 }
@@ -213,6 +215,14 @@ python -m analysis.significance_tests
 ```
 
 Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent comparisons across all 5 scenarios. Saves to `analysis_output/significance_tests.csv`.
+
+### FrameStack Window Size Ablation
+
+```bash
+python -m analysis.framestack_ablation
+```
+
+Line plot of FrameStack reward vs. `n_stack` window size, with RecurrentPPO and PPO baseline as horizontal reference lines. Saves to `analysis_output/framestack_ablation.png`.
 
 ### Using the data loading library
 

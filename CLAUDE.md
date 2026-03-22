@@ -17,6 +17,7 @@
     - `analysis/data.py`: Manifest-based experiment data loading. `AnalysisRun` dataclass wraps one run's config + summary. `load_analysis(name)` reads `analyses.json` and returns `dict[str, AnalysisRun]`.
     - `analysis/pomdp_gap.py`: 3-panel POMDP gap plot. Run via `python -m analysis.pomdp_gap`.
     - `analysis/significance_tests.py`: Wilcoxon signed-rank tests with Holm-Bonferroni correction. Run via `python -m analysis.significance_tests`.
+    - `analysis/framestack_ablation.py`: FrameStack window size ablation plot (reward vs n_stack with RecurrentPPO/baseline reference lines). Run via `python -m analysis.framestack_ablation`.
     - `analyses.json`: Manifest mapping analysis names to specific experiment run paths (relative to `experiments/`). Manually maintained.
 
 # Coding Standards & Style
@@ -49,9 +50,10 @@
 # Workflow constraints
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
-- **After completing any non-trivial change**, always check:
-  - `README.md`: is the output structure, CLI options, or agent descriptions still accurate? Should the implemented changes be documented in the README?
-  - `CLAUDE.md`: does the Architecture section still describe the actual module responsibilities? Are any invariants stale? Is there anything that should be added or removed?
+- **Before committing**, always check whether `README.md` or `CLAUDE.md` need updating:
+  - `README.md`: add/update/remove any user-facing documentation (CLI options, output files, analysis scripts, workflow examples) that the change affects.
+  - `CLAUDE.md`: add/update/remove **only load-bearing information** — Architecture entries for new/renamed/deleted modules, new invariants, changed contracts. Do NOT bloat CLAUDE.md with minor details.
+  - Include these doc changes in the same commit as the code change — never commit code without its doc updates.
 
 # Observation Space Invariants
 

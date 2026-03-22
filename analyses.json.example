@@ -7,11 +7,18 @@
     "pomdp": "pomdp_t200000/<timestamp>"
   },
   "framestack_ablation": {
+    "ppo_baseline": "pomdp_t300000/<timestamp>",
+    "ppo_recurrent": "pomdp_t300000/<timestamp>",
     "n_stack=1": "pomdp_t300000/<timestamp>",
     "n_stack=2": "pomdp_t300000/<timestamp>",
+    "n_stack=3": "pomdp_t300000/<timestamp>",
     "n_stack=4": "pomdp_t300000/<timestamp>",
+    "n_stack=6": "pomdp_t300000/<timestamp>",
+    "n_stack=8": "pomdp_t300000/<timestamp>",
     "n_stack=10": "pomdp_t300000/<timestamp>",
+    "n_stack=15": "pomdp_t300000/<timestamp>",
     "n_stack=20": "pomdp_t300000/<timestamp>",
+    "n_stack=30": "pomdp_t300000/<timestamp>",
     "n_stack=40": "pomdp_t300000/<timestamp>"
   },
   "lstm_ablation": {
