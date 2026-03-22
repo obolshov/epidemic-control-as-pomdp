@@ -194,23 +194,72 @@ class ExperimentDirectory:
         }
 
         for agent_name, agg in aggregated_results.items():
-            agent_summary = {
-                "agent_name": agent_name,
-                "mean_reward": agg.mean_reward,
-                "std_reward": agg.std_reward,
-                "mean_peak_infected": agg.mean_peak_infected,
-                "std_peak_infected": agg.std_peak_infected,
-                "mean_total_infected": agg.mean_total_infected,
-                "std_total_infected": agg.std_total_infected,
-                "mean_total_stringency": agg.mean_total_stringency,
-                "std_total_stringency": agg.std_total_stringency,
-                "n_episodes": agg.n_episodes,
-                "episode_rewards": [float(r) for r in agg.episode_rewards],
-                "total_infected_per_episode": [float(x) for x in agg.total_infected_per_episode],
-                "total_stringency_per_episode": [float(x) for x in agg.total_stringency_per_episode],
-            }
-            if per_seed_stats and agent_name in per_seed_stats:
-                agent_summary["per_seed"] = per_seed_stats[agent_name]
+            is_rl = per_seed_stats and agent_name in per_seed_stats
+            seed_stats = per_seed_stats[agent_name] if is_rl else None
+
+            if is_rl and seed_stats:
+                # Cross-seed aggregation: mean/std/SE across seed-level means
+                seed_means_reward = np.array([s["mean_reward"] for s in seed_stats])
+                n_seeds = len(seed_stats)
+
+                # Compute per-seed means for other metrics
+                n_eval = agg.n_episodes // n_seeds  # episodes per seed
+                seed_means_peak = np.array([
+                    float(np.mean(agg.peak_infected_per_episode[i * n_eval:(i + 1) * n_eval]))
+                    for i in range(n_seeds)
+                ])
+                seed_means_infected = np.array([
+                    float(np.mean(agg.total_infected_per_episode[i * n_eval:(i + 1) * n_eval]))
+                    for i in range(n_seeds)
+                ])
+                seed_means_stringency = np.array([
+                    float(np.mean(agg.total_stringency_per_episode[i * n_eval:(i + 1) * n_eval]))
+                    for i in range(n_seeds)
+                ])
+
+                best_idx = int(np.argmax(seed_means_reward))
+
+                agent_summary = {
+                    "agent_name": agent_name,
+                    "mean_reward": float(np.mean(seed_means_reward)),
+                    "std_reward": float(np.std(seed_means_reward, ddof=1)),
+                    "se_reward": float(np.std(seed_means_reward, ddof=1) / np.sqrt(n_seeds)),
+                    "mean_peak_infected": float(np.mean(seed_means_peak)),
+                    "std_peak_infected": float(np.std(seed_means_peak, ddof=1)),
+                    "se_peak_infected": float(np.std(seed_means_peak, ddof=1) / np.sqrt(n_seeds)),
+                    "mean_total_infected": float(np.mean(seed_means_infected)),
+                    "std_total_infected": float(np.std(seed_means_infected, ddof=1)),
+                    "se_total_infected": float(np.std(seed_means_infected, ddof=1) / np.sqrt(n_seeds)),
+                    "mean_total_stringency": float(np.mean(seed_means_stringency)),
+                    "std_total_stringency": float(np.std(seed_means_stringency, ddof=1)),
+                    "se_total_stringency": float(np.std(seed_means_stringency, ddof=1) / np.sqrt(n_seeds)),
+                    "best_seed": seed_stats[best_idx]["seed"],
+                    "best_seed_reward": float(seed_means_reward[best_idx]),
+                    "n_seeds": n_seeds,
+                    "n_eval_episodes_per_seed": n_eval,
+                    "n_episodes": agg.n_episodes,
+                    "episode_rewards": [float(r) for r in agg.episode_rewards],
+                    "total_infected_per_episode": [float(x) for x in agg.total_infected_per_episode],
+                    "total_stringency_per_episode": [float(x) for x in agg.total_stringency_per_episode],
+                    "per_seed": seed_stats,
+                }
+            else:
+                # Baseline agents: single-seed, within-episode stats
+                agent_summary = {
+                    "agent_name": agent_name,
+                    "mean_reward": agg.mean_reward,
+                    "std_reward": agg.std_reward,
+                    "mean_peak_infected": agg.mean_peak_infected,
+                    "std_peak_infected": agg.std_peak_infected,
+                    "mean_total_infected": agg.mean_total_infected,
+                    "std_total_infected": agg.std_total_infected,
+                    "mean_total_stringency": agg.mean_total_stringency,
+                    "std_total_stringency": agg.std_total_stringency,
+                    "n_episodes": agg.n_episodes,
+                    "episode_rewards": [float(r) for r in agg.episode_rewards],
+                    "total_infected_per_episode": [float(x) for x in agg.total_infected_per_episode],
+                    "total_stringency_per_episode": [float(x) for x in agg.total_stringency_per_episode],
+                }
 
             summary_data["agents"].append(agent_summary)
 

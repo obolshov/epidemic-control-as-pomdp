@@ -10,7 +10,7 @@
     - `src/results.py`: Data containers — `SimulationResult` (single-episode trajectory) and `AggregatedResult` (multi-episode mean ± SD).
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
-    - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation (mean ± SD) for ANY agent type on fixed eval seeds; `select_best_model()` selects the best training seed via reward-only eval; `run_evaluation()` is the unified pipeline for baselines and RL agents.
+    - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation for ANY agent type on fixed eval seeds; `evaluate_all_seeds()` evaluates all training seeds; `aggregate_across_seeds()` computes cross-seed mean ± SE; `run_evaluation()` is the unified pipeline for baselines and RL agents.
     - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.

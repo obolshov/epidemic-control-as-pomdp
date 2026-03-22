@@ -137,9 +137,9 @@ experiments/
       config.json                               # Full experiment configuration
       summary.json                              # Key metrics for all agents
       plots/
-        comparison_all_agents.png               # Side-by-side SEIR curves (mean ± SD shaded)
-        evaluation_curves.png                   # Mean ± SD reward across training seeds
-        no_action_seir.png                      # Individual agent SEIR plots (mean ± SD shaded)
+        comparison_all_agents.png               # Side-by-side SEIR curves (mean ± SE shaded)
+        evaluation_curves.png                   # Mean ± SE reward across training seeds
+        no_action_seir.png                      # Individual agent SEIR plots (mean ± SE shaded)
         severe_seir.png
         random_seir.png
         threshold_seir.png

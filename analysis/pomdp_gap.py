@@ -27,9 +27,9 @@ AGENT_LABELS = {
 }
 
 METRICS = [
-    ("mean_reward", "std_reward", "Total Reward"),
-    ("mean_total_infected", "std_total_infected", "Total Infected"),
-    ("mean_total_stringency", "std_total_stringency", "Total Stringency"),
+    ("mean_reward", "se_reward", "Total Reward"),
+    ("mean_total_infected", "se_total_infected", "Total Infected"),
+    ("mean_total_stringency", "se_total_stringency", "Total Stringency"),
 ]
 
 
@@ -49,7 +49,7 @@ def plot_pomdp_gap(
 
     fig, axes = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
 
-    for panel_idx, (mean_key, std_key, ylabel) in enumerate(METRICS):
+    for panel_idx, (mean_key, se_key, ylabel) in enumerate(METRICS):
         ax = axes[panel_idx]
         for agent_key in AGENTS:
             means = [
@@ -57,7 +57,7 @@ def plot_pomdp_gap(
                 for s in SCENARIO_ORDER
             ]
             sds = [
-                runs[s].agent_metrics(agent_key)[std_key]
+                runs[s].agent_metrics(agent_key)[se_key]
                 for s in SCENARIO_ORDER
             ]
             ax.errorbar(

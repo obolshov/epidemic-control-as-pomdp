@@ -14,10 +14,10 @@ EXPERIMENTS_DIR = Path("experiments")
 DEFAULT_MANIFEST_PATH = Path("analyses.json")
 
 METRIC_KEYS = [
-    "mean_reward", "std_reward",
-    "mean_total_infected", "std_total_infected",
-    "mean_total_stringency", "std_total_stringency",
-    "mean_peak_infected", "std_peak_infected",
+    "mean_reward", "std_reward", "se_reward",
+    "mean_total_infected", "std_total_infected", "se_total_infected",
+    "mean_total_stringency", "std_total_stringency", "se_total_stringency",
+    "mean_peak_infected", "std_peak_infected", "se_peak_infected",
 ]
 
 

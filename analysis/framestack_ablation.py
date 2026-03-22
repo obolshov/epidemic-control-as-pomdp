@@ -60,7 +60,7 @@ def plot_framestack_ablation(
             continue
         n = _parse_n_stack(label)
         metrics = run.agent_metrics(FRAMESTACK_AGENT)
-        entries.append((n, metrics["mean_reward"], metrics["std_reward"]))
+        entries.append((n, metrics["mean_reward"], metrics["se_reward"]))
     entries.sort(key=lambda e: e[0])
 
     n_stacks = [e[0] for e in entries]
@@ -92,7 +92,7 @@ def plot_framestack_ablation(
     )
 
     ax.set_xlabel("n_stack (window size in steps)")
-    ax.set_ylabel("Total Reward (mean ± SD)")
+    ax.set_ylabel("Total Reward (mean ± SE)")
     ax.set_title("FrameStack Window Size Ablation (POMDP scenario)")
     ax.set_xticks(n_stacks)
     ax.legend(loc="best")
