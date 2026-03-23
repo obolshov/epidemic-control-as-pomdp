@@ -123,21 +123,10 @@ class AggregatedResult:
         return float(np.mean(self.peak_infected_per_episode))
 
     @property
-    def std_peak_infected(self) -> float:
-        return float(np.std(self.peak_infected_per_episode))
-
-    @property
     def mean_total_infected(self) -> float:
         return float(np.mean(self.total_infected_per_episode))
-
-    @property
-    def std_total_infected(self) -> float:
-        return float(np.std(self.total_infected_per_episode))
 
     @property
     def mean_total_stringency(self) -> float:
         return float(np.mean(self.total_stringency_per_episode))
 
-    @property
-    def std_total_stringency(self) -> float:
-        return float(np.std(self.total_stringency_per_episode))

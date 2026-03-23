@@ -27,9 +27,9 @@ AGENT_LABELS = {
 }
 
 METRICS = [
-    ("mean_reward", "se_reward", "Total Reward"),
-    ("mean_total_infected", "se_total_infected", "Total Infected"),
-    ("mean_total_stringency", "se_total_stringency", "Total Stringency"),
+    ("cross_seed_mean_reward", "cross_seed_se_reward", "Total Reward"),
+    ("cross_seed_mean_total_infected", "cross_seed_se_total_infected", "Total Infected"),
+    ("cross_seed_mean_total_stringency", "cross_seed_se_total_stringency", "Total Stringency"),
 ]
 
 

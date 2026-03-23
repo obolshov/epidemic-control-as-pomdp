@@ -135,7 +135,8 @@ experiments/
         best_model.zip                          # Best checkpoint saved by EvalCallback
     2026-02-07_14-30-00/                        # Timestamped experiment results
       config.json                               # Full experiment configuration
-      summary.json                              # Cross-seed aggregated metrics (unified for all agents)
+      summary.json                              # Cross-seed aggregated stats (mean ± SE per agent)
+      evaluation.json                            # Raw per-episode metrics grouped by seed
       plots/
         comparison_all_agents.png               # Side-by-side SEIR curves (cross-seed mean ± SD shaded)
         evaluation_curves.png                   # Mean ± SD reward across training seeds
@@ -198,7 +199,7 @@ Values are relative paths under `experiments/`. Update this file when you run ne
 python -m analysis.validate
 ```
 
-Checks that all manifest entries point to existing directories with `config.json` and `summary.json`.
+Checks that all manifest entries point to existing directories with `config.json`, `summary.json`, and `evaluation.json`.
 
 ### POMDP Gap Plot
 

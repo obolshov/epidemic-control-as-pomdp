@@ -17,7 +17,7 @@ from typing import Dict, Any, List, Optional
 import numpy as np
 
 from src.config import Config
-from src.results import cross_seed_std, cross_seed_se
+from src.results import cross_seed_se
 
 
 def generate_seeds(num_seeds: int) -> List[int]:
@@ -171,55 +171,78 @@ class ExperimentDirectory:
             json.dump(self.config.to_dict(), f, indent=2, ensure_ascii=False)
         print(f"Experiment config saved to: {config_path}")
 
+    def save_evaluation(
+        self,
+        per_seed_stats: Dict[str, Any],
+    ) -> None:
+        """Save raw per-episode evaluation data for all agents.
+
+        Structure: top-level keys are agent names, each containing per-seed
+        parallel arrays of episode metrics.
+
+        Args:
+            per_seed_stats: Dict mapping agent_name -> list of per-seed dicts
+                with keys: seed, eval_seeds, total_reward, peak_infected,
+                total_infected, total_stringency.
+        """
+        eval_path = self.root / "evaluation.json"
+
+        eval_data: Dict[str, Any] = {}
+        for agent_name, seed_stats_list in per_seed_stats.items():
+            n_seeds = len(seed_stats_list)
+            n_episodes_per_seed = len(seed_stats_list[0]["total_reward"]) if n_seeds > 0 else 0
+
+            seeds_data: Dict[str, Any] = {}
+            for entry in seed_stats_list:
+                seeds_data[str(entry["seed"])] = {
+                    "eval_seeds": entry["eval_seeds"],
+                    "total_reward": entry["total_reward"],
+                    "peak_infected": entry["peak_infected"],
+                    "total_infected": entry["total_infected"],
+                    "total_stringency": entry["total_stringency"],
+                }
+
+            eval_data[agent_name] = {
+                "n_seeds": n_seeds,
+                "n_episodes_per_seed": n_episodes_per_seed,
+                "seeds": seeds_data,
+            }
+
+        with open(eval_path, "w", encoding="utf-8") as f:
+            json.dump(eval_data, f, indent=2, ensure_ascii=False)
+        print(f"Evaluation data saved to: {eval_path}")
+
     def save_summary(
         self,
         aggregated_results: Dict[str, Any],
-        per_seed_stats: Dict[str, Any],
     ) -> None:
-        """Save experiment summary with cross-seed aggregated metrics from all agents.
-
-        All agents (baselines and RL) use the same unified format with
-        cross-seed mean/std/SE computed from seed-level means.
+        """Save minimal cross-seed aggregated metrics for all agents.
 
         Args:
             aggregated_results: Dict mapping agent_name -> AggregatedResult.
-            per_seed_stats: Dict mapping agent_name -> per-seed stats list.
         """
         summary_path = self.root / "summary.json"
+
+        agents_data: Dict[str, Any] = {}
+        for agent_name, agg in aggregated_results.items():
+            agents_data[agent_name] = {
+                "cross_seed_mean_reward": float(np.mean(agg.seed_mean_rewards)),
+                "cross_seed_se_reward": cross_seed_se(agg.seed_mean_rewards),
+                "cross_seed_mean_peak_infected": float(np.mean(agg.seed_mean_peak)),
+                "cross_seed_se_peak_infected": cross_seed_se(agg.seed_mean_peak),
+                "cross_seed_mean_total_infected": float(np.mean(agg.seed_mean_infected)),
+                "cross_seed_se_total_infected": cross_seed_se(agg.seed_mean_infected),
+                "cross_seed_mean_total_stringency": float(np.mean(agg.seed_mean_stringency)),
+                "cross_seed_se_total_stringency": cross_seed_se(agg.seed_mean_stringency),
+                "n_seeds": agg.n_seeds,
+                "n_episodes_per_seed": agg.n_episodes // agg.n_seeds,
+            }
 
         summary_data = {
             "scenario_name": self.config.scenario_name,
             "timestamp": self.config.timestamp,
-            "num_agents": len(aggregated_results),
-            "num_training_seeds": self.config.num_training_seeds,
-            "agents": [],
+            "agents": agents_data,
         }
-
-        for agent_name, agg in aggregated_results.items():
-            seed_stats = per_seed_stats[agent_name]
-
-            agent_summary = {
-                "agent_name": agent_name,
-                "mean_reward": float(np.mean(agg.seed_mean_rewards)),
-                "std_reward": cross_seed_std(agg.seed_mean_rewards),
-                "se_reward": cross_seed_se(agg.seed_mean_rewards),
-                "mean_peak_infected": float(np.mean(agg.seed_mean_peak)),
-                "std_peak_infected": cross_seed_std(agg.seed_mean_peak),
-                "se_peak_infected": cross_seed_se(agg.seed_mean_peak),
-                "mean_total_infected": float(np.mean(agg.seed_mean_infected)),
-                "std_total_infected": cross_seed_std(agg.seed_mean_infected),
-                "se_total_infected": cross_seed_se(agg.seed_mean_infected),
-                "mean_total_stringency": float(np.mean(agg.seed_mean_stringency)),
-                "std_total_stringency": cross_seed_std(agg.seed_mean_stringency),
-                "se_total_stringency": cross_seed_se(agg.seed_mean_stringency),
-                "n_seeds": agg.n_seeds,
-                "n_eval_episodes_per_seed": agg.n_episodes // agg.n_seeds,
-                "n_episodes": agg.n_episodes,
-                "episode_rewards": [float(r) for r in agg.episode_rewards],
-                "per_seed": seed_stats,
-            }
-
-            summary_data["agents"].append(agent_summary)
 
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary_data, f, indent=2, ensure_ascii=False)

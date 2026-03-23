@@ -361,7 +361,8 @@ def main(
     aggregated_results, per_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
 
     _create_plots(exp_config, experiment_dir, aggregated_results, rl_models)
-    experiment_dir.save_summary(aggregated_results, per_seed_stats)
+    experiment_dir.save_evaluation(per_seed_stats)
+    experiment_dir.save_summary(aggregated_results)
     _print_summary(exp_config, experiment_dir, aggregated_results)
 
 

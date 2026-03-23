@@ -25,7 +25,8 @@ experiments/
     weights/                          # Shared trained weights (ignore for analysis)
     {YYYY-MM-DD_HH-MM-SS}/           # Timestamped run — THIS is what you analyze
       config.json                     # Experiment config: base_config, pomdp_params, seeds, timesteps
-      summary.json                    # Evaluation metrics: per-agent mean_reward, std_reward, peak/total infected
+      summary.json                    # Cross-seed aggregated stats: cross_seed_mean_reward, cross_seed_se_reward, etc.
+      evaluation.json                  # Raw per-episode data grouped by seed: total_reward, peak_infected, etc.
       plots/                          # Generated plots (PNG images)
         comparison_all_agents.png     # Side-by-side SEIR curves
         evaluation_curves.png         # Reward comparison across agents
@@ -45,11 +46,14 @@ experiments/
 ## Key Files and What They Contain
 
 ### summary.json
-The primary source for comparing agents. Contains per-agent:
-- `mean_reward`, `std_reward` — evaluation reward (higher = better)
-- `mean_peak_infected`, `std_peak_infected` — epidemic peak (lower = better)
-- `mean_total_infected`, `std_total_infected` — cumulative infections (lower = better)
-- `per_seed` with individual `episode_rewards` for RL agents
+Minimal cross-seed aggregated stats. Contains per-agent:
+- `cross_seed_mean_reward`, `cross_seed_se_reward` — evaluation reward (higher = better)
+- `cross_seed_mean_peak_infected`, `cross_seed_se_peak_infected` — epidemic peak (lower = better)
+- `cross_seed_mean_total_infected`, `cross_seed_se_total_infected` — cumulative infections (lower = better)
+- `n_seeds`, `n_episodes_per_seed`
+
+### evaluation.json
+Raw per-episode data grouped by seed. Top-level keys are agent names. Each agent has `seeds` dict with per-seed arrays: `eval_seeds`, `total_reward`, `peak_infected`, `total_infected`, `total_stringency`.
 
 ### config.json
 Experiment parameters:

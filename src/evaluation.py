@@ -310,17 +310,19 @@ def aggregate_across_seeds(
     per_seed_results: List[AggregatedResult],
     seeds: List[int],
     agent_name: str,
+    eval_seeds_per_seed: List[List[int]],
 ) -> tuple[AggregatedResult, List[Dict[str, Any]]]:
     """Aggregate per-seed evaluation results into a cross-seed summary.
 
     Computes mean-of-seed-means for all metrics. The returned AggregatedResult
     has episode_rewards = all episodes from all seeds (concatenated), and
-    per-seed stats are returned separately for summary.json.
+    per-seed raw data is returned separately for evaluation.json.
 
     Args:
         per_seed_results: One AggregatedResult per training seed.
         seeds: Training seeds (same order as per_seed_results).
         agent_name: Agent name for the aggregated result.
+        eval_seeds_per_seed: Eval seeds used for each training seed.
 
     Returns:
         Tuple of (aggregated AggregatedResult, per_seed_stats list).
@@ -340,7 +342,7 @@ def aggregate_across_seeds(
     all_total_stringency: List[float] = []
 
     per_seed_stats: List[Dict[str, Any]] = []
-    for seed, agg in zip(seeds, per_seed_results):
+    for seed, agg, eval_seeds in zip(seeds, per_seed_results, eval_seeds_per_seed):
         all_episode_rewards.extend(agg.episode_rewards)
         all_peak_infected.extend(agg.peak_infected_per_episode)
         all_total_infected.extend(agg.total_infected_per_episode)
@@ -348,9 +350,11 @@ def aggregate_across_seeds(
 
         per_seed_stats.append({
             "seed": seed,
-            "mean_reward": agg.mean_reward,
-            "std_reward": agg.std_reward,
-            "episode_rewards": [float(r) for r in agg.episode_rewards],
+            "eval_seeds": eval_seeds,
+            "total_reward": [float(r) for r in agg.episode_rewards],
+            "peak_infected": [float(r) for r in agg.peak_infected_per_episode],
+            "total_infected": [float(r) for r in agg.total_infected_per_episode],
+            "total_stringency": [float(r) for r in agg.total_stringency_per_episode],
         })
 
     # Aggregate SEIR timeseries: mean of per-seed means
@@ -466,6 +470,7 @@ def run_evaluation(
 
         combined_agg, seed_stats = aggregate_across_seeds(
             seed_results, exp_config.training_seeds, agent_name,
+            eval_seeds_per_seed=baseline_seed_groups,
         )
         aggregated_results[agent_name] = combined_agg
         per_seed_stats[agent_name] = seed_stats
@@ -501,6 +506,7 @@ def run_evaluation(
 
         agg, seed_stats = aggregate_across_seeds(
             seed_results, training_seeds, agent_name,
+            eval_seeds_per_seed=[eval_seeds] * len(training_seeds),
         )
         aggregated_results[agent_name] = agg
         per_seed_stats[agent_name] = seed_stats

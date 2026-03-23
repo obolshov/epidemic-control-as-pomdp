@@ -11,10 +11,10 @@
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
     - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation for ANY agent type on fixed eval seeds; `evaluate_all_seeds()` evaluates all training seeds; `aggregate_across_seeds()` computes cross-seed mean ± SE; `run_evaluation()` is the cross-seed evaluation pipeline for all agents (baselines and RL use identical N_seeds × N_episodes structure).
-    - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
+    - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations. `ExperimentDirectory` writes two output files: `evaluation.json` (raw per-episode metrics grouped by seed) and `summary.json` (minimal cross-seed mean ± SE).
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
-    - `analysis/data.py`: Manifest-based experiment data loading. `AnalysisRun` dataclass wraps one run's config + summary. `load_analysis(name)` reads `analyses.json` and returns `dict[str, AnalysisRun]`.
+    - `analysis/data.py`: Manifest-based experiment data loading. `AnalysisRun` dataclass wraps one run's config + summary + evaluation. `load_analysis(name)` reads `analyses.json` and returns `dict[str, AnalysisRun]`. Analysis scripts read raw data from `evaluation.json` and aggregated stats from `summary.json`.
     - `analysis/pomdp_gap.py`: 3-panel POMDP gap plot. Run via `python -m analysis.pomdp_gap`.
     - `analysis/significance_tests.py`: Wilcoxon signed-rank tests with Holm-Bonferroni correction. Run via `python -m analysis.significance_tests`.
     - `analysis/framestack_ablation.py`: FrameStack window size ablation plot (reward vs n_stack with RecurrentPPO/baseline reference lines). Run via `python -m analysis.framestack_ablation`.

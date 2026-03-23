@@ -1,7 +1,7 @@
 """Manifest-based experiment data loading for analysis scripts.
 
 Reads analyses.json to resolve which experiment runs belong to which analysis,
-then loads config.json and summary.json from each run directory.
+then loads config.json, summary.json, and evaluation.json from each run directory.
 """
 
 import json
@@ -9,15 +9,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 
 EXPERIMENTS_DIR = Path("experiments")
 DEFAULT_MANIFEST_PATH = Path("analyses.json")
 
 METRIC_KEYS = [
-    "mean_reward", "std_reward", "se_reward",
-    "mean_total_infected", "std_total_infected", "se_total_infected",
-    "mean_total_stringency", "std_total_stringency", "se_total_stringency",
-    "mean_peak_infected", "std_peak_infected", "se_peak_infected",
+    "cross_seed_mean_reward", "cross_seed_se_reward",
+    "cross_seed_mean_total_infected", "cross_seed_se_total_infected",
+    "cross_seed_mean_total_stringency", "cross_seed_se_total_stringency",
+    "cross_seed_mean_peak_infected", "cross_seed_se_peak_infected",
 ]
 
 
@@ -30,21 +32,14 @@ class AnalysisRun:
         run_dir: Absolute path to the timestamped run directory.
         config: Parsed config.json contents.
         summary: Parsed summary.json contents.
+        evaluation: Parsed evaluation.json contents.
     """
 
     label: str
     run_dir: Path
     config: dict[str, Any]
     summary: dict[str, Any]
-
-    _agents_by_name: dict[str, dict[str, Any]] = field(
-        init=False, repr=False, default_factory=dict
-    )
-
-    def __post_init__(self) -> None:
-        self._agents_by_name = {
-            a["agent_name"]: a for a in self.summary["agents"]
-        }
+    evaluation: dict[str, Any]
 
     @property
     def scenario_name(self) -> str:
@@ -65,10 +60,10 @@ class AnalysisRun:
 
     @property
     def available_agents(self) -> list[str]:
-        return list(self._agents_by_name.keys())
+        return list(self.summary["agents"].keys())
 
     def agent_metrics(self, agent_name: str) -> dict[str, float]:
-        """Extract all metric key-value pairs for one agent.
+        """Extract all metric key-value pairs for one agent from summary.json.
 
         Args:
             agent_name: Agent identifier (e.g. "ppo_baseline").
@@ -79,29 +74,43 @@ class AnalysisRun:
         Raises:
             KeyError: If agent not found in this run's summary.
         """
-        agent = self._agents_by_name[agent_name]
+        agent = self.summary["agents"][agent_name]
         return {k: agent[k] for k in METRIC_KEYS if k in agent}
 
     def agent_episode_rewards(self, agent_name: str) -> list[float]:
-        """Per-episode reward array for one agent.
+        """All per-episode rewards for one agent (concatenated across seeds).
 
         Args:
             agent_name: Agent identifier.
 
         Returns:
-            List of per-episode total rewards.
+            Flat list of per-episode total rewards from all seeds.
 
         Raises:
-            KeyError: If agent not found or episode_rewards missing.
+            KeyError: If agent not found in evaluation data.
         """
-        agent = self._agents_by_name[agent_name]
-        if "episode_rewards" not in agent:
-            raise KeyError(
-                f"'episode_rewards' not found for agent '{agent_name}' in "
-                f"{self.run_dir / 'summary.json'}. Re-run evaluation to "
-                f"regenerate summary.json with per-episode data."
-            )
-        return agent["episode_rewards"]
+        agent_eval = self.evaluation[agent_name]
+        all_rewards: list[float] = []
+        for seed_data in agent_eval["seeds"].values():
+            all_rewards.extend(seed_data["total_reward"])
+        return all_rewards
+
+    def agent_seed_arrays(self, agent_name: str, metric: str) -> list[np.ndarray]:
+        """Per-seed arrays of a metric from evaluation.json.
+
+        Args:
+            agent_name: Agent identifier.
+            metric: One of "total_reward", "peak_infected", "total_infected",
+                "total_stringency".
+
+        Returns:
+            List of numpy arrays, one per seed.
+        """
+        agent_eval = self.evaluation[agent_name]
+        return [
+            np.array(seed_data[metric])
+            for seed_data in agent_eval["seeds"].values()
+        ]
 
     def to_row(self, agent_name: str) -> dict[str, Any]:
         """Flat dict suitable for DataFrame construction.
@@ -137,11 +146,11 @@ def load_analysis(
         experiments_dir: Base directory containing experiment folders.
 
     Returns:
-        Ordered dict mapping label → AnalysisRun.
+        Ordered dict mapping label -> AnalysisRun.
 
     Raises:
-        FileNotFoundError: If manifest file, run directory, or summary.json
-            is missing.
+        FileNotFoundError: If manifest file, run directory, or required
+            JSON files are missing.
         KeyError: If analysis name not found in manifest.
     """
     if not manifest_path.exists():
@@ -178,16 +187,27 @@ def load_analysis(
                 f"Run evaluation first."
             )
 
+        eval_path = run_dir / "evaluation.json"
+        if not eval_path.exists():
+            raise FileNotFoundError(
+                f"evaluation.json not found at {eval_path} "
+                f"(analysis='{name}', label='{label}'). "
+                f"Run evaluation first."
+            )
+
         with open(config_path) as f:
             config = json.load(f)
         with open(summary_path) as f:
             summary = json.load(f)
+        with open(eval_path) as f:
+            evaluation = json.load(f)
 
         runs[label] = AnalysisRun(
             label=label,
             run_dir=run_dir.resolve(),
             config=config,
             summary=summary,
+            evaluation=evaluation,
         )
 
     return runs
@@ -223,12 +243,8 @@ def validate_manifest(
                 warnings.append(f"{prefix} directory not found: {run_dir}")
                 continue
 
-            config_path = run_dir / "config.json"
-            if not config_path.exists():
-                warnings.append(f"{prefix} config.json missing in {run_dir}")
-
-            summary_path = run_dir / "summary.json"
-            if not summary_path.exists():
-                warnings.append(f"{prefix} summary.json missing in {run_dir}")
+            for filename in ("config.json", "summary.json", "evaluation.json"):
+                if not (run_dir / filename).exists():
+                    warnings.append(f"{prefix} {filename} missing in {run_dir}")
 
     return warnings

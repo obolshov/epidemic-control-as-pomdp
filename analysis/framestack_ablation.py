@@ -60,7 +60,7 @@ def plot_framestack_ablation(
             continue
         n = _parse_n_stack(label)
         metrics = run.agent_metrics(FRAMESTACK_AGENT)
-        entries.append((n, metrics["mean_reward"], metrics["se_reward"]))
+        entries.append((n, metrics["cross_seed_mean_reward"], metrics["cross_seed_se_reward"]))
     entries.sort(key=lambda e: e[0])
 
     n_stacks = [e[0] for e in entries]
@@ -70,10 +70,10 @@ def plot_framestack_ablation(
     # Reference lines from dedicated manifest entries
     recurrent_mean = runs[REFERENCE_AGENT].agent_metrics(
         REFERENCE_AGENT
-    )["mean_reward"]
+    )["cross_seed_mean_reward"]
     baseline_mean = runs[BASELINE_AGENT].agent_metrics(
         BASELINE_AGENT
-    )["mean_reward"]
+    )["cross_seed_mean_reward"]
 
     # Plot
     fig, ax = plt.subplots(figsize=(8, 5))
