@@ -5,13 +5,27 @@ Data containers for simulation and evaluation results.
 - AggregatedResult: Multi-episode aggregated statistics (mean ± SD).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import numpy as np
 
 from src.agents import Agent, StaticAgent
 from src.env import InterventionAction
+
+
+def cross_seed_std(values: List[float]) -> float:
+    """Standard deviation of seed-level means with Bessel's correction.
+
+    Uses ddof=1 for n > 1 (unbiased estimator), ddof=0 for n = 1 (returns 0.0).
+    """
+    ddof = 1 if len(values) > 1 else 0
+    return float(np.std(values, ddof=ddof))
+
+
+def cross_seed_se(values: List[float]) -> float:
+    """Standard error of seed-level means."""
+    return cross_seed_std(values) / np.sqrt(len(values))
 
 
 @dataclass
@@ -90,6 +104,11 @@ class AggregatedResult:
     total_infected_per_episode: List[float]
     total_stringency_per_episode: List[float]
     n_episodes: int
+    n_seeds: int = 1
+    seed_mean_rewards: List[float] = field(default_factory=list)
+    seed_mean_peak: List[float] = field(default_factory=list)
+    seed_mean_infected: List[float] = field(default_factory=list)
+    seed_mean_stringency: List[float] = field(default_factory=list)
 
     @property
     def mean_reward(self) -> float:

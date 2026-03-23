@@ -9,7 +9,10 @@ Supports multiple modes:
 
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import typer
+
+from src.results import cross_seed_se
 
 from src.config import Config
 from src.results import AggregatedResult
@@ -226,11 +229,11 @@ def _print_summary(
     for agent_name, agg in aggregated_results.items():
         print(
             f"  - {agent_name}: "
-            f"reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
-            f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}, "
-            f"total inf = {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f}, "
-            f"stringency = {agg.mean_total_stringency:.2f} ± {agg.std_total_stringency:.2f} "
-            f"(n={agg.n_episodes})"
+            f"reward = {np.mean(agg.seed_mean_rewards):.2f} ± {cross_seed_se(agg.seed_mean_rewards):.2f} (SE), "
+            f"peak I = {np.mean(agg.seed_mean_peak):.1f} ± {cross_seed_se(agg.seed_mean_peak):.1f}, "
+            f"total inf = {np.mean(agg.seed_mean_infected):.1f} ± {cross_seed_se(agg.seed_mean_infected):.1f}, "
+            f"stringency = {np.mean(agg.seed_mean_stringency):.2f} ± {cross_seed_se(agg.seed_mean_stringency):.2f} "
+            f"(n={agg.n_seeds} seeds × {agg.n_episodes // agg.n_seeds} ep)"
         )
 
     print("\n" + "=" * 80)

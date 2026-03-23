@@ -6,7 +6,7 @@ Provides:
 - evaluate_agent(): Multi-episode evaluation for ANY agent, returns AggregatedResult.
 - evaluate_all_seeds(): Full trajectory evaluation across all training seeds.
 - aggregate_across_seeds(): Aggregate per-seed results into cross-seed summary.
-- run_evaluation(): Unified evaluation pipeline for baselines and RL agents.
+- run_evaluation(): Cross-seed evaluation pipeline for baselines and RL agents.
 """
 
 import numpy as np
@@ -21,7 +21,7 @@ from src.agents import Agent, RandomAgent, ThresholdAgent, create_baseline_agent
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.config import Config
 from src.env import EpidemicEnv
-from src.results import AggregatedResult, SimulationResult
+from src.results import AggregatedResult, SimulationResult, cross_seed_se
 from src.utils import log_results, plot_single_aggregated
 from src.wrappers import create_environment
 
@@ -237,15 +237,25 @@ def evaluate_agent(
         stats[f"{comp}_mean"] = np.mean(stacked, axis=0)
         stats[f"{comp}_std"] = np.std(stacked, axis=0)
 
+    episode_rewards = [r.total_reward for r in all_results]
+    peak_infected = [float(r.peak_infected) for r in all_results]
+    total_infected = [float(r.total_infected) for r in all_results]
+    total_stringency = [float(r.total_stringency) for r in all_results]
+
     agg = AggregatedResult(
         agent_name=agent_name,
         t=t,
         **stats,
-        episode_rewards=[r.total_reward for r in all_results],
-        peak_infected_per_episode=[float(r.peak_infected) for r in all_results],
-        total_infected_per_episode=[float(r.total_infected) for r in all_results],
-        total_stringency_per_episode=[float(r.total_stringency) for r in all_results],
+        episode_rewards=episode_rewards,
+        peak_infected_per_episode=peak_infected,
+        total_infected_per_episode=total_infected,
+        total_stringency_per_episode=total_stringency,
         n_episodes=len(eval_seeds),
+        n_seeds=1,
+        seed_mean_rewards=[float(np.mean(episode_rewards))],
+        seed_mean_peak=[float(np.mean(peak_infected))],
+        seed_mean_infected=[float(np.mean(total_infected))],
+        seed_mean_stringency=[float(np.mean(total_stringency))],
     )
 
     return agg, all_results
@@ -260,7 +270,7 @@ def evaluate_all_seeds(
     agent_name: str,
     experiment_dir: "ExperimentDirectory",
     eval_seeds: List[int],
-) -> List[AggregatedResult]:
+) -> tuple[List[AggregatedResult], List[tuple[List[int], List[SimulationResult]]]]:
     """Full trajectory evaluation for each training seed.
 
     Args:
@@ -273,13 +283,15 @@ def evaluate_all_seeds(
         eval_seeds: Evaluation seeds (each model evaluated on all of them).
 
     Returns:
-        List of AggregatedResult, one per training seed.
+        Tuple of (list of AggregatedResult per seed,
+                  list of (eval_seeds, episode_results) per seed).
     """
     per_seed_results: List[AggregatedResult] = []
+    all_episode_results: List[tuple[List[int], List[SimulationResult]]] = []
 
     for model, seed in zip(models, seeds):
         vecnorm_path = str(experiment_dir.get_vecnormalize_path(agent_name, seed))
-        agg, _ = evaluate_agent(
+        agg, episode_results = evaluate_agent(
             agent=model,
             config=config,
             pomdp_params=pomdp_params,
@@ -289,8 +301,9 @@ def evaluate_all_seeds(
         )
         print(f"    seed {seed}: reward = {agg.mean_reward:.4f} ± {agg.std_reward:.4f}")
         per_seed_results.append(agg)
+        all_episode_results.append((eval_seeds, episode_results))
 
-    return per_seed_results
+    return per_seed_results, all_episode_results
 
 
 def aggregate_across_seeds(
@@ -361,6 +374,11 @@ def aggregate_across_seeds(
         total_infected_per_episode=all_total_infected,
         total_stringency_per_episode=all_total_stringency,
         n_episodes=len(all_episode_rewards),
+        n_seeds=n_seeds,
+        seed_mean_rewards=seed_mean_rewards,
+        seed_mean_peak=seed_mean_peak,
+        seed_mean_infected=seed_mean_infected,
+        seed_mean_stringency=seed_mean_stringency,
     )
 
     return combined_agg, per_seed_stats
@@ -386,11 +404,13 @@ def run_evaluation(
     experiment_dir: ExperimentDirectory,
     rl_models: Dict[str, List[Union[PPO, RecurrentPPO]]],
 ) -> tuple[Dict[str, AggregatedResult], Dict[str, Any]]:
-    """Run unified multi-episode evaluation for all agents.
+    """Run cross-seed evaluation for all agents (baselines and RL).
 
-    Phase 1: Baselines — evaluate_agent() on eval_seeds.
-    Phase 2: RL agents — evaluate_all_seeds() on all training seeds, then
-        aggregate_across_seeds() for cross-seed mean ± SE.
+    Both baselines and RL agents are evaluated in N_seeds groups, then
+    aggregated via aggregate_across_seeds() for cross-seed mean ± SE.
+
+    Baselines use different eval_seed groups per seed (environment stochasticity).
+    RL agents use the same eval_seeds but different trained models per seed.
 
     Args:
         exp_config: Experiment configuration.
@@ -398,7 +418,7 @@ def run_evaluation(
         rl_models: Dict mapping agent_name -> list of models (one per seed).
 
     Returns:
-        Tuple of (Dict[agent_name -> AggregatedResult], Dict[rl_agent_name -> per_seed_stats]).
+        Tuple of (Dict[agent_name -> AggregatedResult], Dict[agent_name -> per_seed_stats]).
     """
     print("\n" + "=" * 80)
     print("RUNNING EVALUATION")
@@ -406,9 +426,17 @@ def run_evaluation(
 
     aggregated_results: Dict[str, AggregatedResult] = {}
     per_seed_stats: Dict[str, Any] = {}
-    eval_seeds = exp_config.eval_seeds
+    n_seeds = len(exp_config.training_seeds)
+    n_eval = exp_config.num_eval_episodes
 
-    # Phase 1: Evaluate baselines
+    # Phase 1: Evaluate baselines (N_seeds × N_episodes, grouped by seed)
+    # Baselines use the same policy regardless of seed, so each group gets
+    # different eval_seeds to capture environment stochasticity.
+    baseline_seed_groups = [
+        list(range(2024 + i * n_eval, 2024 + (i + 1) * n_eval))
+        for i in range(n_seeds)
+    ]
+
     agents = create_baseline_agents(
         exp_config.base_config,
         exp_config.target_agents,
@@ -417,41 +445,51 @@ def run_evaluation(
 
     for agent in agents:
         agent_name = getattr(agent, 'name', agent.__class__.__name__.lower())
-        print(f"\nEvaluating {agent.__class__.__name__} ({len(eval_seeds)} episodes)...")
+        print(f"\nEvaluating {agent.__class__.__name__} ({n_seeds} groups × {n_eval} episodes)...")
 
-        # Re-seed RandomAgent per evaluation for reproducibility
-        if isinstance(agent, RandomAgent):
-            agent = RandomAgent(seed=eval_seeds[0])
+        seed_results: List[AggregatedResult] = []
+        all_episode_results: List[tuple[List[int], List[SimulationResult]]] = []
+        for group_idx, group_seeds in enumerate(baseline_seed_groups):
+            if isinstance(agent, RandomAgent):
+                agent = RandomAgent(seed=group_seeds[0])
 
-        agg, episode_results = evaluate_agent(
-            agent=agent,
-            config=exp_config.base_config,
-            pomdp_params=exp_config.pomdp_params,
-            agent_name=agent_name,
-            eval_seeds=eval_seeds,
+            agg, episode_results = evaluate_agent(
+                agent=agent,
+                config=exp_config.base_config,
+                pomdp_params=exp_config.pomdp_params,
+                agent_name=agent_name,
+                eval_seeds=group_seeds,
+            )
+            print(f"    group {group_idx}: reward = {agg.mean_reward:.4f} ± {agg.std_reward:.4f}")
+            seed_results.append(agg)
+            all_episode_results.append((group_seeds, episode_results))
+
+        combined_agg, seed_stats = aggregate_across_seeds(
+            seed_results, exp_config.training_seeds, agent_name,
         )
-        aggregated_results[agent_name] = agg
+        aggregated_results[agent_name] = combined_agg
+        per_seed_stats[agent_name] = seed_stats
 
-        # Save per-agent aggregated SEIR plot
         plot_path = experiment_dir.get_plot_path(f"{agent_name}_seir.png")
-        plot_single_aggregated(agg, save_path=str(plot_path))
+        plot_single_aggregated(combined_agg, save_path=str(plot_path))
 
-        # Save per-episode logs (only for threshold agent — static/random logs are not useful)
         if isinstance(agent, ThresholdAgent):
-            _save_episode_logs(experiment_dir, agent_name, eval_seeds, episode_results)
+            for group_seeds, episode_results in all_episode_results:
+                _save_episode_logs(experiment_dir, agent_name, group_seeds, episode_results)
 
         print(
-            f"  {agent_name}: reward = {agg.mean_reward:.2f} ± {agg.std_reward:.2f}, "
-            f"peak I = {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}"
+            f"  {agent_name}: reward = {np.mean(combined_agg.seed_mean_rewards):.2f} "
+            f"± {cross_seed_se(combined_agg.seed_mean_rewards):.2f} (SE), "
+            f"peak I = {combined_agg.mean_peak_infected:.1f}"
         )
 
     # Phase 2: Evaluate RL agents (all seeds, not just best)
+    eval_seeds = exp_config.eval_seeds
     for agent_name, models in rl_models.items():
         training_seeds = exp_config.training_seeds[:len(models)]
         print(f"\nEvaluating {agent_name} ({len(models)} seeds × {len(eval_seeds)} episodes)...")
 
-        # Full trajectory evaluation on all training seeds
-        seed_results = evaluate_all_seeds(
+        seed_results, rl_episode_results = evaluate_all_seeds(
             models=models,
             seeds=training_seeds,
             config=exp_config.base_config,
@@ -461,30 +499,23 @@ def run_evaluation(
             eval_seeds=eval_seeds,
         )
 
-        # Aggregate across seeds
         agg, seed_stats = aggregate_across_seeds(
             seed_results, training_seeds, agent_name,
         )
         aggregated_results[agent_name] = agg
         per_seed_stats[agent_name] = seed_stats
 
-        # SEIR plot from median seed (representative, not cherry-picked)
-        seed_means = [r.mean_reward for r in seed_results]
-        median_idx = int(np.argsort(seed_means)[len(seed_means) // 2])
-        median_seed = training_seeds[median_idx]
+        # Cross-seed aggregated SEIR plot
         plot_path = experiment_dir.get_plot_path(f"{agent_name}_seir.png")
-        plot_single_aggregated(seed_results[median_idx], save_path=str(plot_path))
+        plot_single_aggregated(agg, save_path=str(plot_path))
 
-        # Compute cross-seed stats for display
-        seed_mean_arr = np.array(seed_means)
-        cross_seed_mean = float(np.mean(seed_mean_arr))
-        cross_seed_se = float(np.std(seed_mean_arr, ddof=1) / np.sqrt(len(seed_mean_arr)))
-        best_seed = training_seeds[int(np.argmax(seed_mean_arr))]
+        # Save per-episode logs
+        for ep_seeds, episode_results in rl_episode_results:
+            _save_episode_logs(experiment_dir, agent_name, ep_seeds, episode_results)
 
         print(
-            f"  {agent_name}: reward = {cross_seed_mean:.2f} ± {cross_seed_se:.2f} (SE), "
-            f"best seed = {best_seed} ({max(seed_means):.2f}), "
-            f"SEIR plot from median seed {median_seed}"
+            f"  {agent_name}: reward = {np.mean(agg.seed_mean_rewards):.2f} "
+            f"± {cross_seed_se(agg.seed_mean_rewards):.2f} (SE)"
         )
 
     return aggregated_results, per_seed_stats

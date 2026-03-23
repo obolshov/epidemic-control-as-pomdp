@@ -10,7 +10,7 @@
     - `src/results.py`: Data containers — `SimulationResult` (single-episode trajectory) and `AggregatedResult` (multi-episode mean ± SD).
     - `src/wrappers.py`: `ObservationWrapper` subclasses for POMDP distortions. Also contains `create_environment()` factory used by `train.py`. Wrapper chain order: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
     - `src/train.py`: Training pipeline. Builds `DummyVecEnv → VecMonitor → VecNormalize → [VecFrameStack]`, configures `EvalCallback` + `StopTrainingOnNoModelImprovement`, and trains PPO / RecurrentPPO with per-seed weight saving.
-    - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation for ANY agent type on fixed eval seeds; `evaluate_all_seeds()` evaluates all training seeds; `aggregate_across_seeds()` computes cross-seed mean ± SE; `run_evaluation()` is the unified pipeline for baselines and RL agents.
+    - `src/evaluation.py`: Post-training evaluation. `evaluate_agent()` runs multi-episode evaluation for ANY agent type on fixed eval seeds; `evaluate_all_seeds()` evaluates all training seeds; `aggregate_across_seeds()` computes cross-seed mean ± SE; `run_evaluation()` is the cross-seed evaluation pipeline for all agents (baselines and RL use identical N_seeds × N_episodes structure).
     - `src/experiment.py`: `ExperimentConfig` dataclass — manages paths, seeds, and per-seed weight/VecNormalize file locations.
     - `src/scenarios.py`: Predefined scenario registry (`PREDEFINED_SCENARIOS`) and `create_custom_scenario_name()`.
     - `main.py`: Entry point using `typer`.
@@ -48,6 +48,7 @@
 - Label axes clearly with units (e.g., "Days", "Infected Population").
 
 # Workflow constraints
+- **No backward compatibility with old code.** When changing behavior, replace the old code path entirely. Do NOT leave `if-else` branches, fallbacks, or `Optional` fields that preserve the old logic "just in case." If something is being changed, the old variant is incorrect or no longer needed — remove it.
 - If suggesting a major architectural change (e.g., switching from FrameStack to RNN), explain the *scientific* motivation first.
 - `src/config.py` (`@dataclass Config`) is the single source of truth for SEIR model, reward, and RL hyperparameters. **Do NOT add POMDP observation parameters** (e.g. `include_exposed`, `detection_rate`) to `Config` — those belong exclusively in `PREDEFINED_SCENARIOS` (src/scenarios.py) and CLI arguments.
 - **Before committing**, always check whether `README.md` or `CLAUDE.md` need updating:
@@ -102,6 +103,8 @@ When modifying any training or evaluation code, ALL of the following must hold:
 
 5. **After training, load the best checkpoint** (saved by `EvalCallback`), not the final model state.
 
+6. Do NOT remove or skip _save_episode_logs() call — it saves per-episode action logs to `logs/{agent_name}/` that are used for debugging and analysis.
+
 # Running Experiments
 
 ## Virtual environment
@@ -124,15 +127,15 @@ Predefined scenarios (`--scenario mdp`, `--scenario underreporting`, etc.) share
 For smoke tests and validation, always use the **custom scenario flags** instead:
 ```bash
 # Equivalent to --scenario underreporting, but writes to a unique dir
-python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
+python main.py --no-exposed --detection-rate 0.3 -t 1000 --num-seeds 1
 
 # Equivalent to --scenario pomdp, but writes to a unique dir
-python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05,0.3,0.15 --lag 5,14 -t 10000 --num-seeds 1
+python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05,0.3,0.15 --lag 5,14 -t 1000 --num-seeds 1
 ```
-Custom scenarios generate a unique `scenario_name` (e.g. `custom_no_exposed_k0.3_lag5_14_t10000`) and never collide with the user's predefined experiment weights.
+Custom scenarios generate a unique `scenario_name` (e.g. `custom_no_exposed_k0.3_lag5_14_t1000`) and never collide with the user's predefined experiment weights.
 
 ## Keep -t small for smoke tests
-One full training run for RecurrentPPO takes ~25 minutes. Use `-t 10000` for any validation or smoke test — it is sufficient to confirm the pipeline works end-to-end:
+One full training run for RecurrentPPO takes ~25 minutes. Use `-t 1000` for any validation or smoke test — it is sufficient to confirm the pipeline works end-to-end:
 ```bash
-python main.py --no-exposed --detection-rate 0.3 -t 10000 --num-seeds 1
+python main.py --no-exposed --detection-rate 0.3 -t 1000 --num-seeds 1
 ```

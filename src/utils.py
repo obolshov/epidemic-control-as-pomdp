@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from stable_baselines3.common import results_plotter
 
-from .results import AggregatedResult, SimulationResult
+from .results import AggregatedResult, SimulationResult, cross_seed_se
 
 
 def _save_or_show(save_path: Optional[str]) -> None:
@@ -51,12 +51,14 @@ def _plot_aggregated_seir(ax, agg: AggregatedResult, title: Optional[str] = None
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    n_seeds = agg.n_seeds
+    n_ep_per_seed = agg.n_episodes // n_seeds
     info_text = (
-        f"Reward: {agg.mean_reward:.2f} ± {agg.std_reward:.2f}\n"
-        f"Peak I: {agg.mean_peak_infected:.1f} ± {agg.std_peak_infected:.1f}\n"
-        f"Total inf: {agg.mean_total_infected:.1f} ± {agg.std_total_infected:.1f}\n"
-        f"Stringency: {agg.mean_total_stringency:.2f} ± {agg.std_total_stringency:.2f}\n"
-        f"n = {agg.n_episodes} episodes"
+        f"Reward: {np.mean(agg.seed_mean_rewards):.2f} ± {cross_seed_se(agg.seed_mean_rewards):.2f} (SE)\n"
+        f"Peak I: {np.mean(agg.seed_mean_peak):.1f} ± {cross_seed_se(agg.seed_mean_peak):.1f} (SE)\n"
+        f"Total inf: {np.mean(agg.seed_mean_infected):.1f} ± {cross_seed_se(agg.seed_mean_infected):.1f} (SE)\n"
+        f"Stringency: {np.mean(agg.seed_mean_stringency):.2f} ± {cross_seed_se(agg.seed_mean_stringency):.2f} (SE)\n"
+        f"n = {n_seeds} seeds × {n_ep_per_seed} ep"
     )
 
     ax.text(

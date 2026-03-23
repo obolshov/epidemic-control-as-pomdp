@@ -135,11 +135,11 @@ experiments/
         best_model.zip                          # Best checkpoint saved by EvalCallback
     2026-02-07_14-30-00/                        # Timestamped experiment results
       config.json                               # Full experiment configuration
-      summary.json                              # Key metrics for all agents
+      summary.json                              # Cross-seed aggregated metrics (unified for all agents)
       plots/
-        comparison_all_agents.png               # Side-by-side SEIR curves (mean ± SE shaded)
-        evaluation_curves.png                   # Mean ± SE reward across training seeds
-        no_action_seir.png                      # Individual agent SEIR plots (mean ± SE shaded)
+        comparison_all_agents.png               # Side-by-side SEIR curves (cross-seed mean ± SD shaded)
+        evaluation_curves.png                   # Mean ± SD reward across training seeds
+        no_action_seir.png                      # Per-agent SEIR (cross-seed mean ± SD shaded)
         severe_seir.png
         random_seir.png
         threshold_seir.png
