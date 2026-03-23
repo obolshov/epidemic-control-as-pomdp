@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 ```bash
 # Verify epidemic model with static policies
-python run_static_agents.py
+python support/run_static_agents.py
 
 # Run MDP experiment (trains RL agents by default)
 python main.py --scenario mdp
@@ -242,7 +242,7 @@ for label, run in runs.items():
 For quick epidemic model sanity checks:
 
 ```bash
-python run_static_agents.py
+python support/run_static_agents.py
 ```
 
 Runs all four static policies (NO, MILD, MODERATE, SEVERE interventions) and generates a comparison plot.
