@@ -79,6 +79,7 @@ class ExperimentConfig:
     )
     eval_seeds: List[int] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    run_name: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Auto-populate eval_seeds if not provided."""
@@ -96,6 +97,7 @@ class ExperimentConfig:
             "scenario_name": self.scenario_name,
             "is_custom": self.is_custom,
             "timestamp": self.timestamp,
+            "run_name": self.run_name,
             "base_config": asdict(self.base_config),
             "pomdp_params": self.pomdp_params,
             "target_agents": self.target_agents,
@@ -157,10 +159,16 @@ class ExperimentDirectory:
         Returns:
             Path to the created experiment directory.
         """
-        # Create experiments/{scenario_name}/{timestamp}/
+        # Create experiments/{scenario_name}/{run_name or timestamp}/
         scenario_dir = self.base_dir / self.config.scenario_name
-        experiment_dir = scenario_dir / self.config.timestamp
+        folder = self.config.run_name or self.config.timestamp
+        experiment_dir = scenario_dir / folder
 
+        if self.config.run_name and experiment_dir.exists():
+            raise ValueError(
+                f"Run directory already exists: {experiment_dir}\n"
+                f"Choose a different --run-name or remove the existing directory."
+            )
         experiment_dir.mkdir(parents=True, exist_ok=True)
         return experiment_dir
 
@@ -241,6 +249,7 @@ class ExperimentDirectory:
         summary_data = {
             "scenario_name": self.config.scenario_name,
             "timestamp": self.config.timestamp,
+            "run_name": self.config.run_name,
             "agents": agents_data,
         }
 

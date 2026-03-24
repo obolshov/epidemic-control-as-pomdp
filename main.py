@@ -99,6 +99,7 @@ def _build_experiment_config(
     noise_rho: float = 0.0,
     lstm_hidden_size: Optional[int] = None,
     n_stack: Optional[int] = None,
+    run_name: Optional[str] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
 
@@ -117,6 +118,7 @@ def _build_experiment_config(
         noise_rho: AR(1) autocorrelation coefficient for multiplicative noise.
         lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
         n_stack: FrameStack depth override for ppo_framestack, or None for default (10).
+        run_name: Custom subfolder name for the run, or None to use the timestamp.
 
     Returns:
         Fully populated ExperimentConfig.
@@ -140,6 +142,7 @@ def _build_experiment_config(
             total_timesteps=total_timesteps,
             num_training_seeds=num_seeds,
             training_seeds=training_seeds,
+            run_name=run_name,
         )
 
     print("Running custom experiment")
@@ -163,6 +166,7 @@ def _build_experiment_config(
         total_timesteps=total_timesteps,
         num_training_seeds=num_seeds,
         training_seeds=training_seeds,
+        run_name=run_name,
     )
 
 
@@ -327,6 +331,11 @@ def main(
         "--n-stack",
         help="FrameStack depth for ppo_framestack (default: 10).",
     ),
+    run_name: Optional[str] = typer.Option(
+        None,
+        "--run-name",
+        help="Custom subfolder name for the run (default: auto-generated timestamp).",
+    ),
 ):
     """
     Run epidemic control experiment with multi-seed training and evaluation
@@ -349,6 +358,7 @@ def main(
         noise_rho=noise_rho,
         lstm_hidden_size=lstm_hidden_size,
         n_stack=n_stack,
+        run_name=run_name,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

@@ -26,7 +26,7 @@ python main.py --scenario no_exposed
 python main.py --scenario mdp --skip-training all
 ```
 
-Results are saved to `experiments/{scenario}/{timestamp}/` with plots and logs.
+Results are saved to `experiments/{scenario}/{timestamp_or_run_name}/` with plots and logs.
 Model weights are shared at `experiments/{scenario}/weights/` for reuse across runs.
 
 ## Scenarios
@@ -115,6 +115,7 @@ Key options:
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 - `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_lstm64`), so variants coexist in the same weights directory.
 - `--n-stack`: FrameStack depth for ppo_framestack (default: 10). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
+- `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). Raises an error if the folder already exists.
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
@@ -123,7 +124,7 @@ Key options:
 
 ## Output Structure
 
-Each experiment creates a timestamped directory, while model weights are shared at the scenario level:
+Each experiment creates a timestamped directory (or a custom `--run-name` subfolder), while model weights are shared at the scenario level:
 
 ```
 experiments/
