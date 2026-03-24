@@ -25,7 +25,7 @@ class Config:
     w_switch: float = 0.05  # Weight on quadratic distance switching penalty
 
     # ThresholdAgent parameters
-    thresholds: List[float] = field(default_factory=lambda: [0.01, 0.05, 0.09])
+    thresholds: List[float] = field(default_factory=lambda: [0.01, 0.04, 0.09])
 
     # Frame stacking for temporal awareness
     n_stack: int = 10  # Number of consecutive observations to stack
