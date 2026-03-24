@@ -33,7 +33,7 @@ def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
     Returns:
         Loaded model.
     """
-    cls = RecurrentPPO if agent_name == "ppo_recurrent" else PPO
+    cls = RecurrentPPO if agent_name.startswith("ppo_recurrent") else PPO
     return cls.load(path)
 
 
@@ -108,7 +108,7 @@ def create_vec_env(
     env = VecMonitor(env, filename=str(monitor_dir))
     env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.99)
 
-    if agent_name == "ppo_framestack":
+    if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
         print(f"Applied VecFrameStack with n_stack={config.n_stack}")
 
@@ -139,7 +139,7 @@ def create_eval_env(
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=False, gamma=0.99)
 
-    if agent_name == "ppo_framestack":
+    if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
 
     return env
@@ -247,7 +247,7 @@ def train_ppo_agent(
     )
 
     # Create model
-    if agent_name == "ppo_recurrent":
+    if agent_name.startswith("ppo_recurrent"):
         print(f"Using RecurrentPPO with MlpLstmPolicy")
         print(
             f"LSTM config: hidden_size={config.lstm_hidden_size}, "
@@ -360,7 +360,9 @@ def prepare_rl_agents(
     models_by_agent: Dict[str, List[Union[PPO, RecurrentPPO]]] = {}
 
     for agent_name in rl_agent_names:
-        should_skip = skip_all or agent_name in agents_to_skip
+        should_skip = skip_all or any(
+            agent_name == s or agent_name.startswith(s + "_") for s in agents_to_skip
+        )
         models = []
 
         for seed in exp_config.training_seeds:

@@ -21,6 +21,7 @@ from src.experiment import ExperimentConfig, ExperimentDirectory, generate_seeds
 from src.scenarios import (
     get_scenario,
     create_custom_scenario_name,
+    get_agent_variant_name,
     list_scenarios,
     TARGET_AGENTS,
 )
@@ -135,7 +136,7 @@ def _build_experiment_config(
             pomdp_params=scenario_config["pomdp_params"],
             scenario_name=scenario + det_suffix + f"_t{total_timesteps}",
             is_custom=False,
-            target_agents=scenario_config["target_agents"],
+            target_agents=[get_agent_variant_name(a, base_config) for a in scenario_config["target_agents"]],
             total_timesteps=total_timesteps,
             num_training_seeds=num_seeds,
             training_seeds=training_seeds,
@@ -156,11 +157,9 @@ def _build_experiment_config(
         pomdp_params=pomdp_params,
         scenario_name=create_custom_scenario_name(
             pomdp_params, total_timesteps=total_timesteps, deterministic=deterministic,
-            lstm_hidden_size=lstm_hidden_size,
-            n_stack=n_stack,
         ),
         is_custom=True,
-        target_agents=TARGET_AGENTS.copy(),
+        target_agents=[get_agent_variant_name(a, base_config) for a in TARGET_AGENTS],
         total_timesteps=total_timesteps,
         num_training_seeds=num_seeds,
         training_seeds=training_seeds,

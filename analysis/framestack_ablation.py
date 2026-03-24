@@ -21,7 +21,6 @@ from analysis.data import AnalysisRun, load_analysis
 from src.utils import _save_or_show
 
 ANALYSIS_NAME = "framestack_ablation"
-FRAMESTACK_AGENT = "ppo_framestack"
 REFERENCE_AGENT = "ppo_recurrent"
 BASELINE_AGENT = "ppo_baseline"
 
@@ -39,6 +38,27 @@ def _parse_n_stack(label: str) -> int:
     if not match:
         raise ValueError(f"Cannot parse n_stack from label '{label}'")
     return int(match.group(1))
+
+
+def _get_framestack_agent(run: AnalysisRun) -> str:
+    """Find the ppo_framestack variant agent name in this run's summary.
+
+    Args:
+        run: Analysis run loaded from the manifest.
+
+    Returns:
+        Agent name starting with "ppo_framestack" (e.g. "ppo_framestack_nstack5").
+
+    Raises:
+        ValueError: If no ppo_framestack agent is found.
+    """
+    for agent in run.available_agents:
+        if agent.startswith("ppo_framestack"):
+            return agent
+    raise ValueError(
+        f"No ppo_framestack agent found in run '{run.label}'. "
+        f"Available agents: {run.available_agents}"
+    )
 
 
 def plot_framestack_ablation(
@@ -59,7 +79,7 @@ def plot_framestack_ablation(
         if not _is_n_stack_label(label):
             continue
         n = _parse_n_stack(label)
-        metrics = run.agent_metrics(FRAMESTACK_AGENT)
+        metrics = run.agent_metrics(_get_framestack_agent(run))
         entries.append((n, metrics["cross_seed_mean_reward"], metrics["cross_seed_se_reward"]))
     entries.sort(key=lambda e: e[0])
 

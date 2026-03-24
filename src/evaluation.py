@@ -57,7 +57,7 @@ def create_eval_vec_env(
     else:
         venv = VecNormalize(venv, norm_obs=False, norm_reward=False)
 
-    if agent_name == "ppo_framestack":
+    if agent_name.startswith("ppo_framestack"):
         venv = VecFrameStack(venv, n_stack=config.n_stack)
 
     return venv

@@ -113,13 +113,13 @@ Key options:
 - `--lag`: Temporal lag range in days (comma-separated, e.g. `--lag 5,14`). Disabled if omitted.
 - `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
-- `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32)
-- `--n-stack`: FrameStack depth for ppo_framestack (default: 10)
+- `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_lstm64`), so variants coexist in the same weights directory.
+- `--n-stack`: FrameStack depth for ppo_framestack (default: 10). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
 - Use `--skip-training all` to load existing weights for all agents
-- Use `--skip-training ppo_baseline,ppo_framestack` to skip specific agents
+- Use `--skip-training ppo_baseline,ppo_recurrent` to skip specific agents — accepts base names, matches variants (e.g. `ppo_baseline` matches `ppo_baseline_ent0.05`)
 
 ## Output Structure
 
@@ -224,6 +224,17 @@ python -m analysis.framestack_ablation
 ```
 
 Line plot of FrameStack reward vs. `n_stack` window size, with RecurrentPPO and PPO baseline as horizontal reference lines. Saves to `analysis_output/framestack_ablation.png`.
+
+To run an ablation without retraining baseline/recurrent for each variant:
+```bash
+# Run 1: train all agents (first n_stack value)
+python main.py --scenario noisy_pomdp --n-stack 5 -t 300000 --num-seeds 5
+
+# Subsequent runs: only train the new framestack variant
+python main.py --scenario noisy_pomdp --n-stack 10 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
+python main.py --scenario noisy_pomdp --n-stack 20 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
+```
+All variants share `experiments/noisy_pomdp_t300000/weights/`, so baseline and recurrent are trained only once.
 
 ### Using the data loading library
 
