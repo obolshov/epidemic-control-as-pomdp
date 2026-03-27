@@ -256,7 +256,7 @@ def main(
         help="Skip training for specified agents (comma-separated) or 'all'.",
     ),
     total_timesteps: int = typer.Option(
-        300_000,
+        500_000,
         "--timesteps",
         "-t",
         help="Maximum timesteps for RL training (early stopping may stop sooner)",

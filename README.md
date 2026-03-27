@@ -103,7 +103,7 @@ python main.py --help
 Key options:
 - `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`)
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
-- `--timesteps, -t`: Training timesteps per seed (default: 200 000)
+- `--timesteps, -t`: Training timesteps per seed (default: 500 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
 - `--no-exposed`: Mask E compartment (custom mode)
 - `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
@@ -224,7 +224,7 @@ Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent co
 python -m analysis.framestack_ablation
 ```
 
-Line plot of FrameStack reward vs. `n_stack` window size, with RecurrentPPO and PPO baseline as horizontal reference lines. Saves to `analysis_output/framestack_ablation.png`.
+Prints a summary table of all n_stack metrics, saves a line plot of reward vs. `n_stack` with RecurrentPPO and PPO baseline reference lines (`analysis_output/framestack_ablation.png`), and plots training learning curves for selected window sizes (`analysis_output/framestack_learning_curves.png`).
 
 To run an ablation without retraining baseline/recurrent for each variant:
 ```bash
