@@ -25,5 +25,13 @@
     "lstm=16": "pomdp_t300000/<timestamp>",
     "lstm=32": "pomdp_t300000/<timestamp>",
     "lstm=64": "pomdp_t300000/<timestamp>"
+  },
+  "comparisons": {
+    "recurrent_hyperparam": {
+      "lstm=32 (default)": {"path": "pomdp_t500000/<timestamp>", "agent": "ppo_recurrent"},
+      "lstm=16": {"path": "pomdp_t500000/<timestamp>", "agent": "ppo_recurrent_lstm16"},
+      "lstm=64": {"path": "pomdp_t500000/<timestamp>", "agent": "ppo_recurrent_lstm64"},
+      "n_steps=512": {"path": "pomdp_t500000/<timestamp>", "agent": "ppo_recurrent_nsteps512"}
+    }
   }
 }

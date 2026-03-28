@@ -171,46 +171,102 @@ def load_analysis(
     runs: dict[str, AnalysisRun] = {}
     for label, rel_path in manifest[name].items():
         run_dir = experiments_dir / rel_path
-
-        config_path = run_dir / "config.json"
-        if not config_path.exists():
-            raise FileNotFoundError(
-                f"config.json not found at {config_path} "
-                f"(analysis='{name}', label='{label}')"
-            )
-
-        summary_path = run_dir / "summary.json"
-        if not summary_path.exists():
-            raise FileNotFoundError(
-                f"summary.json not found at {summary_path} "
-                f"(analysis='{name}', label='{label}'). "
-                f"Run evaluation first."
-            )
-
-        eval_path = run_dir / "evaluation.json"
-        if not eval_path.exists():
-            raise FileNotFoundError(
-                f"evaluation.json not found at {eval_path} "
-                f"(analysis='{name}', label='{label}'). "
-                f"Run evaluation first."
-            )
-
-        with open(config_path) as f:
-            config = json.load(f)
-        with open(summary_path) as f:
-            summary = json.load(f)
-        with open(eval_path) as f:
-            evaluation = json.load(f)
-
-        runs[label] = AnalysisRun(
-            label=label,
-            run_dir=run_dir.resolve(),
-            config=config,
-            summary=summary,
-            evaluation=evaluation,
-        )
+        context = f" (analysis='{name}', label='{label}')"
+        runs[label] = _load_run(run_dir, label, context)
 
     return runs
+
+
+def _load_run(
+    run_dir: Path,
+    label: str,
+    context: str = "",
+) -> AnalysisRun:
+    """Load a single AnalysisRun from a directory.
+
+    Args:
+        run_dir: Path to the experiment run directory.
+        label: User-facing label for this run.
+        context: Extra context string for error messages.
+    """
+    for filename in ("config.json", "summary.json", "evaluation.json"):
+        path = run_dir / filename
+        if not path.exists():
+            raise FileNotFoundError(f"{filename} not found at {path}{context}")
+
+    with open(run_dir / "config.json") as f:
+        config = json.load(f)
+    with open(run_dir / "summary.json") as f:
+        summary = json.load(f)
+    with open(run_dir / "evaluation.json") as f:
+        evaluation = json.load(f)
+
+    return AnalysisRun(
+        label=label,
+        run_dir=run_dir.resolve(),
+        config=config,
+        summary=summary,
+        evaluation=evaluation,
+    )
+
+
+def load_comparison(
+    name: str,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+    experiments_dir: Path = EXPERIMENTS_DIR,
+) -> list[tuple[str, AnalysisRun, str]]:
+    """Load a named comparison from analyses.json["comparisons"].
+
+    Each entry maps a label to {"path": "...", "agent": "..."}.
+    If agent is omitted, all agents in the run are returned as separate entries.
+
+    Args:
+        name: Comparison name (key under "comparisons" in analyses.json).
+        manifest_path: Path to the manifest JSON file.
+        experiments_dir: Base directory containing experiment folders.
+
+    Returns:
+        List of (label, AnalysisRun, agent_name) tuples in manifest order.
+
+    Raises:
+        FileNotFoundError: If manifest or run files are missing.
+        KeyError: If comparison name or specified agent not found.
+    """
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Manifest not found: {manifest_path}")
+
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    comparisons = manifest.get("comparisons", {})
+    if name not in comparisons:
+        available = list(comparisons.keys())
+        raise KeyError(
+            f"Comparison '{name}' not found. Available: {available}"
+        )
+
+    entries: list[tuple[str, AnalysisRun, str]] = []
+    for label, entry in comparisons[name].items():
+        rel_path = entry["path"]
+        agent = entry.get("agent")
+        run_dir = experiments_dir / rel_path
+        context = f" (comparison='{name}', label='{label}')"
+
+        run = _load_run(run_dir, label, context)
+
+        if agent is not None:
+            if agent not in run.available_agents:
+                raise KeyError(
+                    f"Agent '{agent}' not found in {run_dir}. "
+                    f"Available: {run.available_agents}"
+                )
+            entries.append((label, run, agent))
+        else:
+            for agent_name in run.available_agents:
+                display = f"{label} ({agent_name})"
+                entries.append((display, run, agent_name))
+
+    return entries
 
 
 def validate_manifest(
@@ -235,6 +291,23 @@ def validate_manifest(
         manifest = json.load(f)
 
     for analysis_name, entries in manifest.items():
+        if analysis_name == "comparisons":
+            for comp_name, comp_entries in entries.items():
+                for label, entry in comp_entries.items():
+                    rel_path = entry["path"]
+                    run_dir = experiments_dir / rel_path
+                    prefix = f"[comparisons/{comp_name}/{label}]"
+                    if not run_dir.exists():
+                        warnings.append(
+                            f"{prefix} directory not found: {run_dir}")
+                        continue
+                    for filename in ("config.json", "summary.json",
+                                     "evaluation.json"):
+                        if not (run_dir / filename).exists():
+                            warnings.append(
+                                f"{prefix} {filename} missing in {run_dir}")
+            continue
+
         for label, rel_path in entries.items():
             run_dir = experiments_dir / rel_path
             prefix = f"[{analysis_name}/{label}]"

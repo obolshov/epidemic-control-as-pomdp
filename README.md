@@ -188,9 +188,14 @@ cp analyses.json.example analyses.json
   },
   "framestack_ablation": {
     "ppo_baseline": "pomdp_t300000/<timestamp>",
-    "ppo_recurrent": "pomdp_t300000/<timestamp>",
     "n_stack=1": "pomdp_t300000/<timestamp>",
     ...
+  },
+  "comparisons": {
+    "my_comparison": {
+      "Label A": {"path": "scenario_t500000/<timestamp>", "agent": "ppo_baseline"},
+      "Label B": {"path": "other_scenario/<timestamp>", "agent": "ppo_recurrent"}
+    }
   }
 }
 ```
@@ -239,6 +244,15 @@ python main.py --scenario noisy_pomdp --n-stack 10 -t 300000 --num-seeds 5 --ski
 python main.py --scenario noisy_pomdp --n-stack 20 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
 ```
 All variants share `experiments/noisy_pomdp_t300000/weights/`, so baseline and recurrent are trained only once.
+
+### Ad-hoc Comparison Table
+
+```bash
+python -m analysis.compare <comparison_name>
+python -m analysis.compare --list
+```
+
+Prints a summary table (Reward, SE, Stringency, Peak Inf, Total Inf, Seed Std) for arbitrary experiment entries defined in `analyses.json["comparisons"]`. Each entry maps a display label to `{"path": "...", "agent": "..."}`, allowing you to compare results from completely different scenarios and runs side by side. If `agent` is omitted, all agents from the run are shown as separate rows.
 
 ### Using the data loading library
 
