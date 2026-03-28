@@ -35,6 +35,7 @@ AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], Any]]
     "ppo_recurrent": [
         ("lstm", lambda cfg: cfg.lstm_hidden_size, 32),
         ("ent", lambda cfg: cfg.recurrent_ent_coef, 0.05),
+        ("nsteps", lambda cfg: cfg.recurrent_n_steps, 256),
     ],
 }
 

@@ -99,6 +99,9 @@ def _build_experiment_config(
     noise_rho: float = 0.0,
     lstm_hidden_size: Optional[int] = None,
     n_stack: Optional[int] = None,
+    ent_coef: Optional[float] = None,
+    recurrent_ent_coef: Optional[float] = None,
+    recurrent_n_steps: Optional[int] = None,
     run_name: Optional[str] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig for either a predefined or custom scenario.
@@ -118,6 +121,9 @@ def _build_experiment_config(
         noise_rho: AR(1) autocorrelation coefficient for multiplicative noise.
         lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
         n_stack: FrameStack depth override for ppo_framestack, or None for default (10).
+        ent_coef: Entropy bonus override for PPO/FrameStack agents, or None for default (0.01).
+        recurrent_ent_coef: Entropy bonus override for RecurrentPPO, or None for default (0.05).
+        recurrent_n_steps: Rollout length override for RecurrentPPO, or None for default (256).
         run_name: Custom subfolder name for the run, or None to use the timestamp.
 
     Returns:
@@ -128,6 +134,12 @@ def _build_experiment_config(
         base_config.lstm_hidden_size = lstm_hidden_size
     if n_stack is not None:
         base_config.n_stack = n_stack
+    if ent_coef is not None:
+        base_config.ent_coef = ent_coef
+    if recurrent_ent_coef is not None:
+        base_config.recurrent_ent_coef = recurrent_ent_coef
+    if recurrent_n_steps is not None:
+        base_config.recurrent_n_steps = recurrent_n_steps
     det_suffix = "_det" if deterministic else ""
 
     if scenario:
@@ -331,6 +343,21 @@ def main(
         "--n-stack",
         help="FrameStack depth for ppo_framestack (default: 10).",
     ),
+    ent_coef: Optional[float] = typer.Option(
+        None,
+        "--ent-coef",
+        help="Entropy bonus for PPO and FrameStack agents (default: 0.01).",
+    ),
+    recurrent_ent_coef: Optional[float] = typer.Option(
+        None,
+        "--recurrent-ent-coef",
+        help="Entropy bonus for RecurrentPPO (default: 0.05).",
+    ),
+    recurrent_n_steps: Optional[int] = typer.Option(
+        None,
+        "--recurrent-n-steps",
+        help="Rollout length per env for RecurrentPPO (default: 256).",
+    ),
     run_name: Optional[str] = typer.Option(
         None,
         "--run-name",
@@ -358,6 +385,9 @@ def main(
         noise_rho=noise_rho,
         lstm_hidden_size=lstm_hidden_size,
         n_stack=n_stack,
+        ent_coef=ent_coef,
+        recurrent_ent_coef=recurrent_ent_coef,
+        recurrent_n_steps=recurrent_n_steps,
         run_name=run_name,
     )
 
