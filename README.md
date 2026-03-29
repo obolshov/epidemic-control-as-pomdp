@@ -72,16 +72,6 @@ bureaucratic and laboratory reporting delays. Additionally, enacted intervention
 python main.py --scenario pomdp
 ```
 
-### Custom Scenarios
-Specify POMDP parameters directly via CLI:
-```bash
-# Mask E compartment only
-python main.py --no-exposed
-
-# Mask E compartment + under-reporting
-python main.py --no-exposed --detection-rate 0.3
-```
-
 ## Agents
 
 Seven agents evaluated in each experiment:
@@ -101,17 +91,10 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s`: Predefined scenario (`mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`)
+- `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`, `only_underreporting`, `only_noise`, `only_temporal`
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps per seed (default: 500 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
-- `--no-exposed`: Mask E compartment (custom mode)
-- `--detection-rate`: Fraction of true I and R observed, e.g. `0.3` (custom mode)
-- `--testing-capacity`: Fraction of population testable per day. When set, detection rate drops during surges via Michaelis-Menten saturation (e.g. `--testing-capacity 0.015` = 1.5%/day)
-- `--noise-stds`: Per-compartment multiplicative noise stds (comma-separated, e.g. `--noise-stds 0.05,0.3,0.15` for [S, I, R])
-- `--noise-rho`: AR(1) autocorrelation coefficient for multiplicative noise in [0, 1). 0.0 = iid noise (default), 0.7 = persistent measurement bias (decorrelation half-life ≈ 2 steps / 10 days)
-- `--lag`: Temporal lag range in days (comma-separated, e.g. `--lag 5,14`). Disabled if omitted.
-- `--action-delay`: Action implementation delay in days (e.g. `--action-delay 5`). Enacted interventions take this many days to come into effect.
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 - `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_lstm64`), so variants coexist in the same weights directory.
 - `--n-stack`: FrameStack depth for ppo_framestack (default: 10). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.

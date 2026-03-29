@@ -161,66 +161,6 @@ def get_scenario(name: str) -> Dict[str, Any]:
     return scenario
 
 
-def create_custom_scenario_name(
-    pomdp_params: Dict[str, Any],
-    total_timesteps: int = 0,
-    deterministic: bool = False,
-) -> str:
-    """
-    Generate a descriptive name for a custom scenario based on POMDP parameters.
-
-    This creates human-readable names by concatenating non-default parameter values.
-    Agent-level hyperparameters (n_stack, lstm_hidden_size, ent_coef) are NOT
-    encoded here — they are encoded in agent names via ``get_agent_variant_name()``.
-
-    Example: {"include_exposed": False, "detection_rate": 0.3}, total_timesteps=10000
-        -> "custom_no_exposed_k0.3_t10000"
-
-    Args:
-        pomdp_params: Dictionary of POMDP parameters.
-        total_timesteps: RL training budget. Appended as ``_t{n}`` when non-zero.
-        deterministic: If True, appends ``_det`` suffix.
-
-    Returns:
-        Generated scenario name string.
-    """
-    parts = []
-
-    # Check each possible parameter and add to name if non-default
-    if not pomdp_params.get("include_exposed", True):
-        parts.append("no_exposed")
-
-    if pomdp_params.get("action_delay") and pomdp_params["action_delay"] > 0:
-        parts.append(f"adelay{pomdp_params['action_delay']}")
-
-    if "detection_rate" in pomdp_params and pomdp_params["detection_rate"] < 1.0:
-        k = pomdp_params["detection_rate"]
-        parts.append(f"k{k:.2g}")
-
-    if pomdp_params.get("noise_stds") and any(s > 0 for s in pomdp_params["noise_stds"]):
-        stds = pomdp_params["noise_stds"]
-        parts.append(f"noise{'_'.join(f'{s:.2g}' for s in stds)}")
-
-    if pomdp_params.get("noise_rho", 0.0) > 0:
-        parts.append(f"rho{pomdp_params['noise_rho']:.2g}")
-
-    if pomdp_params.get("testing_capacity"):
-        parts.append(f"cap{pomdp_params['testing_capacity']}")
-
-    if pomdp_params.get("lag"):
-        min_lag, max_lag = pomdp_params["lag"]
-        parts.append(f"lag{min_lag}_{max_lag}")
-
-    base = "custom_" + "_".join(parts) if parts else "custom"
-
-    if deterministic:
-        base += "_det"
-    if total_timesteps:
-        base += f"_t{total_timesteps}"
-
-    return base
-
-
 def list_scenarios() -> List[str]:
     """
     Get list of all predefined scenario names.

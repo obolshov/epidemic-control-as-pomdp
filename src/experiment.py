@@ -57,8 +57,7 @@ class ExperimentConfig:
     Attributes:
         base_config: SEIR model and environment configuration.
         pomdp_params: Dictionary of POMDP modifications (e.g., {"include_exposed": False}).
-        scenario_name: Name of the scenario ("mdp", "no_exposed", "custom").
-        is_custom: Whether this is a custom (ad-hoc) or predefined scenario.
+        scenario_name: Name of the scenario (e.g. "mdp", "no_exposed", "pomdp").
         target_agents: List of agent names to run (e.g., ["random", "threshold", "ppo_baseline"]).
         num_eval_episodes: Number of evaluation episodes per seed.
         total_timesteps: Total timesteps for RL training.
@@ -69,7 +68,6 @@ class ExperimentConfig:
     base_config: Config
     pomdp_params: Dict[str, Any]
     scenario_name: str
-    is_custom: bool
     target_agents: List[str]
     num_eval_episodes: int = 10
     total_timesteps: int = 200_000
@@ -95,7 +93,6 @@ class ExperimentConfig:
         """
         return {
             "scenario_name": self.scenario_name,
-            "is_custom": self.is_custom,
             "timestamp": self.timestamp,
             "run_name": self.run_name,
             "base_config": asdict(self.base_config),
