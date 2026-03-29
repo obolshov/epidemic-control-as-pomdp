@@ -1,4 +1,11 @@
 {
+  "distortion_ablation": {
+    "mdp": "mdp_t200000/<timestamp>",
+    "only_structural": "no_exposed_t200000/<timestamp>",
+    "only_underreporting": "only_underreporting_t200000/<timestamp>",
+    "only_noise": "only_noise_t200000/<timestamp>",
+    "only_temporal": "only_temporal_t200000/<timestamp>"
+  },
   "pomdp_gap": {
     "mdp": "mdp_t200000/<timestamp>",
     "no_exposed": "no_exposed_t200000/<timestamp>",

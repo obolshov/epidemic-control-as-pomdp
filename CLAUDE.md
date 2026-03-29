@@ -19,7 +19,7 @@
 - Each run produces `evaluation.json` (raw per-episode metrics by seed) and `summary.json` (cross-seed mean ± SE).
 - `analyses.json` (project root) maps analysis names → experiment paths. Manually maintained.
 - `analysis/data.py`: `load_analysis(name)` → `dict[str, AnalysisRun]` with config + summary + evaluation.
-- Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`.
+- Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`.
 
 # Invariants: Observation Space
 - Base obs shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`.

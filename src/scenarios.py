@@ -108,6 +108,32 @@ PREDEFINED_SCENARIOS = {
             "action_delay": 5,
         },
     },
+    # --- Isolated distortion ablation scenarios ---
+    # Each applies ONE distortion group to the base MDP (E stays visible).
+    "only_underreporting": {
+        "description": "Ablation: underreporting only (E visible, detection_rate=0.3, testing_capacity=0.015)",
+        "pomdp_params": {
+            "include_exposed": True,
+            "detection_rate": 0.3,
+            "testing_capacity": 0.015,
+        },
+    },
+    "only_noise": {
+        "description": "Ablation: observation noise only (E visible, AR(1) noise ρ=0.7)",
+        "pomdp_params": {
+            "include_exposed": True,
+            "noise_stds": [0.05, 0.30, 0.30, 0.15],  # [S, E, I, R]; E=0.30 like I (pre-symptomatic, rarely detected directly)
+            "noise_rho": 0.7,
+        },
+    },
+    "only_temporal": {
+        "description": "Ablation: temporal distortion only (E visible, lag 5–14 days, action delay 5 days)",
+        "pomdp_params": {
+            "include_exposed": True,
+            "lag": [5, 14],
+            "action_delay": 5,
+        },
+    },
 }
 
 

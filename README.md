@@ -226,6 +226,14 @@ python -m analysis.significance_tests
 
 Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent comparisons across all 5 scenarios. Saves to `analysis_output/significance_tests.csv`.
 
+### Distortion Ablation Study
+
+```bash
+python -m analysis.distortion_ablation
+```
+
+Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (structural, underreporting, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for isolated distortion scenarios (`only_underreporting`, `only_noise`, `only_temporal`) plus `mdp` and `no_exposed`.
+
 ### FrameStack Window Size Ablation
 
 ```bash
