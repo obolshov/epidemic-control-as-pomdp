@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -35,6 +36,24 @@ def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
     """
     cls = RecurrentPPO if agent_name.startswith("ppo_recurrent") else PPO
     return cls.load(path)
+
+
+def _read_source_timesteps(scenario_dir: Path) -> Optional[int]:
+    """Read total_timesteps from the first config.json found in a scenario directory.
+
+    Args:
+        scenario_dir: Path to the scenario directory (e.g. experiments/pomdp_t500000/).
+
+    Returns:
+        The total_timesteps value, or None if no config.json found.
+    """
+    for config_path in scenario_dir.glob("*/config.json"):
+        try:
+            cfg = json.loads(config_path.read_text(encoding="utf-8"))
+            return cfg["total_timesteps"]
+        except (json.JSONDecodeError, KeyError):
+            continue
+    return None
 
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -86,6 +105,7 @@ def create_vec_env(
     n_envs: int,
     monitor_dir: Path,
     agent_name: str,
+    vecnormalize_path: Optional[Path] = None,
 ) -> VecEnv:
     """Create a vectorized environment with VecNormalize.
 
@@ -98,6 +118,8 @@ def create_vec_env(
         n_envs: Number of parallel environments.
         monitor_dir: Directory for monitor logs.
         agent_name: Agent name (determines if VecFrameStack is applied).
+        vecnormalize_path: Path to saved VecNormalize stats to load (for resume training).
+            If provided and exists, loads stats instead of creating fresh VecNormalize.
 
     Returns:
         Vectorized environment with normalization (and optional frame stacking).
@@ -106,7 +128,14 @@ def create_vec_env(
         [make_env(config, pomdp_params, seed, rank=i) for i in range(n_envs)]
     )
     env = VecMonitor(env, filename=str(monitor_dir))
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.99)
+
+    if vecnormalize_path is not None and vecnormalize_path.exists():
+        env = VecNormalize.load(str(vecnormalize_path), env)
+        env.training = True
+        env.norm_reward = True
+        print(f"Loaded VecNormalize stats from {vecnormalize_path}")
+    else:
+        env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.99)
 
     if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
@@ -121,6 +150,7 @@ def create_eval_env(
     pomdp_params: Dict[str, Any],
     seed: int,
     agent_name: str,
+    vecnormalize_path: Optional[Path] = None,
 ) -> VecEnv:
     """Create a separate evaluation environment with its own VecNormalize.
 
@@ -131,13 +161,21 @@ def create_eval_env(
         pomdp_params: POMDP wrapper parameters.
         seed: Random seed (offset from training seed).
         agent_name: Agent name (determines if VecFrameStack is applied).
+        vecnormalize_path: Path to saved VecNormalize stats to load (for resume training).
+            If provided and exists, loads stats with training=False, norm_reward=False.
 
     Returns:
         Evaluation VecEnv with VecNormalize (stats synced during training).
     """
     env = DummyVecEnv([make_env(config, pomdp_params, seed + 1000, rank=0)])
     env = VecMonitor(env)
-    env = VecNormalize(env, norm_obs=True, norm_reward=False, gamma=0.99)
+
+    if vecnormalize_path is not None and vecnormalize_path.exists():
+        env = VecNormalize.load(str(vecnormalize_path), env)
+        env.training = False
+        env.norm_reward = False
+    else:
+        env = VecNormalize(env, norm_obs=True, norm_reward=False, gamma=0.99)
 
     if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
@@ -209,7 +247,8 @@ def train_ppo_agent(
     total_timesteps: int,
     seed: int = 42,
     pomdp_params: Optional[Dict[str, Any]] = None,
-) -> Union[PPO, RecurrentPPO]:
+    resume_from_weights_dir: Optional[Path] = None,
+) -> Tuple[Union[PPO, RecurrentPPO], int]:
     """Train a PPO agent with VecNormalize, callbacks, and early stopping.
 
     Args:
@@ -219,23 +258,43 @@ def train_ppo_agent(
         total_timesteps: Maximum number of timesteps to train.
         seed: Random seed for reproducibility.
         pomdp_params: POMDP parameters for applying wrappers.
+        resume_from_weights_dir: Path to existing weights directory to resume training from.
+            If provided and weights exist, loads model + VecNormalize and continues training.
 
     Returns:
-        Trained PPO or RecurrentPPO model (best checkpoint).
+        Tuple of (trained model, initial_num_timesteps). initial_num_timesteps is 0 for
+        fresh training or the loaded model's timestep count for resumed training.
     """
     if pomdp_params is None:
         pomdp_params = {}
+
+    # Check if we can resume from existing weights
+    resuming = False
+    source_weight_path = None
+    source_vecnorm_path = None
+    if resume_from_weights_dir is not None:
+        source_weight_path = resume_from_weights_dir / f"{agent_name}_seed{seed}.zip"
+        source_vecnorm_path = resume_from_weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
+        if source_weight_path.exists():
+            resuming = True
+            print(f"Resuming {agent_name} (seed={seed}) from {source_weight_path}")
+        else:
+            print(f"No weights found for {agent_name} (seed={seed}) at {source_weight_path}, training from scratch")
 
     # Create training environment (per-seed monitor dir to avoid mixing monitor.csv data)
     monitor_dir = experiment_dir.tensorboard_dir / f"{agent_name}_seed{seed}"
     monitor_dir.mkdir(parents=True, exist_ok=True)
 
     env = create_vec_env(
-        config, pomdp_params, seed, config.n_envs, monitor_dir, agent_name
+        config, pomdp_params, seed, config.n_envs, monitor_dir, agent_name,
+        vecnormalize_path=source_vecnorm_path if resuming else None,
     )
 
     # Create separate eval environment
-    eval_env = create_eval_env(config, pomdp_params, seed, agent_name)
+    eval_env = create_eval_env(
+        config, pomdp_params, seed, agent_name,
+        vecnormalize_path=source_vecnorm_path if resuming else None,
+    )
 
     # Create callbacks
     callbacks = create_training_callbacks(
@@ -246,8 +305,25 @@ def train_ppo_agent(
         min_evals=config.early_stop_min_evals,
     )
 
-    # Create model
-    if agent_name.startswith("ppo_recurrent"):
+    # Create or load model
+    initial_num_timesteps = 0
+    if resuming:
+        is_recurrent = agent_name.startswith("ppo_recurrent")
+        cls = RecurrentPPO if is_recurrent else PPO
+        lr_value = config.recurrent_learning_rate if is_recurrent else 3e-4
+        model = cls.load(
+            str(source_weight_path),
+            env=env,
+            custom_objects={"learning_rate": linear_schedule(lr_value)},
+            tensorboard_log=str(experiment_dir.tensorboard_dir),
+        )
+
+        initial_num_timesteps = _read_source_timesteps(resume_from_weights_dir.parent)
+        if initial_num_timesteps is None:
+            initial_num_timesteps = model.num_timesteps
+        model.num_timesteps = initial_num_timesteps
+        print(f"Resuming from {initial_num_timesteps} timesteps, continuing to {total_timesteps}")
+    elif agent_name.startswith("ppo_recurrent"):
         print(f"Using RecurrentPPO with MlpLstmPolicy")
         print(
             f"LSTM config: hidden_size={config.lstm_hidden_size}, "
@@ -298,6 +374,7 @@ def train_ppo_agent(
         callback=callbacks,
         tb_log_name=f"{agent_name}_seed{seed}",
         progress_bar=False,
+        reset_num_timesteps=not resuming,
     )
     print("Training finished.")
 
@@ -325,13 +402,14 @@ def train_ppo_agent(
     eval_env.close()
     env.close()
 
-    return model
+    return model, initial_num_timesteps
 
 
 def prepare_rl_agents(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
     agents_to_skip: set,
+    resume_from_weights_dir: Optional[Path] = None,
 ) -> Dict[str, List[Union[PPO, RecurrentPPO]]]:
     """Train or load RL agents across multiple seeds.
 
@@ -339,6 +417,8 @@ def prepare_rl_agents(
         exp_config: Experiment configuration.
         experiment_dir: Experiment directory for saving/loading.
         agents_to_skip: Set of agent names to skip training (or {"all"} to skip all).
+        resume_from_weights_dir: Path to existing weights directory to resume training from.
+            Agents with matching weights will be resumed; others train from scratch.
 
     Returns:
         Dict mapping agent_name -> list of models (one per seed).
@@ -378,13 +458,14 @@ def prepare_rl_agents(
                     )
             else:
                 print(f"\nTraining {agent_name} (seed={seed})...")
-                model = train_ppo_agent(
+                model, initial_timesteps = train_ppo_agent(
                     config=exp_config.base_config,
                     experiment_dir=experiment_dir,
                     agent_name=agent_name,
                     total_timesteps=exp_config.total_timesteps,
                     seed=seed,
                     pomdp_params=exp_config.pomdp_params,
+                    resume_from_weights_dir=resume_from_weights_dir,
                 )
                 models.append(model)
 
@@ -397,6 +478,7 @@ def prepare_rl_agents(
                         log_folder=str(monitor_dir),
                         title=f"{agent_name} (seed={seed}) Learning Curve",
                         save_path=str(plot_path),
+                        timestep_offset=initial_timesteps,
                     )
 
         models_by_agent[agent_name] = models

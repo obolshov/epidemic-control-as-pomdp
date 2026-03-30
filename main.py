@@ -4,6 +4,7 @@ Main entry point for epidemic control experiments.
 Runs predefined scenarios with multi-seed training and evaluation.
 """
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -233,10 +234,26 @@ def main(
         "--run-name",
         help="Custom subfolder name for the run (default: auto-generated timestamp).",
     ),
+    resume_from: Optional[str] = typer.Option(
+        None,
+        "--resume-from",
+        help="Scenario folder name to resume training from (e.g. 'pomdp_t500000'). "
+             "Loads weights from experiments/{name}/weights/. "
+             "Agents without matching weights train from scratch.",
+    ),
 ):
     """Run epidemic control experiment with multi-seed training and evaluation."""
     agents_to_skip = _parse_skip_training(skip_training)
     training_seeds = generate_seeds(num_seeds)
+
+    # Resolve resume-from weights directory
+    resume_from_weights_dir = None
+    if resume_from is not None:
+        resume_from_weights_dir = Path("experiments") / resume_from / "weights"
+        if not resume_from_weights_dir.exists():
+            print(f"ERROR: Resume weights directory not found: {resume_from_weights_dir}")
+            raise typer.Exit(code=1)
+        print(f"Resuming training from: {resume_from_weights_dir}")
 
     exp_config = _build_experiment_config(
         scenario,
@@ -249,13 +266,15 @@ def main(
         recurrent_n_steps=recurrent_n_steps,
         run_name=run_name,
     )
+    if resume_from is not None:
+        exp_config.resumed_from = resume_from
 
     experiment_dir = ExperimentDirectory(exp_config)
     print(f"Results will be saved to: {experiment_dir.root}")
     print(f"Training seeds: {exp_config.training_seeds}")
     experiment_dir.save_config()
 
-    rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip)
+    rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip, resume_from_weights_dir)
     aggregated_results, per_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
 
     _create_plots(exp_config, experiment_dir, aggregated_results, rl_models)

@@ -78,6 +78,7 @@ class ExperimentConfig:
     eval_seeds: List[int] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     run_name: Optional[str] = None
+    resumed_from: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Auto-populate eval_seeds if not provided."""
@@ -103,6 +104,7 @@ class ExperimentConfig:
             "num_training_seeds": self.num_training_seeds,
             "training_seeds": self.training_seeds,
             "eval_seeds": self.eval_seeds,
+            "resumed_from": self.resumed_from,
         }
 
 

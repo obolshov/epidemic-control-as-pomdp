@@ -20,6 +20,7 @@
 - `analyses.json` (project root) maps analysis names → experiment paths. Manually maintained.
 - `analysis/data.py`: `load_analysis(name)` → `dict[str, AnalysisRun]` with config + summary + evaluation.
 - Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`.
+- **Resume training:** `--resume-from <scenario_folder>` loads weights from `experiments/{folder}/weights/` and continues training. Agents without matching weights train from scratch. New weights go to the new scenario folder. `config.json` records `resumed_from` for provenance.
 
 # Invariants: Observation Space
 - Base obs shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`.

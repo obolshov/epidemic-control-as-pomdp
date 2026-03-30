@@ -102,11 +102,13 @@ Key options:
 - `--recurrent-ent-coef`: Entropy bonus for RecurrentPPO (default: 0.05). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_ent0.01`).
 - `--recurrent-n-steps`: Rollout length per env for RecurrentPPO (default: 256). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_nsteps512`).
 - `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). Raises an error if the folder already exists.
+- `--resume-from`: Scenario folder name to resume training from (e.g. `pomdp_t500000`). Loads weights from `experiments/{name}/weights/`. Agents without matching weights train from scratch. New weights are saved to the new scenario folder.
 
 **Training behavior:**
 - By default, trains all RL agents from scratch
 - Use `--skip-training all` to load existing weights for all agents
 - Use `--skip-training ppo_baseline,ppo_recurrent` to skip specific agents — accepts base names, matches variants (e.g. `ppo_baseline` matches `ppo_baseline_ent0.05`)
+- Use `--resume-from pomdp_t500000` to continue training from existing weights (e.g. extend from 500k to 1M timesteps)
 
 ## Output Structure
 

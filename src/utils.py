@@ -193,7 +193,10 @@ def log_results(result: SimulationResult, log_path: str) -> None:
 
 
 def plot_learning_curve(
-    log_folder: str, title: str = "Learning Curve", save_path: Optional[str] = None
+    log_folder: str,
+    title: str = "Learning Curve",
+    save_path: Optional[str] = None,
+    timestep_offset: int = 0,
 ) -> None:
     """Plot learning curves from SB3 training logs.
 
@@ -201,30 +204,28 @@ def plot_learning_curve(
         log_folder: Path to folder containing monitor logs.
         title: Title for the plot.
         save_path: Base path for saving plots.
+        timestep_offset: Timestep offset for resumed training (added to X-axis).
     """
-    x_axes = {
-        "timesteps": results_plotter.X_TIMESTEPS,
-    }
+    try:
+        data_frame = results_plotter.load_results(log_folder)
+        x = np.cumsum(data_frame.l.values) + timestep_offset
+        y = data_frame.r.values
 
-    for axis_name, axis_code in x_axes.items():
-        try:
-            results_plotter.plot_results(
-                [log_folder],
-                num_timesteps=None,
-                x_axis=axis_code,
-                task_name=f"{title} ({axis_name})",
-                figsize=(10, 6),
-            )
+        plt.figure(figsize=(10, 6))
+        plt.scatter(x, y, s=2)
+        plt.xlabel("timesteps")
+        plt.ylabel("Episode Rewards")
+        plt.title(f"{title} (timesteps)")
 
-            if save_path:
-                base, ext = os.path.splitext(save_path)
-                current_save_path = f"{base}_{axis_name}{ext}"
-            else:
-                current_save_path = None
-            _save_or_show(current_save_path)
+        if save_path:
+            base, ext = os.path.splitext(save_path)
+            current_save_path = f"{base}_timesteps{ext}"
+        else:
+            current_save_path = None
+        _save_or_show(current_save_path)
 
-        except Exception as e:
-            print(f"Error plotting {axis_name}: {e}")
+    except Exception as e:
+        print(f"Error plotting timesteps: {e}")
 
 
 def plot_evaluation_curves(
