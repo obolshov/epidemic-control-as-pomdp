@@ -27,7 +27,7 @@ def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
     """Load a saved PPO or RecurrentPPO model based on agent name.
 
     Args:
-        path: Path to model file (without .zip extension).
+        path: Path to model file (.zip extension optional).
         agent_name: Agent name (determines model class).
 
     Returns:
@@ -318,7 +318,7 @@ def train_ppo_agent(
 
     # Save final/best model to standard weight path
     weight_path = experiment_dir.get_weight_path(agent_name, seed)
-    model.save(str(weight_path.with_suffix("")))
+    model.save(str(weight_path))
     print(f"Model weights saved to {weight_path}")
 
     # Cleanup
@@ -370,7 +370,7 @@ def prepare_rl_agents(
                 weight_path = experiment_dir.get_weight_path(agent_name, seed)
                 if weight_path.exists():
                     print(f"\nLoading {agent_name} (seed={seed}) from {weight_path}...")
-                    model = _load_model(str(weight_path.with_suffix("")), agent_name)
+                    model = _load_model(str(weight_path), agent_name)
                     models.append(model)
                 else:
                     raise FileNotFoundError(
