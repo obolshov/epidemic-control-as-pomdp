@@ -60,8 +60,6 @@ class ExperimentConfig:
         scenario_name: Name of the scenario (e.g. "mdp", "no_exposed", "pomdp").
         target_agents: List of agent names to run (e.g., ["random", "threshold", "ppo_baseline"]).
         num_eval_episodes: Number of evaluation episodes per seed.
-        total_timesteps: Total timesteps for RL training.
-        num_training_seeds: Number of independent training runs per agent.
         training_seeds: List of random seeds for training.
         timestamp: ISO timestamp of when the experiment was created.
     """
@@ -70,8 +68,6 @@ class ExperimentConfig:
     scenario_name: str
     target_agents: List[str]
     num_eval_episodes: int = 10
-    total_timesteps: int = 200_000
-    num_training_seeds: int = 5
     training_seeds: List[int] = field(
         default_factory=lambda: [42, 123, 456, 789, 1024]
     )
@@ -79,6 +75,14 @@ class ExperimentConfig:
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     run_name: Optional[str] = None
     resumed_from: Optional[str] = None
+
+    @property
+    def total_timesteps(self) -> int:
+        return self.base_config.total_timesteps
+
+    @property
+    def num_training_seeds(self) -> int:
+        return self.base_config.num_training_seeds
 
     def __post_init__(self) -> None:
         """Auto-populate eval_seeds if not provided."""
@@ -100,8 +104,6 @@ class ExperimentConfig:
             "pomdp_params": self.pomdp_params,
             "target_agents": self.target_agents,
             "num_eval_episodes": self.num_eval_episodes,
-            "total_timesteps": self.total_timesteps,
-            "num_training_seeds": self.num_training_seeds,
             "training_seeds": self.training_seeds,
             "eval_seeds": self.eval_seeds,
             "resumed_from": self.resumed_from,

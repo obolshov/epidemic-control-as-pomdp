@@ -46,10 +46,9 @@ def _parse_skip_training(skip_training: Optional[str]) -> set:
 
 def _build_experiment_config(
     scenario: str,
-    total_timesteps: int,
-    num_seeds: int,
-    training_seeds: List[int],
     deterministic: bool = False,
+    total_timesteps: Optional[int] = None,
+    num_seeds: Optional[int] = None,
     lstm_hidden_size: Optional[int] = None,
     n_stack: Optional[int] = None,
     ent_coef: Optional[float] = None,
@@ -60,20 +59,23 @@ def _build_experiment_config(
 
     Args:
         scenario: Predefined scenario name.
-        total_timesteps: RL training budget.
-        num_seeds: Number of training seeds.
-        training_seeds: Deterministic seed list.
         deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
+        total_timesteps: RL training budget override, or None for Config default.
+        num_seeds: Number of training seeds override, or None for Config default.
         lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
-        n_stack: FrameStack depth override for ppo_framestack, or None for default (20).
-        ent_coef: Entropy bonus override for all RL agents, or None for default (0.2).
-        recurrent_n_steps: Rollout length override for RecurrentPPO, or None for default (256).
+        n_stack: FrameStack depth override for ppo_framestack, or None for default.
+        ent_coef: Entropy bonus override for all RL agents, or None for default.
+        recurrent_n_steps: Rollout length override for RecurrentPPO, or None for default.
         run_name: Custom subfolder name for the run, or None to use the timestamp.
 
     Returns:
         Fully populated ExperimentConfig.
     """
     base_config = Config(stochastic=not deterministic)
+    if total_timesteps is not None:
+        base_config.total_timesteps = total_timesteps
+    if num_seeds is not None:
+        base_config.num_training_seeds = num_seeds
     if lstm_hidden_size is not None:
         base_config.lstm_hidden_size = lstm_hidden_size
     if n_stack is not None:
@@ -84,15 +86,15 @@ def _build_experiment_config(
         base_config.recurrent_n_steps = recurrent_n_steps
     det_suffix = "_det" if deterministic else ""
 
+    training_seeds = generate_seeds(base_config.num_training_seeds)
+
     print(f"Running predefined scenario: {scenario}")
     scenario_config = get_scenario(scenario)
     return ExperimentConfig(
         base_config=base_config,
         pomdp_params=scenario_config["pomdp_params"],
-        scenario_name=scenario + det_suffix + f"_t{total_timesteps}",
+        scenario_name=scenario + det_suffix + f"_t{base_config.total_timesteps}",
         target_agents=[get_agent_variant_name(a, base_config) for a in scenario_config["target_agents"]],
-        total_timesteps=total_timesteps,
-        num_training_seeds=num_seeds,
         training_seeds=training_seeds,
         run_name=run_name,
     )
@@ -183,17 +185,17 @@ def main(
         "--skip-training",
         help="Skip training for specified agents (comma-separated) or 'all'.",
     ),
-    total_timesteps: int = typer.Option(
-        1_000_000,
+    total_timesteps: Optional[int] = typer.Option(
+        None,
         "--timesteps",
         "-t",
-        help="Maximum timesteps for RL training (early stopping may stop sooner)",
+        help="Maximum timesteps for RL training (default: 1_000_000; early stopping may stop sooner)",
     ),
-    num_seeds: int = typer.Option(
-        5,
+    num_seeds: Optional[int] = typer.Option(
+        None,
         "--num-seeds",
         "-n",
-        help="Number of independent training seeds per agent",
+        help="Number of independent training seeds per agent (default: 5)",
     ),
     deterministic: bool = typer.Option(
         False,
@@ -235,7 +237,6 @@ def main(
 ):
     """Run epidemic control experiment with multi-seed training and evaluation."""
     agents_to_skip = _parse_skip_training(skip_training)
-    training_seeds = generate_seeds(num_seeds)
 
     # Resolve resume-from weights directory
     resume_from_weights_dir = None
@@ -248,8 +249,9 @@ def main(
 
     exp_config = _build_experiment_config(
         scenario,
-        total_timesteps, num_seeds, training_seeds,
         deterministic=deterministic,
+        total_timesteps=total_timesteps,
+        num_seeds=num_seeds,
         lstm_hidden_size=lstm_hidden_size,
         n_stack=n_stack,
         ent_coef=ent_coef,

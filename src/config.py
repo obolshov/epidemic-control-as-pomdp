@@ -41,6 +41,10 @@ class Config:
     recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO
     recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
 
+    # Experiment scale
+    total_timesteps: int = 1_000_000  # Maximum timesteps for RL training
+    num_training_seeds: int = 5  # Number of independent training seeds per agent
+
     # Early stopping hyperparameters (via EvalCallback)
     # Stopping triggers when no improvement for `early_stop_patience` consecutive evals
     # Each eval = eval_freq timesteps (default 5000). Min warmup = min_evals * eval_freq.

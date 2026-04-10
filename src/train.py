@@ -50,7 +50,7 @@ def _read_source_timesteps(scenario_dir: Path) -> Optional[int]:
     for config_path in scenario_dir.glob("*/config.json"):
         try:
             cfg = json.loads(config_path.read_text(encoding="utf-8"))
-            return cfg["total_timesteps"]
+            return cfg.get("base_config", {}).get("total_timesteps", cfg.get("total_timesteps"))
         except (json.JSONDecodeError, KeyError):
             continue
     return None
