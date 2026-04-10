@@ -26,15 +26,15 @@ TARGET_AGENTS = [
 # variants to coexist in the same scenario's weights directory.
 AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], Any]]] = {
     "ppo_baseline": [
-        ("ent", lambda cfg: cfg.ent_coef, 0.01),
+        ("ent", lambda cfg: cfg.ent_coef, 0.2),
     ],
     "ppo_framestack": [
-        ("nstack", lambda cfg: cfg.n_stack, 10),
-        ("ent", lambda cfg: cfg.ent_coef, 0.01),
+        ("nstack", lambda cfg: cfg.n_stack, 20),
+        ("ent", lambda cfg: cfg.ent_coef, 0.2),
     ],
     "ppo_recurrent": [
         ("lstm", lambda cfg: cfg.lstm_hidden_size, 32),
-        ("ent", lambda cfg: cfg.recurrent_ent_coef, 0.05),
+        ("ent", lambda cfg: cfg.ent_coef, 0.2),
         ("nsteps", lambda cfg: cfg.recurrent_n_steps, 256),
     ],
 }

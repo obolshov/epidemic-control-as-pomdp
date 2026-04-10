@@ -53,7 +53,6 @@ def _build_experiment_config(
     lstm_hidden_size: Optional[int] = None,
     n_stack: Optional[int] = None,
     ent_coef: Optional[float] = None,
-    recurrent_ent_coef: Optional[float] = None,
     recurrent_n_steps: Optional[int] = None,
     run_name: Optional[str] = None,
 ) -> ExperimentConfig:
@@ -66,9 +65,8 @@ def _build_experiment_config(
         training_seeds: Deterministic seed list.
         deterministic: If True, use deterministic ODE dynamics (stochastic=False in Config).
         lstm_hidden_size: LSTM hidden size override for RecurrentPPO, or None for default.
-        n_stack: FrameStack depth override for ppo_framestack, or None for default (10).
-        ent_coef: Entropy bonus override for PPO/FrameStack agents, or None for default (0.01).
-        recurrent_ent_coef: Entropy bonus override for RecurrentPPO, or None for default (0.05).
+        n_stack: FrameStack depth override for ppo_framestack, or None for default (20).
+        ent_coef: Entropy bonus override for all RL agents, or None for default (0.2).
         recurrent_n_steps: Rollout length override for RecurrentPPO, or None for default (256).
         run_name: Custom subfolder name for the run, or None to use the timestamp.
 
@@ -82,8 +80,6 @@ def _build_experiment_config(
         base_config.n_stack = n_stack
     if ent_coef is not None:
         base_config.ent_coef = ent_coef
-    if recurrent_ent_coef is not None:
-        base_config.recurrent_ent_coef = recurrent_ent_coef
     if recurrent_n_steps is not None:
         base_config.recurrent_n_steps = recurrent_n_steps
     det_suffix = "_det" if deterministic else ""
@@ -188,7 +184,7 @@ def main(
         help="Skip training for specified agents (comma-separated) or 'all'.",
     ),
     total_timesteps: int = typer.Option(
-        500_000,
+        1_000_000,
         "--timesteps",
         "-t",
         help="Maximum timesteps for RL training (early stopping may stop sooner)",
@@ -212,17 +208,12 @@ def main(
     n_stack: Optional[int] = typer.Option(
         None,
         "--n-stack",
-        help="FrameStack depth for ppo_framestack (default: 10).",
+        help="FrameStack depth for ppo_framestack (default: 20).",
     ),
     ent_coef: Optional[float] = typer.Option(
         None,
         "--ent-coef",
-        help="Entropy bonus for PPO and FrameStack agents (default: 0.01).",
-    ),
-    recurrent_ent_coef: Optional[float] = typer.Option(
-        None,
-        "--recurrent-ent-coef",
-        help="Entropy bonus for RecurrentPPO (default: 0.05).",
+        help="Entropy bonus for all RL agents (default: 0.2).",
     ),
     recurrent_n_steps: Optional[int] = typer.Option(
         None,
@@ -262,7 +253,6 @@ def main(
         lstm_hidden_size=lstm_hidden_size,
         n_stack=n_stack,
         ent_coef=ent_coef,
-        recurrent_ent_coef=recurrent_ent_coef,
         recurrent_n_steps=recurrent_n_steps,
         run_name=run_name,
     )

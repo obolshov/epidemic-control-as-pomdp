@@ -93,13 +93,12 @@ python main.py --help
 Key options:
 - `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`, `only_underreporting`, `only_noise`, `only_temporal`
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
-- `--timesteps, -t`: Training timesteps per seed (default: 500 000)
+- `--timesteps, -t`: Training timesteps per seed (default: 1 000 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 - `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 32). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_lstm64`), so variants coexist in the same weights directory.
-- `--n-stack`: FrameStack depth for ppo_framestack (default: 10). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
-- `--ent-coef`: Entropy bonus for PPO and FrameStack agents (default: 0.01). Non-default values are encoded in the agent name (e.g. `ppo_baseline_ent0.05`).
-- `--recurrent-ent-coef`: Entropy bonus for RecurrentPPO (default: 0.05). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_ent0.01`).
+- `--n-stack`: FrameStack depth for ppo_framestack (default: 20). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
+- `--ent-coef`: Entropy bonus for all RL agents (default: 0.2). Non-default values are encoded in the agent name (e.g. `ppo_baseline_ent0.05`).
 - `--recurrent-n-steps`: Rollout length per env for RecurrentPPO (default: 256). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_nsteps512`).
 - `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). Raises an error if the folder already exists.
 - `--resume-from`: Scenario folder name to resume training from (e.g. `pomdp_t500000`). Loads weights from `experiments/{name}/weights/`. Agents without matching weights train from scratch. New weights are saved to the new scenario folder.

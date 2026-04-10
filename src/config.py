@@ -28,21 +28,18 @@ class Config:
     thresholds: List[float] = field(default_factory=lambda: [0.01, 0.04, 0.09])
 
     # Frame stacking for temporal awareness
-    n_stack: int = 10  # Number of consecutive observations to stack
+    n_stack: int = 20  # Number of consecutive observations to stack
 
     # Recurrent agent parameters (LSTM)
     lstm_hidden_size: int = 32
-    n_lstm_layers: int = 1
 
     # Training hyperparameters
     n_envs: int = 4  # Number of parallel environments for training
+    learning_rate: float = 3e-4  # Peak lr for all RL agents (with linear schedule)
+    ent_coef: float = 0.2  # Entropy bonus for all RL agents
     recurrent_n_steps: int = 256  # Rollout length per env for RecurrentPPO
     recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO
     recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
-    recurrent_clip_range: float = 0.2  # Clip range for RecurrentPPO
-    recurrent_learning_rate: float = 3e-4  # Peak lr for RecurrentPPO (with linear schedule)
-    ent_coef: float = 0.01          # Entropy bonus for PPO / ppo_framestack
-    recurrent_ent_coef: float = 0.05  # Entropy bonus for RecurrentPPO (higher to prevent early collapse)
 
     # Early stopping hyperparameters (via EvalCallback)
     # Stopping triggers when no improvement for `early_stop_patience` consecutive evals

@@ -31,7 +31,7 @@
 
 # Invariants: Temporal Resolution
 - **1 step = `action_interval` days** (default 5). Episode = `days / action_interval` steps (default 60).
-- **FrameStack `n_stack`** is in **steps**, not days. `n_stack=10` = 50 days of history.
+- **FrameStack `n_stack`** is in **steps**, not days. `n_stack=20` = 100 days of history.
 - **`TemporalLagWrapper`**: steps internally, but `create_environment()` accepts days and converts:
   ```python
   min_lag_steps = max(1, round(min_lag_days / action_interval))

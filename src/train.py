@@ -310,11 +310,10 @@ def train_ppo_agent(
     if resuming:
         is_recurrent = agent_name.startswith("ppo_recurrent")
         cls = RecurrentPPO if is_recurrent else PPO
-        lr_value = config.recurrent_learning_rate if is_recurrent else 3e-4
         model = cls.load(
             str(source_weight_path),
             env=env,
-            custom_objects={"learning_rate": linear_schedule(lr_value)},
+            custom_objects={"learning_rate": linear_schedule(config.learning_rate)},
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
 
@@ -325,22 +324,17 @@ def train_ppo_agent(
         print(f"Resuming from {initial_num_timesteps} timesteps, continuing to {total_timesteps}")
     elif agent_name.startswith("ppo_recurrent"):
         print(f"Using RecurrentPPO with MlpLstmPolicy")
-        print(
-            f"LSTM config: hidden_size={config.lstm_hidden_size}, "
-            f"n_layers={config.n_lstm_layers}"
-        )
+        print(f"LSTM config: hidden_size={config.lstm_hidden_size}")
         print(
             f"Training config: n_steps={config.recurrent_n_steps}, "
             f"batch_size={config.recurrent_batch_size}, "
             f"n_epochs={config.recurrent_n_epochs}, "
-            f"ent_coef={config.recurrent_ent_coef}, "
-            f"clip_range={config.recurrent_clip_range}, "
-            f"lr={config.recurrent_learning_rate}"
+            f"ent_coef={config.ent_coef}, "
+            f"lr={config.learning_rate}"
         )
 
         policy_kwargs = {
             "lstm_hidden_size": config.lstm_hidden_size,
-            "n_lstm_layers": config.n_lstm_layers,
         }
 
         model = RecurrentPPO(
@@ -352,9 +346,8 @@ def train_ppo_agent(
             n_steps=config.recurrent_n_steps,
             batch_size=config.recurrent_batch_size,
             n_epochs=config.recurrent_n_epochs,
-            ent_coef=config.recurrent_ent_coef,
-            clip_range=config.recurrent_clip_range,
-            learning_rate=linear_schedule(config.recurrent_learning_rate),
+            ent_coef=config.ent_coef,
+            learning_rate=linear_schedule(config.learning_rate),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
     else:
@@ -364,7 +357,7 @@ def train_ppo_agent(
             verbose=1,
             seed=seed,
             ent_coef=config.ent_coef,
-            learning_rate=linear_schedule(3e-4),
+            learning_rate=linear_schedule(config.learning_rate),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
 
