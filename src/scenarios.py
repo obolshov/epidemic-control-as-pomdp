@@ -72,22 +72,16 @@ PREDEFINED_SCENARIOS = {
             "include_exposed": True,
         },
     },
-    "no_exposed": {
-        "description": "POMDP Experiment 1: Masked E compartment",
-        "pomdp_params": {
-            "include_exposed": False,
-        },
-    },
-    "underreporting": {
-        "description": "POMDP Experiment 2: Masked E + Under-reporting (detection_rate=0.3) + testing saturation (1.5%/day)",
+    "incompleteness": {
+        "description": "POMDP Experiment 1: Incomplete surveillance — masked E + under-reporting (detection_rate=0.3) + testing saturation (1.5%/day)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": 0.3,
             "testing_capacity": 0.015,
         },
     },
-    "noisy_pomdp": {
-        "description": "POMDP Experiment 3: Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + multiplicative noise",
+    "incompleteness_and_noise": {
+        "description": "POMDP Experiment 2: Incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": 0.3,
@@ -97,7 +91,7 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "pomdp": {
-        "description": "POMDP Experiment 4: Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days)",
+        "description": "POMDP Experiment 3: Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": 0.3,
@@ -109,11 +103,11 @@ PREDEFINED_SCENARIOS = {
         },
     },
     # --- Isolated distortion ablation scenarios ---
-    # Each applies ONE distortion group to the base MDP (E stays visible).
-    "only_underreporting": {
-        "description": "Ablation: underreporting only (E visible, detection_rate=0.3, testing_capacity=0.015)",
+    # Each applies ONE distortion group to the base MDP.
+    "only_incompleteness": {
+        "description": "Ablation: incomplete surveillance only (masked E, detection_rate=0.3, testing_capacity=0.015)",
         "pomdp_params": {
-            "include_exposed": True,
+            "include_exposed": False,
             "detection_rate": 0.3,
             "testing_capacity": 0.015,
         },

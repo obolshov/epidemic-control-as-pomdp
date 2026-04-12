@@ -20,8 +20,8 @@ from src.utils import _save_or_show
 ANALYSIS_NAME = "distortion_ablation"
 
 BASELINE_LABEL = "mdp"
-ABLATION_ORDER = ["only_structural", "only_underreporting", "only_noise", "only_temporal"]
-ABLATION_LABELS = ["Structural", "Underreporting", "Noise", "Temporal"]
+ABLATION_ORDER = ["only_incompleteness", "only_noise", "only_temporal"]
+ABLATION_LABELS = ["Incompleteness", "Noise", "Temporal"]
 
 AGENTS = ["ppo_baseline", "ppo_framestack", "ppo_recurrent"]
 AGENT_LABELS = {

@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 from analysis.data import AnalysisRun, load_analysis
 from src.utils import _save_or_show
 
-SCENARIO_ORDER = ["mdp", "no_exposed", "underreporting", "noisy_pomdp", "pomdp"]
-SCENARIO_LABELS = ["MDP", "+ No exposed", "+ Underreporting", "+ Noise", "POMDP"]
+SCENARIO_ORDER = ["mdp", "incompleteness", "incompleteness_and_noise", "pomdp"]
+SCENARIO_LABELS = ["MDP", "+ Incompleteness", "+ Noise", "POMDP"]
 
 AGENTS = ["ppo_baseline", "ppo_framestack", "ppo_recurrent"]
 AGENT_LABELS = {

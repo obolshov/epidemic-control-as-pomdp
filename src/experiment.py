@@ -57,7 +57,7 @@ class ExperimentConfig:
     Attributes:
         base_config: SEIR model and environment configuration.
         pomdp_params: Dictionary of POMDP modifications (e.g., {"include_exposed": False}).
-        scenario_name: Name of the scenario (e.g. "mdp", "no_exposed", "pomdp").
+        scenario_name: Name of the scenario (e.g. "mdp", "incompleteness", "pomdp").
         target_agents: List of agent names to run (e.g., ["random", "threshold", "ppo_baseline"]).
         num_eval_episodes: Number of evaluation episodes per seed.
         training_seeds: List of random seeds for training.

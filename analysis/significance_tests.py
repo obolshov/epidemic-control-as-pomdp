@@ -14,8 +14,8 @@ from scipy.stats import wilcoxon
 
 from analysis.data import AnalysisRun, load_analysis
 
-SCENARIO_ORDER = ["mdp", "no_exposed", "underreporting", "noisy_pomdp", "pomdp"]
-SCENARIO_LABELS = ["MDP", "+ No exposed", "+ Underreporting", "+ Noise", "POMDP"]
+SCENARIO_ORDER = ["mdp", "incompleteness", "incompleteness_and_noise", "pomdp"]
+SCENARIO_LABELS = ["MDP", "+ Incompleteness", "+ Noise", "POMDP"]
 
 PAIRS = [
     ("ppo_baseline", "ppo_framestack"),

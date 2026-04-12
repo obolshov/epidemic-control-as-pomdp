@@ -19,8 +19,8 @@ python support/run_static_agents.py
 # Run MDP experiment (trains RL agents by default)
 python main.py --scenario mdp
 
-# Run POMDP experiment (masked exposed compartment)
-python main.py --scenario no_exposed
+# Run POMDP experiment (incomplete surveillance)
+python main.py --scenario incompleteness
 
 # Skip training, use existing weights
 python main.py --scenario mdp --skip-training all
@@ -39,32 +39,26 @@ Full observability MDP where all SEIR compartments are visible.
 python main.py --scenario mdp
 ```
 
-### **no_exposed** (POMDP Experiment 1)
-Partial observability with masked Exposed (E) compartment.
-```bash
-python main.py --scenario no_exposed
-```
-
-### **underreporting** (POMDP Experiment 2)
-Masked E compartment + under-reporting (detection rate k=0.3) + testing capacity saturation (1.5%/day).
+### **incompleteness** (POMDP Experiment 1)
+Incomplete surveillance: masked Exposed (E) compartment + under-reporting (detection rate k=0.3) + testing capacity saturation (1.5%/day).
 The agent observes 30% of true I and R; undetected cases are absorbed into S,
 matching real-world surveillance where unconfirmed infections appear as healthy population.
 Detection rate further drops during surges via Michaelis-Menten saturation.
 ```bash
-python main.py --scenario underreporting
+python main.py --scenario incompleteness
 ```
 
-### **noisy_pomdp** (POMDP Experiment 3)
-Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + AR(1) autocorrelated multiplicative noise (ρ=0.7).
+### **incompleteness_and_noise** (POMDP Experiment 2)
+Incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7).
 Simulates persistent measurement bias from false-positive/negative testing (I: σ=0.30)
 and incomplete recovery statistics (R: σ=0.15). The autocorrelated noise creates
 measurement drift that rewards memory-based agents.
 ```bash
-python main.py --scenario noisy_pomdp
+python main.py --scenario incompleteness_and_noise
 ```
 
-### **pomdp** (POMDP Experiment 4)
-Masked E + under-reporting (k=0.3) + testing saturation (1.5%/day) + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days).
+### **pomdp** (POMDP Experiment 3)
+Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days).
 The agent receives observations from a random number of days in the past, simulating
 bureaucratic and laboratory reporting delays. Additionally, enacted interventions take
 5 days to come into effect. The most challenging and realistic scenario.
@@ -91,7 +85,7 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `no_exposed`, `underreporting`, `noisy_pomdp`, `pomdp`, `only_underreporting`, `only_noise`, `only_temporal`
+- `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `incompleteness`, `incompleteness_and_noise`, `pomdp`, `only_incompleteness`, `only_noise`, `only_temporal`
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps per seed (default: 1 000 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
@@ -167,7 +161,7 @@ cp analyses.json.example analyses.json
 {
   "pomdp_gap": {
     "mdp": "mdp_t200000/2026-03-21_01-42-45",
-    "no_exposed": "no_exposed_t200000/2026-03-21_01-43-42",
+    "incompleteness": "incompleteness_t200000/2026-03-21_01-43-42",
     ...
   },
   "framestack_ablation": {
@@ -208,7 +202,7 @@ Produces `analysis_output/pomdp_gap_plot.png` — a 3-panel figure (Reward, Tota
 python -m analysis.significance_tests
 ```
 
-Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent comparisons across all 5 scenarios. Saves to `analysis_output/significance_tests.csv`.
+Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent comparisons across all 4 scenarios. Saves to `analysis_output/significance_tests.csv`.
 
 ### Distortion Ablation Study
 
@@ -216,7 +210,7 @@ Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent co
 python -m analysis.distortion_ablation
 ```
 
-Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (structural, underreporting, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for isolated distortion scenarios (`only_underreporting`, `only_noise`, `only_temporal`) plus `mdp` and `no_exposed`.
+Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (incompleteness, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for isolated distortion scenarios (`only_incompleteness`, `only_noise`, `only_temporal`) plus `mdp`.
 
 ### FrameStack Window Size Ablation
 
@@ -229,13 +223,13 @@ Prints a summary table of all n_stack metrics, saves a line plot of reward vs. `
 To run an ablation without retraining baseline/recurrent for each variant:
 ```bash
 # Run 1: train all agents (first n_stack value)
-python main.py --scenario noisy_pomdp --n-stack 5 -t 300000 --num-seeds 5
+python main.py --scenario incompleteness_and_noise --n-stack 5 -t 300000 --num-seeds 5
 
 # Subsequent runs: only train the new framestack variant
-python main.py --scenario noisy_pomdp --n-stack 10 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
-python main.py --scenario noisy_pomdp --n-stack 20 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
+python main.py --scenario incompleteness_and_noise --n-stack 10 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
+python main.py --scenario incompleteness_and_noise --n-stack 20 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
 ```
-All variants share `experiments/noisy_pomdp_t300000/weights/`, so baseline and recurrent are trained only once.
+All variants share `experiments/incompleteness_and_noise_t300000/weights/`, so baseline and recurrent are trained only once.
 
 ### Ad-hoc Comparison Table
 
@@ -282,12 +276,6 @@ python main.py --scenario mdp --skip-training ppo_baseline
 
 # POMDP: full distortions including temporal lag
 python main.py --scenario pomdp
-
-# POMDP: under-reporting with testing capacity saturation
-python main.py --no-exposed --detection-rate 0.3 --testing-capacity 0.015
-
-# POMDP: custom noise levels
-python main.py --no-exposed --detection-rate 0.3 --noise-stds 0.05,0.3,0.15
 
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000
