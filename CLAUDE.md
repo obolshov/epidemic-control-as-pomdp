@@ -27,7 +27,7 @@
 - With `include_exposed=False`: shape `(5,)` → `[S, I, R, prev_action_idx, day_frac]`.
 - Obs bounds are **per-element**: high = `[N, N, N, N, 3.0, 1.0]` (6-el) or `[N, N, N, 3.0, 1.0]` (5-el).
 - `MultiplicativeNoiseWrapper`: `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_action_idx` and `day_frac` pass through unchanged.
-- Wrapper chain: `EpidemicObservationWrapper → UnderReportingWrapper → TemporalLagWrapper → MultiplicativeNoiseWrapper`.
+- Wrapper chain: `EpidemicObservationWrapper → UnderReportingWrapper → MultiplicativeNoiseWrapper → TemporalLagWrapper`.
 
 # Invariants: Temporal Resolution
 - **1 step = `action_interval` days** (default 5). Episode = `days / action_interval` steps (default 60).

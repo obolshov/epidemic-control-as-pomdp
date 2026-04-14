@@ -579,7 +579,7 @@ class TestCreateEnvironment:
         assert isinstance(env, EpidemicEnv)
 
     def test_full_pomdp_chain(self, small_config):
-        """Full POMDP params → wrapper chain: Noise → Lag → UnderReporting → EpiObs → EpidemicEnv."""
+        """Full POMDP params → wrapper chain: Lag → Noise → UnderReporting → EpiObs → EpidemicEnv."""
         pomdp_params = {
             "include_exposed": False,
             "detection_rate": 0.3,
@@ -589,8 +589,8 @@ class TestCreateEnvironment:
         env = create_environment(small_config, pomdp_params, seed=42)
         chain = get_wrapper_chain(env)
         expected = [
-            MultiplicativeNoiseWrapper,
             TemporalLagWrapper,
+            MultiplicativeNoiseWrapper,
             UnderReportingWrapper,
             EpidemicObservationWrapper,
             EpidemicEnv,

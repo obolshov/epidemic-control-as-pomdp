@@ -207,9 +207,11 @@ class MultiplicativeNoiseWrapper(gym.ObservationWrapper):
     - I: 0.30 — false positive/negative testing
     - R: 0.15 — incomplete recovery statistics
 
-    Must be applied LAST (after EpidemicObservationWrapper and
-    UnderReportingWrapper). The length of noise_stds must match the
-    current observation shape (3 or 4) — a ValueError is raised otherwise.
+    Must be applied AFTER EpidemicObservationWrapper and UnderReportingWrapper,
+    but BEFORE TemporalLagWrapper — noise is physically generated at measurement
+    time, so the lag buffer holds already-noisy observations. The length of
+    noise_stds must match the current observation shape (3 or 4) — a ValueError
+    is raised otherwise.
 
     Args:
         env: Wrapped environment. Observation shape must be (3,) or (4,).
@@ -282,6 +284,10 @@ class TemporalLagWrapper(gym.ObservationWrapper):
     NOTE: Lag is specified in **environment steps**, not days. Since one step
     corresponds to action_interval days (default 5), use create_environment()
     which accepts lag in days and converts automatically.
+
+    Applied AFTER MultiplicativeNoiseWrapper so the FIFO buffer stores already-
+    noisy observations. This matches reality: measurement noise is baked in at
+    collection time, not re-sampled when the agent reads a stale report.
 
     Args:
         env: Wrapped environment.
@@ -382,6 +388,11 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
             env, detection_rate=detection_rate, testing_capacity=testing_capacity,
         )
 
+    noise_stds = pomdp_params.get("noise_stds")
+    if noise_stds is not None:
+        noise_rho = pomdp_params.get("noise_rho", 0.0)
+        env = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds, noise_rho=noise_rho)
+
     lag_range = pomdp_params.get("lag")
     if lag_range is not None:
         min_lag_days, max_lag_days = lag_range
@@ -389,10 +400,5 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
         min_lag_steps = max(1, round(min_lag_days / action_interval))
         max_lag_steps = max(min_lag_steps, round(max_lag_days / action_interval))
         env = TemporalLagWrapper(env, min_lag=min_lag_steps, max_lag=max_lag_steps, seed=seed)
-
-    noise_stds = pomdp_params.get("noise_stds")
-    if noise_stds is not None:
-        noise_rho = pomdp_params.get("noise_rho", 0.0)
-        env = MultiplicativeNoiseWrapper(env, noise_stds=noise_stds, noise_rho=noise_rho)
 
     return env
