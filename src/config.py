@@ -48,6 +48,6 @@ class Config:
     # Early stopping hyperparameters (via EvalCallback)
     # Stopping triggers when no improvement for `early_stop_patience` consecutive evals
     # Each eval = eval_freq timesteps (default 5000). Min warmup = min_evals * eval_freq.
-    early_stop_patience: int = 30   # Evals without improvement before stopping (150k steps)
-    early_stop_min_evals: int = 20  # Minimum evals before stopping can trigger (100k warmup)
+    early_stop_patience: int = 60   # Evals without improvement before stopping (300k steps)
+    early_stop_min_evals: int = 40  # Minimum evals before stopping can trigger (200k warmup)
     n_eval_episodes: int = 20       # Episodes per evaluation (higher = less noise in estimate)
