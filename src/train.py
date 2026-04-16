@@ -7,7 +7,6 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import (
     CallbackList,
     EvalCallback,
-    StopTrainingOnNoModelImprovement,
 )
 from stable_baselines3.common.vec_env import (
     DummyVecEnv,
@@ -18,6 +17,7 @@ from stable_baselines3.common.vec_env import (
 )
 from sb3_contrib import RecurrentPPO
 
+from src.callbacks import StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.utils import plot_learning_curve
@@ -193,6 +193,7 @@ def create_training_callbacks(
     n_eval_episodes: int = 10,
     patience: int = 10,
     min_evals: int = 5,
+    min_delta: float = 0.0,
 ) -> CallbackList:
     """Create callback stack for training with early stopping.
 
@@ -204,15 +205,17 @@ def create_training_callbacks(
         n_envs: Number of parallel training envs (eval_freq is divided by this).
         eval_freq: Evaluate every N total timesteps (adjusted for n_envs internally).
         n_eval_episodes: Episodes per evaluation.
-        patience: Stop after N evals without improvement.
+        patience: Stop after N evals without significant improvement.
         min_evals: Minimum evals before early stopping can trigger.
+        min_delta: Minimum reward delta to count as a significant improvement.
 
     Returns:
         Composed callback list.
     """
-    stop_callback = StopTrainingOnNoModelImprovement(
+    stop_callback = StopTrainingOnNoModelImprovementWithDelta(
         max_no_improvement_evals=patience,
         min_evals=min_evals,
+        min_delta=min_delta,
         verbose=1,
     )
 
@@ -303,6 +306,7 @@ def train_ppo_agent(
         n_eval_episodes=config.n_eval_episodes,
         patience=config.early_stop_patience,
         min_evals=config.early_stop_min_evals,
+        min_delta=config.early_stop_min_delta,
     )
 
     # Create or load model
