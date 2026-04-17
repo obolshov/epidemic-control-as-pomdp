@@ -177,6 +177,7 @@ def create_baseline_agents(
     if "random" in agent_names:
         agents.append(RandomAgent())
     if "threshold" in agent_names:
-        detection_rate = (pomdp_params or {}).get("detection_rate", 1.0)
-        agents.append(ThresholdAgent(config, detection_rate=detection_rate))
+        # ThresholdAgent can't see the per-episode latent detection_rate — use range midpoint as prior.
+        low, high = (pomdp_params or {}).get("detection_rate", (1.0, 1.0))
+        agents.append(ThresholdAgent(config, detection_rate=0.5 * (float(low) + float(high))))
     return agents

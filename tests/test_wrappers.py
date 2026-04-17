@@ -113,23 +113,29 @@ class TestEpidemicObservationWrapper:
 
 class TestUnderReportingWrapper:
 
-    def _make_wrapped(self, base_env, detection_rate=0.3, testing_capacity=None, mask_E=True):
-        """Helper: optionally mask E, then wrap with UnderReporting."""
+    def _make_wrapped(self, base_env, detection_rate=(0.3, 0.3), testing_capacity=None, mask_E=True):
+        """Helper: optionally mask E, then wrap with UnderReporting.
+
+        Ranges are passed as ``(low, high)`` tuples; use degenerate ``(x, x)``
+        for fixed detection across episodes in tests.
+        """
         env = base_env
         if mask_E:
             env = EpidemicObservationWrapper(env, include_exposed=False)
-        return UnderReportingWrapper(env, detection_rate=detection_rate, testing_capacity=testing_capacity)
+        return UnderReportingWrapper(
+            env, detection_rate=detection_rate, testing_capacity=testing_capacity,
+        )
 
     def test_detection_rate_1_identity(self, base_env):
         """k=1.0 → obs unchanged."""
-        wrapped = self._make_wrapped(base_env, detection_rate=1.0, mask_E=False)
+        wrapped = self._make_wrapped(base_env, detection_rate=(1.0, 1.0), mask_E=False)
         obs, _ = wrapped.reset(seed=42)
         raw = base_env._get_obs()
         np.testing.assert_allclose(obs, raw, atol=1e-5)
 
     def test_population_conservation_3d(self, base_env):
         """S+I+R sum preserved when E is masked."""
-        wrapped = self._make_wrapped(base_env, detection_rate=0.3, mask_E=True)
+        wrapped = self._make_wrapped(base_env, detection_rate=(0.3, 0.3), mask_E=True)
         obs, _ = wrapped.reset(seed=42)
         N = base_env.config.N
         assert obs.shape == (5,)
@@ -145,7 +151,7 @@ class TestUnderReportingWrapper:
     def test_population_conservation_4d(self, small_config):
         """S+E+I+R sum = N when E is included."""
         env = EpidemicEnv(small_config)
-        wrapped = UnderReportingWrapper(env, detection_rate=0.3)
+        wrapped = UnderReportingWrapper(env, detection_rate=(0.3, 0.3))
         obs, _ = wrapped.reset(seed=42)
         assert obs.shape == (6,)
         np.testing.assert_allclose(obs[:4].sum(), small_config.N, atol=1.0)
@@ -153,7 +159,7 @@ class TestUnderReportingWrapper:
     def test_exact_scaling_without_saturation(self, base_env):
         """I_obs = k*I, R_obs = k*R, S_obs = S + (1-k)*(I+R)."""
         k = 0.3
-        wrapped = self._make_wrapped(base_env, detection_rate=k, mask_E=True)
+        wrapped = self._make_wrapped(base_env, detection_rate=(k, k), mask_E=True)
         wrapped.reset(seed=42)
         # Step a few times to get non-trivial I, R
         for _ in range(3):
@@ -172,7 +178,9 @@ class TestUnderReportingWrapper:
         env = EpidemicEnv(small_config)
         env_masked = EpidemicObservationWrapper(env, include_exposed=False)
         # Very low testing capacity to trigger saturation
-        wrapped = UnderReportingWrapper(env_masked, detection_rate=0.5, testing_capacity=0.005)
+        wrapped = UnderReportingWrapper(
+            env_masked, detection_rate=(0.5, 0.5), testing_capacity=(0.005, 0.005),
+        )
         wrapped.reset(seed=42)
         # Run until I grows
         for _ in range(10):
@@ -189,7 +197,9 @@ class TestUnderReportingWrapper:
         env_masked = EpidemicObservationWrapper(env, include_exposed=False)
         k_base = 0.5
         r = 0.01
-        wrapped = UnderReportingWrapper(env_masked, detection_rate=k_base, testing_capacity=r)
+        wrapped = UnderReportingWrapper(
+            env_masked, detection_rate=(k_base, k_base), testing_capacity=(r, r),
+        )
         N = small_config.N
 
         for true_I in [0.0, 10.0, 100.0, 500.0]:
@@ -199,20 +209,82 @@ class TestUnderReportingWrapper:
                                        err_msg=f"Mismatch at I={true_I}")
 
     def test_invalid_detection_rate(self, base_env):
-        """ValueError for 0.0 and 1.5."""
+        """ValueError for out-of-domain tuple bounds (0.0 lower, 1.5 upper)."""
         env = EpidemicObservationWrapper(base_env, include_exposed=False)
         with pytest.raises(ValueError, match="detection_rate"):
-            UnderReportingWrapper(env, detection_rate=0.0)
+            UnderReportingWrapper(env, detection_rate=(0.0, 0.3))
         with pytest.raises(ValueError, match="detection_rate"):
-            UnderReportingWrapper(env, detection_rate=1.5)
+            UnderReportingWrapper(env, detection_rate=(0.5, 1.5))
+        with pytest.raises(ValueError, match="detection_rate"):
+            UnderReportingWrapper(env, detection_rate=(0.5, 0.2))  # low > high
 
     def test_invalid_testing_capacity(self, base_env):
-        """ValueError for negative/zero testing_capacity."""
+        """ValueError for non-positive testing_capacity bounds or low > high."""
         env = EpidemicObservationWrapper(base_env, include_exposed=False)
         with pytest.raises(ValueError, match="testing_capacity"):
-            UnderReportingWrapper(env, detection_rate=0.5, testing_capacity=0.0)
+            UnderReportingWrapper(
+                env, detection_rate=(0.5, 0.5), testing_capacity=(0.0, 0.01),
+            )
         with pytest.raises(ValueError, match="testing_capacity"):
-            UnderReportingWrapper(env, detection_rate=0.5, testing_capacity=-0.01)
+            UnderReportingWrapper(
+                env, detection_rate=(0.5, 0.5), testing_capacity=(-0.01, 0.01),
+            )
+        with pytest.raises(ValueError, match="testing_capacity"):
+            UnderReportingWrapper(
+                env, detection_rate=(0.5, 0.5), testing_capacity=(0.05, 0.01),
+            )
+
+    def test_per_episode_detection_sampling(self, base_env):
+        """Reset samples a fresh detection_rate from U[low, high] each episode."""
+        env = EpidemicObservationWrapper(base_env, include_exposed=False)
+        wrapped = UnderReportingWrapper(
+            env, detection_rate=(0.15, 0.40), testing_capacity=(0.01, 0.025), seed=7,
+        )
+        sampled_rates = []
+        sampled_capacities = []
+        for _ in range(20):
+            wrapped.reset(seed=42)
+            sampled_rates.append(wrapped.detection_rate)
+            sampled_capacities.append(wrapped.testing_capacity)
+        # Bounds
+        assert all(0.15 <= r <= 0.40 for r in sampled_rates)
+        assert all(0.01 <= c <= 0.025 for c in sampled_capacities)
+        # Variation — 20 draws from U[0.15, 0.40] should differ
+        assert len(set(sampled_rates)) > 1, "Expected varying detection_rate across resets"
+        assert len(set(sampled_capacities)) > 1, "Expected varying testing_capacity across resets"
+
+    def test_detection_constant_within_episode(self, base_env):
+        """Within an episode, detection_rate is fixed across steps."""
+        env = EpidemicObservationWrapper(base_env, include_exposed=False)
+        wrapped = UnderReportingWrapper(
+            env, detection_rate=(0.15, 0.40), testing_capacity=(0.01, 0.025), seed=7,
+        )
+        wrapped.reset(seed=42)
+        rate_after_reset = wrapped.detection_rate
+        cap_after_reset = wrapped.testing_capacity
+        for _ in range(30):
+            wrapped.step(0)
+            assert wrapped.detection_rate == rate_after_reset
+            assert wrapped.testing_capacity == cap_after_reset
+
+    def test_rng_determinism_across_resets(self, base_env):
+        """Same seed → same sequence of sampled rates across resets."""
+        def sample_sequence(seed):
+            env = EpidemicObservationWrapper(base_env, include_exposed=False)
+            w = UnderReportingWrapper(
+                env, detection_rate=(0.15, 0.40), testing_capacity=(0.01, 0.025), seed=seed,
+            )
+            sequence = []
+            for _ in range(10):
+                w.reset(seed=42)
+                sequence.append((w.detection_rate, w.testing_capacity))
+            return sequence
+
+        s1 = sample_sequence(seed=123)
+        s2 = sample_sequence(seed=123)
+        s3 = sample_sequence(seed=456)
+        assert s1 == s2, "Same seed should yield identical sampling sequence"
+        assert s1 != s3, "Different seeds should yield different sampling sequences"
 
 
 # ===========================================================================
@@ -582,7 +654,7 @@ class TestCreateEnvironment:
         """Full POMDP params → wrapper chain: Lag → Noise → UnderReporting → EpiObs → EpidemicEnv."""
         pomdp_params = {
             "include_exposed": False,
-            "detection_rate": 0.3,
+            "detection_rate": (0.3, 0.3),
             "lag": (5, 14),
             "noise_stds": [0.05, 0.3, 0.15],
         }
@@ -601,7 +673,7 @@ class TestCreateEnvironment:
         """20 steps, all obs contained in observation_space."""
         pomdp_params = {
             "include_exposed": False,
-            "detection_rate": 0.3,
+            "detection_rate": (0.3, 0.3),
             "noise_stds": [0.05, 0.3, 0.15],
         }
         env = create_environment(small_config, pomdp_params, seed=42)
@@ -617,7 +689,7 @@ class TestCreateEnvironment:
         """Two envs with same seed → identical obs sequences."""
         pomdp_params = {
             "include_exposed": False,
-            "detection_rate": 0.3,
+            "detection_rate": (0.3, 0.3),
             "lag": (5, 14),
             "noise_stds": [0.05, 0.3, 0.15],
         }

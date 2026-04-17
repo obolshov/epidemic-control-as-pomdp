@@ -73,29 +73,29 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "incompleteness": {
-        "description": "POMDP Experiment 1: Incomplete surveillance — masked E + under-reporting (detection_rate=0.25) + testing saturation (1%/day)",
+        "description": "POMDP Experiment 1: Incomplete surveillance — masked E + per-episode stochastic under-reporting (detection_rate ~ U[0.15, 0.40]) with testing-capacity saturation (~ U[0.5%, 2%]/day)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.25,
-            "testing_capacity": 0.01,
+            "detection_rate": (0.15, 0.40),
+            "testing_capacity": (0.005, 0.02),
         },
     },
     "incompleteness_and_noise": {
-        "description": "POMDP Experiment 2: Incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7)",
+        "description": "POMDP Experiment 2: Stochastic incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.25,
-            "testing_capacity": 0.01,
+            "detection_rate": (0.15, 0.40),
+            "testing_capacity": (0.005, 0.02),
             "noise_stds": [0.05, 0.30, 0.15],
             "noise_rho": 0.7,
         },
     },
     "pomdp": {
-        "description": "POMDP Experiment 3: Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days)",
+        "description": "POMDP Experiment 3: Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.25,
-            "testing_capacity": 0.01,
+            "detection_rate": (0.15, 0.40),
+            "testing_capacity": (0.005, 0.02),
             "noise_stds": [0.05, 0.30, 0.15],
             "noise_rho": 0.7,
             "lag": [5, 14],

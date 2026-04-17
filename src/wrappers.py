@@ -103,17 +103,27 @@ class UnderReportingWrapper(gym.ObservationWrapper):
     plateaus at ~r*N (testing ceiling). The formula is scale-invariant —
     it depends only on the infected fraction, not absolute population size.
 
+    Per-episode stochastic sampling: ``detection_rate`` and ``testing_capacity``
+    are given as ``(low, high)`` tuples. On each ``reset()``, a fresh value is
+    sampled from ``U[low, high]`` and held constant for the whole episode.
+    This turns underreporting into a latent POMDP parameter that memory-based
+    agents must infer from trajectory dynamics. To keep a fixed value across
+    episodes, pass a degenerate range like ``(0.25, 0.25)``.
+
     Must be applied AFTER EpidemicObservationWrapper (if E masking is used),
     since it infers I and R indices from the current observation shape.
 
     Args:
         env: Wrapped environment. Observation shape must be (3,) [S, I, R]
              or (4,) [S, E, I, R].
-        detection_rate: Base fraction of true I and R observed. Must be in (0.0, 1.0].
-                        1.0 = full observation (no distortion); 0.25 = COVID-realistic.
-        testing_capacity: Fraction of the population that can be tested per day.
-                         When None, detection_rate is constant (no saturation).
-                         E.g. 0.01 means 1% of population/day (~2000 for N=200k).
+        detection_rate: ``(low, high)`` range for k_base. Both bounds must be
+                        in (0.0, 1.0] and low ≤ high. Default ``(1.0, 1.0)``
+                        means no distortion.
+        testing_capacity: ``(low, high)`` range for the fraction of the
+                          population testable per day, or None for no
+                          saturation (detection_rate constant across I). Both
+                          bounds must be > 0 and low ≤ high.
+        seed: RNG seed for per-episode sampling (default 42).
     """
 
     S_INDEX = 0  # S is always the first compartment
@@ -121,16 +131,23 @@ class UnderReportingWrapper(gym.ObservationWrapper):
     def __init__(
         self,
         env: gym.Env,
-        detection_rate: float = 1.0,
-        testing_capacity: Optional[float] = None,
+        detection_rate: tuple = (1.0, 1.0),
+        testing_capacity: Optional[tuple] = None,
+        seed: int = 42,
     ) -> None:
         super().__init__(env)
-        if not (0.0 < detection_rate <= 1.0):
-            raise ValueError(f"detection_rate must be in (0, 1], got {detection_rate}")
-        if testing_capacity is not None and testing_capacity <= 0.0:
-            raise ValueError(f"testing_capacity must be > 0, got {testing_capacity}")
-        self.detection_rate = detection_rate
-        self.testing_capacity = testing_capacity
+        self._detection_range = self._validate_range(
+            detection_rate, name="detection_rate", high_bound=1.0,
+        )
+        self._testing_range: Optional[tuple] = (
+            None if testing_capacity is None
+            else self._validate_range(testing_capacity, name="testing_capacity")
+        )
+        self._rng = np.random.default_rng(seed)
+        self.detection_rate: float = self._detection_range[0]
+        self.testing_capacity: Optional[float] = (
+            self._testing_range[0] if self._testing_range is not None else None
+        )
         self._pop_size: float = float(env.observation_space.high[0])
 
         obs_size = env.observation_space.shape[0]
@@ -144,6 +161,29 @@ class UnderReportingWrapper(gym.ObservationWrapper):
             raise ValueError(
                 f"Unexpected observation size {obs_size}; expected 5 or 6."
             )
+
+    @staticmethod
+    def _validate_range(value, name: str, high_bound: Optional[float] = None) -> tuple:
+        """Validate a ``(low, high)`` sampling range with ``0 < low <= high``."""
+        if not isinstance(value, (tuple, list)) or len(value) != 2:
+            raise TypeError(
+                f"{name} must be a (low, high) tuple, got {type(value).__name__}={value!r}"
+            )
+        low, high = float(value[0]), float(value[1])
+        if low <= 0.0:
+            raise ValueError(f"{name} low bound must be > 0, got {low}")
+        if high_bound is not None and high > high_bound:
+            raise ValueError(f"{name} high bound must be <= {high_bound}, got {high}")
+        if low > high:
+            raise ValueError(f"{name} low ({low}) must be <= high ({high})")
+        return (low, high)
+
+    def reset(self, **kwargs):
+        # Sample before super().reset() so the chained observation() sees fresh values.
+        self.detection_rate = float(self._rng.uniform(*self._detection_range))
+        if self._testing_range is not None:
+            self.testing_capacity = float(self._rng.uniform(*self._testing_range))
+        return super().reset(**kwargs)
 
     def _effective_rate(self, true_I: float) -> float:
         """Compute effective detection rate accounting for testing saturation.
@@ -381,11 +421,13 @@ def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int =
     if not pomdp_params.get("include_exposed", True):
         env = EpidemicObservationWrapper(env, include_exposed=False)
 
-    detection_rate = pomdp_params.get("detection_rate", 1.0)
-    testing_capacity = pomdp_params.get("testing_capacity")
-    if detection_rate < 1.0 or testing_capacity is not None:
+    detection_rate = pomdp_params.get("detection_rate")
+    if detection_rate is not None:
         env = UnderReportingWrapper(
-            env, detection_rate=detection_rate, testing_capacity=testing_capacity,
+            env,
+            detection_rate=detection_rate,
+            testing_capacity=pomdp_params.get("testing_capacity"),
+            seed=seed,
         )
 
     noise_stds = pomdp_params.get("noise_stds")

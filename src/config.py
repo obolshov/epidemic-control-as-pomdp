@@ -42,7 +42,7 @@ class Config:
     recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
 
     # Experiment scale
-    total_timesteps: int = 1_000_000  # Maximum timesteps for RL training
+    total_timesteps: int = 2_000_000  # Maximum timesteps for RL training
     num_training_seeds: int = 5  # Number of independent training seeds per agent
 
     # Early stopping hyperparameters (via EvalCallback + StopTrainingOnNoModelImprovementWithDelta)

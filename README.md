@@ -40,16 +40,19 @@ python main.py --scenario mdp
 ```
 
 ### **incompleteness** (POMDP Experiment 1)
-Incomplete surveillance: masked Exposed (E) compartment + under-reporting (detection rate k=0.25) + testing capacity saturation (1%/day).
-The agent observes 25% of true I and R; undetected cases are absorbed into S,
-matching real-world surveillance where unconfirmed infections appear as healthy population.
-Detection rate further drops during surges via Michaelis-Menten saturation.
+Incomplete surveillance: masked Exposed (E) compartment + per-episode stochastic under-reporting
+(detection rate k ~ U[0.15, 0.40]) with testing-capacity saturation (r ~ U[0.5%, 2.0%] of population/day).
+Detection parameters are resampled at the start of every episode and held constant throughout it,
+so the true detection regime is a latent variable the agent must infer from trajectory dynamics.
+Undetected I and R are absorbed into S, matching real-world surveillance where unconfirmed
+infections appear as healthy population. Detection rate further drops during surges via
+Michaelis-Menten saturation.
 ```bash
 python main.py --scenario incompleteness
 ```
 
 ### **incompleteness_and_noise** (POMDP Experiment 2)
-Incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7).
+Stochastic incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7).
 Simulates persistent measurement bias from false-positive/negative testing (I: σ=0.30)
 and incomplete recovery statistics (R: σ=0.15). The autocorrelated noise creates
 measurement drift that rewards memory-based agents.
@@ -58,7 +61,7 @@ python main.py --scenario incompleteness_and_noise
 ```
 
 ### **pomdp** (POMDP Experiment 3)
-Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days).
+Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days).
 The agent receives observations from a random number of days in the past, simulating
 bureaucratic and laboratory reporting delays. Additionally, enacted interventions take
 10 days to come into effect. The most challenging and realistic scenario.
@@ -73,7 +76,7 @@ Seven agents evaluated in each experiment:
 - **no_action**: Always applies NO intervention — upper bound on infections, zero cost
 - **severe**: Always applies SEVERE lockdown — lower bound on infections, maximum cost
 - **RandomAgent**: Selects random interventions at each step
-- **ThresholdAgent**: Rule-based policy calibrated to match PPO performance (thresholds: 1%, 5%, 9%). In POMDP scenarios with underreporting, compensates by dividing observed I by the nominal `detection_rate` before threshold comparison.
+- **ThresholdAgent**: Rule-based policy calibrated to match PPO performance (thresholds: 1%, 5%, 9%). In POMDP scenarios with underreporting, compensates by dividing observed I by a fixed detection-rate estimate before threshold comparison — the prior mean of the sampling range when `detection_rate` is stochastic per episode.
 - **PPO (Baseline)**: Trained with standard PPO (single-step observations)
 - **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 decision points)
 - **PPO (Recurrent)**: LSTM-based policy that compresses temporal history into hidden state
