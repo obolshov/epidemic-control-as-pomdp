@@ -40,8 +40,8 @@ python main.py --scenario mdp
 ```
 
 ### **incompleteness** (POMDP Experiment 1)
-Incomplete surveillance: masked Exposed (E) compartment + under-reporting (detection rate k=0.3) + testing capacity saturation (1.5%/day).
-The agent observes 30% of true I and R; undetected cases are absorbed into S,
+Incomplete surveillance: masked Exposed (E) compartment + under-reporting (detection rate k=0.25) + testing capacity saturation (1%/day).
+The agent observes 25% of true I and R; undetected cases are absorbed into S,
 matching real-world surveillance where unconfirmed infections appear as healthy population.
 Detection rate further drops during surges via Michaelis-Menten saturation.
 ```bash
@@ -58,10 +58,10 @@ python main.py --scenario incompleteness_and_noise
 ```
 
 ### **pomdp** (POMDP Experiment 3)
-Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days).
+Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days).
 The agent receives observations from a random number of days in the past, simulating
 bureaucratic and laboratory reporting delays. Additionally, enacted interventions take
-5 days to come into effect. The most challenging and realistic scenario.
+10 days to come into effect. The most challenging and realistic scenario.
 ```bash
 python main.py --scenario pomdp
 ```
@@ -85,7 +85,7 @@ python main.py --help
 ```
 
 Key options:
-- `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `incompleteness`, `incompleteness_and_noise`, `pomdp`, `only_incompleteness`, `only_noise`, `only_temporal`
+- `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `incompleteness`, `incompleteness_and_noise`, `pomdp`, `only_noise`, `only_temporal`
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
 - `--timesteps, -t`: Training timesteps per seed (default: 1 000 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 5)
@@ -210,7 +210,7 @@ Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent co
 python -m analysis.distortion_ablation
 ```
 
-Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (incompleteness, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for isolated distortion scenarios (`only_incompleteness`, `only_noise`, `only_temporal`) plus `mdp`.
+Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (incompleteness, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for the isolated distortion scenarios (`incompleteness`, `only_noise`, `only_temporal`) plus `mdp`; map these to analysis keys in `analyses.json` under `distortion_ablation`.
 
 ### FrameStack Window Size Ablation
 

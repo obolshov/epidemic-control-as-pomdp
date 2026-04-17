@@ -73,19 +73,19 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "incompleteness": {
-        "description": "POMDP Experiment 1: Incomplete surveillance — masked E + under-reporting (detection_rate=0.3) + testing saturation (1.5%/day)",
+        "description": "POMDP Experiment 1: Incomplete surveillance — masked E + under-reporting (detection_rate=0.25) + testing saturation (1%/day)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.3,
-            "testing_capacity": 0.015,
+            "detection_rate": 0.25,
+            "testing_capacity": 0.01,
         },
     },
     "incompleteness_and_noise": {
         "description": "POMDP Experiment 2: Incomplete surveillance + AR(1) autocorrelated multiplicative noise (ρ=0.7)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.3,
-            "testing_capacity": 0.015,
+            "detection_rate": 0.25,
+            "testing_capacity": 0.01,
             "noise_stds": [0.05, 0.30, 0.15],
             "noise_rho": 0.7,
         },
@@ -94,24 +94,16 @@ PREDEFINED_SCENARIOS = {
         "description": "POMDP Experiment 3: Incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (5 days)",
         "pomdp_params": {
             "include_exposed": False,
-            "detection_rate": 0.3,
-            "testing_capacity": 0.015,
+            "detection_rate": 0.25,
+            "testing_capacity": 0.01,
             "noise_stds": [0.05, 0.30, 0.15],
             "noise_rho": 0.7,
             "lag": [5, 14],
-            "action_delay": 5,
+            "action_delay": 10,
         },
     },
     # --- Isolated distortion ablation scenarios ---
     # Each applies ONE distortion group to the base MDP.
-    "only_incompleteness": {
-        "description": "Ablation: incomplete surveillance only (masked E, detection_rate=0.3, testing_capacity=0.015)",
-        "pomdp_params": {
-            "include_exposed": False,
-            "detection_rate": 0.3,
-            "testing_capacity": 0.015,
-        },
-    },
     "only_noise": {
         "description": "Ablation: observation noise only (E visible, AR(1) noise ρ=0.7)",
         "pomdp_params": {
@@ -125,7 +117,7 @@ PREDEFINED_SCENARIOS = {
         "pomdp_params": {
             "include_exposed": True,
             "lag": [5, 14],
-            "action_delay": 5,
+            "action_delay": 10,
         },
     },
 }

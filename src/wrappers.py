@@ -110,10 +110,10 @@ class UnderReportingWrapper(gym.ObservationWrapper):
         env: Wrapped environment. Observation shape must be (3,) [S, I, R]
              or (4,) [S, E, I, R].
         detection_rate: Base fraction of true I and R observed. Must be in (0.0, 1.0].
-                        1.0 = full observation (no distortion); 0.3 = COVID-realistic.
+                        1.0 = full observation (no distortion); 0.25 = COVID-realistic.
         testing_capacity: Fraction of the population that can be tested per day.
                          When None, detection_rate is constant (no saturation).
-                         E.g. 0.015 means 1.5% of population/day (~3000 for N=200k).
+                         E.g. 0.01 means 1% of population/day (~2000 for N=200k).
     """
 
     S_INDEX = 0  # S is always the first compartment
