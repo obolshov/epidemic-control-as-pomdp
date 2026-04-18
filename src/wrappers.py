@@ -9,26 +9,26 @@ from src.config import Config
 
 
 class EpidemicObservationWrapper(gym.ObservationWrapper):
-    """
-    Wrapper that masks certain compartments of the epidemic state for POMDP scenarios.
-    
-    This wrapper allows partial observability by removing specific compartments from
-    the observation vector. The observation_space is automatically adjusted to match
-    the filtered observation shape, ensuring compatibility with Stable Baselines 3.
-    
+    """Mask the E compartment by folding it into S.
+
+    Plain deletion would leak E via SEIR conservation: an agent that knows
+    ``N`` can recover ``E = N − (S_obs + I_obs + R_obs)`` since
+    ``S + E + I + R = N``. Folding gives ``S_obs + I_obs + R_obs = N``
+    identically, so the subtraction reveals nothing.
+
     Attributes:
-        include_exposed: If False, the E (Exposed) compartment is masked from observations.
-                        The observation will be [S, I, R] instead of [S, E, I, R].
+        include_exposed: If False, fold E into S and drop E. Otherwise
+            pass the observation through unchanged.
     """
 
     def __init__(self, env: gym.Env, include_exposed: bool = True):
         """
         Initialize the observation wrapper.
-        
+
         Args:
             env: The gymnasium environment to wrap.
             include_exposed: If True, include the E compartment in observations.
-                           If False, mask the E compartment (index 1 in [S, E, I, R]).
+                           If False, fold E into S and drop E from the vector.
         """
         super().__init__(env)
         self.include_exposed = include_exposed
@@ -64,22 +64,22 @@ class EpidemicObservationWrapper(gym.ObservationWrapper):
         )
 
     def observation(self, obs: np.ndarray) -> np.ndarray:
-        """
-        Filter the observation by removing masked compartments.
-        
+        """Fold E into S (when masked) and return the filtered vector.
+
         Args:
-            obs: Original observation vector [S, E, I, R].
-            
+            obs: Base observation ``[S, E, I, R, prev_action_idx, day_frac]``.
+
         Returns:
-            Filtered observation vector. If include_exposed=False, returns [S, I, R].
+            If ``include_exposed=False``: ``(5,)`` array
+            ``[S+E, I, R, prev_action_idx, day_frac]``. Otherwise the
+            observation passes through unchanged.
         """
-        if not self.include_exposed:
-            # Remove E compartment (index 1) using np.delete
-            filtered_obs = np.delete(obs, 1)
-        else:
-            filtered_obs = obs
-        
-        return filtered_obs.astype(self.observation_space.dtype)
+        if self.include_exposed:
+            return obs.astype(self.observation_space.dtype, copy=False)
+        filtered_obs = np.empty(5, dtype=self.observation_space.dtype)
+        filtered_obs[0] = obs[0] + obs[1]
+        filtered_obs[1:] = obs[2:]
+        return filtered_obs
 
 
 class UnderReportingWrapper(gym.ObservationWrapper):

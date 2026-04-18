@@ -44,9 +44,10 @@ Incomplete surveillance: masked Exposed (E) compartment + per-episode stochastic
 (detection rate k ~ U[0.15, 0.40]) with testing-capacity saturation (r ~ U[0.5%, 2.0%] of population/day).
 Detection parameters are resampled at the start of every episode and held constant throughout it,
 so the true detection regime is a latent variable the agent must infer from trajectory dynamics.
-Undetected I and R are absorbed into S, matching real-world surveillance where unconfirmed
-infections appear as healthy population. Detection rate further drops during surges via
-Michaelis-Menten saturation.
+Masked E is folded into the observed S (pre-symptomatic exposed are not tested and not symptomatic,
+so they appear as healthy population), and undetected I and R are likewise absorbed into S.
+This keeps `S_obs + I_obs + R_obs = N` identically, preventing the agent from recovering E via
+SEIR conservation algebra. Detection rate further drops during surges via Michaelis-Menten saturation.
 ```bash
 python main.py --scenario incompleteness
 ```

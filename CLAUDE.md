@@ -24,8 +24,8 @@
 
 # Invariants: Observation Space
 - Base obs shape `(6,)`: `[S, E, I, R, prev_selected_idx, day_frac]`.
-- With `include_exposed=False`: shape `(5,)` → `[S, I, R, prev_selected_idx, day_frac]`.
-- Obs bounds are **per-element**: high = `[N, N, N, N, 3.0, 1.0]` (6-el) or `[N, N, N, 3.0, 1.0]` (5-el).
+- With `include_exposed=False`: shape `(5,)` → `[S+E, I, R, prev_selected_idx, day_frac]`. E is folded into S (not dropped) so `S_obs + I_obs + R_obs = N` and the agent cannot recover E via SEIR conservation.
+- Obs bounds are **per-element**: high = `[N, N, N, N, 3.0, 1.0]` (6-el) or `[N, N, N, 3.0, 1.0]` (5-el). `S+E ≤ N` always, so `high[0] = N` stays valid under folding.
 - `MultiplicativeNoiseWrapper`: `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_selected_idx` and `day_frac` pass through unchanged.
 - Wrapper chain: `EpidemicObservationWrapper → UnderReportingWrapper → MultiplicativeNoiseWrapper → TemporalLagWrapper`.
 

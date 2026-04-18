@@ -59,14 +59,15 @@ class TestEpidemicObservationWrapper:
         raw_obs = base_env._get_obs()
         np.testing.assert_array_equal(obs, raw_obs)
 
-    def test_include_exposed_false_removes_E(self, base_env):
-        """include_exposed=False → shape (5,) = [S, I, R, prev_action, day_frac]."""
+    def test_include_exposed_false_folds_E_into_S(self, base_env):
+        """include_exposed=False → shape (5,) with E folded into S (closes N-conservation leak)."""
         wrapped = EpidemicObservationWrapper(base_env, include_exposed=False)
         obs, _ = wrapped.reset(seed=42)
         assert obs.shape == (5,)
         raw = base_env._get_obs()
         np.testing.assert_array_equal(
-            obs, np.array([raw[0], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32)
+            obs,
+            np.array([raw[0] + raw[1], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32),
         )
 
     def test_observation_space_bounds(self, small_config):
@@ -134,18 +135,18 @@ class TestUnderReportingWrapper:
         np.testing.assert_allclose(obs, raw, atol=1e-5)
 
     def test_population_conservation_3d(self, base_env):
-        """S+I+R sum preserved when E is masked."""
+        """With E folded into S, S_obs+I+R sums to N (full population conservation visible)."""
         wrapped = self._make_wrapped(base_env, detection_rate=(0.3, 0.3), mask_E=True)
         obs, _ = wrapped.reset(seed=42)
         N = base_env.config.N
         assert obs.shape == (5,)
-        np.testing.assert_allclose(obs[:3].sum(), N - base_env.current_state.E, atol=1.0)
+        np.testing.assert_allclose(obs[:3].sum(), N, atol=1.0)
 
-        # Also check after a few steps
+        # Also check after a few steps — sum equals full S+E+I+R (= N in the deterministic case)
         for _ in range(5):
             obs, _, _, _, _ = wrapped.step(0)
             raw = base_env._get_obs()
-            expected_sum = raw[0] + raw[2] + raw[3]  # S + I + R (before under-reporting)
+            expected_sum = raw[0] + raw[1] + raw[2] + raw[3]  # S + E + I + R
             np.testing.assert_allclose(obs[:3].sum(), expected_sum, atol=1.0)
 
     def test_population_conservation_4d(self, small_config):
@@ -157,7 +158,7 @@ class TestUnderReportingWrapper:
         np.testing.assert_allclose(obs[:4].sum(), small_config.N, atol=1.0)
 
     def test_exact_scaling_without_saturation(self, base_env):
-        """I_obs = k*I, R_obs = k*R, S_obs = S + (1-k)*(I+R)."""
+        """I_obs = k*I, R_obs = k*R, S_obs = (S+E) + (1-k)*(I+R) (E folded into S)."""
         k = 0.3
         wrapped = self._make_wrapped(base_env, detection_rate=(k, k), mask_E=True)
         wrapped.reset(seed=42)
@@ -165,10 +166,10 @@ class TestUnderReportingWrapper:
         for _ in range(3):
             obs, _, _, _, _ = wrapped.step(0)
         raw = base_env._get_obs()  # [S, E, I, R]
-        S_true, I_true, R_true = raw[0], raw[2], raw[3]
+        S_true, E_true, I_true, R_true = raw[0], raw[1], raw[2], raw[3]
         expected_I = k * I_true
         expected_R = k * R_true
-        expected_S = S_true + (1 - k) * (I_true + R_true)
+        expected_S = S_true + E_true + (1 - k) * (I_true + R_true)
         np.testing.assert_allclose(obs[0], expected_S, atol=1e-2)
         np.testing.assert_allclose(obs[1], expected_I, atol=1e-2)
         np.testing.assert_allclose(obs[2], expected_R, atol=1e-2)
@@ -308,8 +309,8 @@ class TestMultiplicativeNoiseWrapper:
         env_masked = EpidemicObservationWrapper(env, include_exposed=False)
         wrapped = MultiplicativeNoiseWrapper(env_masked, noise_stds=[0.0, 0.0, 0.0])
         obs, _ = wrapped.reset(seed=42)
-        raw = env._get_obs()  # [S, E, I, R, prev_action, day_frac]
-        expected = np.array([raw[0], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32)
+        raw = env._get_obs()  # [S, E, I, R, prev_action, day_frac]; wrapper folds E into S
+        expected = np.array([raw[0] + raw[1], raw[2], raw[3], raw[4], raw[5]], dtype=np.float32)
         np.testing.assert_allclose(obs, expected, atol=1e-5)
 
     def test_noise_changes_obs(self, small_config):
