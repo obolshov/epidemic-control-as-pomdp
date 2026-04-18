@@ -36,7 +36,7 @@ def run_static_agent(agent: StaticAgent, env: EpidemicEnv) -> SimulationResult:
     obs, _ = env.reset(seed=42)
     done = False
     
-    # Extract initial state (obs: [S, E, I, R, prev_action_idx, day_frac])
+    # Extract initial state (obs: [S, E, I, R, prev_selected_idx, day_frac])
     S_init, E_init, I_init, R_init = obs[0], obs[1], obs[2], obs[3]
     
     all_S = [S_init]

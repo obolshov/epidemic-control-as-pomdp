@@ -16,7 +16,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     """
     obs, _ = env.reset()
 
-    # Reconstruct initial state from observation (6-element: S, E, I, R, prev_action_idx, day_frac)
+    # Reconstruct initial state from observation (6-element: S, E, I, R, prev_selected_idx, day_frac)
     S_curr, E_curr, I_curr, R_curr = obs[0], obs[1], obs[2], obs[3]
     current_state = EpidemicState(
         N=env.config.N, S=S_curr, E=E_curr, I=I_curr, R=R_curr
@@ -34,7 +34,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
     stringency_penalties = []
     switching_penalties = []
     action_states = []
-    prev_action_idx = 0
+    prev_selected_idx = 0
 
     terminated = False
     truncated = False
@@ -69,7 +69,7 @@ def run_simulation_with_reward_tracking(env: EpidemicEnv, agent):
         stringency_penalties.append(-info["reward_stringency"])
         switching_penalties.append(-info["reward_switching"])
 
-        prev_action_idx = action_idx
+        prev_selected_idx = action_idx
 
     t = np.arange(len(all_S))
 

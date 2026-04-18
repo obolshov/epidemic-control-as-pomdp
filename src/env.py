@@ -19,23 +19,31 @@ class InterventionAction(Enum):
 
 
 def calculate_reward(
-    I_t: float, action: InterventionAction, config: Config, prev_action_idx: int = 0
+    I_t: float,
+    applied_action: InterventionAction,
+    selected_action_idx: int,
+    prev_selected_idx: int,
+    config: Config,
 ) -> tuple[float, Dict[str, float]]:
     """
     Args:
-        I_t: Infected count.
-        action: Action taken.
+        I_t: Infected count (already driven by the applied action via SEIR).
+        applied_action: Action currently in effect (after action_delay queue).
+            Drives stringency penalty — physical economic cost of the enforced
+            regime.
+        selected_action_idx: Action the agent just selected this step. Together
+            with prev_selected_idx, determines switching penalty — cost of
+            inconsistent announcements.
+        prev_selected_idx: Index of the previously selected action.
         config: Environment configuration with reward weights.
-        prev_action_idx: Index of the previous action (for switching penalty).
 
     Returns:
         Tuple of (total_reward, components_dict) where components_dict
         contains the individual penalty terms (negative values).
     """
     infection_penalty = config.w_I * (I_t / config.N) ** 2
-    stringency_penalty = config.w_S * (1 - action.value)
-    action_idx = list(InterventionAction).index(action)
-    delta = action_idx - prev_action_idx
+    stringency_penalty = config.w_S * (1 - applied_action.value)
+    delta = selected_action_idx - prev_selected_idx
     switching_penalty = config.w_switch * delta ** 2
 
     total = -(infection_penalty + stringency_penalty + switching_penalty)
@@ -68,7 +76,7 @@ class EpidemicEnv(gym.Env):
 
         self.current_state = None
         self.current_day = 0
-        self.prev_action_idx: int = 0
+        self.prev_selected_idx: int = 0
         self._action_queue: deque = deque()
 
     def reset(self, seed=None, options=None):
@@ -83,7 +91,7 @@ class EpidemicEnv(gym.Env):
             R=0,
         )
         self.current_day = 0
-        self.prev_action_idx = 0
+        self.prev_selected_idx = 0
         self._action_queue = deque([0] * self.action_delay)
 
         return self._get_obs(), {}
@@ -95,8 +103,8 @@ class EpidemicEnv(gym.Env):
         else:
             applied_action_idx = action_idx
 
-        action_enum = self.action_map[applied_action_idx]
-        beta = self.config.beta_0 * action_enum.value
+        applied_action_enum = self.action_map[applied_action_idx]
+        beta = self.config.beta_0 * applied_action_enum.value
 
         days_to_simulate = min(
             self.config.action_interval, self.config.days - self.current_day
@@ -122,8 +130,14 @@ class EpidemicEnv(gym.Env):
                 R=R[-1],
             )
 
-        reward, reward_components = calculate_reward(self.current_state.I, action_enum, self.config, self.prev_action_idx)
-        self.prev_action_idx = applied_action_idx
+        reward, reward_components = calculate_reward(
+            self.current_state.I,
+            applied_action_enum,
+            action_idx,
+            self.prev_selected_idx,
+            self.config,
+        )
+        self.prev_selected_idx = action_idx
 
         self.current_day += days_to_simulate
 
@@ -141,7 +155,7 @@ class EpidemicEnv(gym.Env):
                 self.current_state.E,
                 self.current_state.I,
                 self.current_state.R,
-                float(self.prev_action_idx),
+                float(self.prev_selected_idx),
                 self.current_day / self.config.days,
             ],
             dtype=np.float32,
