@@ -19,7 +19,7 @@
 - Each run produces `evaluation.json` (raw per-episode metrics by seed) and `summary.json` (cross-seed mean ± SE).
 - `analyses.json` (project root) maps analysis names → experiment paths. Manually maintained.
 - `analysis/data.py`: `load_analysis(name)` → `dict[str, AnalysisRun]` with config + summary + evaluation.
-- Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`.
+- Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`, `python -m analysis.reward_grid <grid_name>` (reward-only 2D table across scenarios × agents; grid config in `analyses.json["reward_grid"]`).
 - **Resume training:** `--resume-from <scenario_folder>` loads weights from `experiments/{folder}/weights/` and continues training. Agents without matching weights train from scratch. New weights go to the new scenario folder. `config.json` records `resumed_from` for provenance.
 
 # Invariants: Observation Space

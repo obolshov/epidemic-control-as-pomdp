@@ -269,6 +269,64 @@ def load_comparison(
     return entries
 
 
+def load_reward_grid(
+    name: str,
+    manifest_path: Path = DEFAULT_MANIFEST_PATH,
+    experiments_dir: Path = EXPERIMENTS_DIR,
+) -> dict[str, dict[str, tuple[AnalysisRun, str]]]:
+    """Load a 2D scenario × agent grid from analyses.json["reward_grid"][name].
+
+    Each cell is `{"path": "...", "agent": "..."}` — same shape as
+    `comparisons` entries, but nested one extra level by scenario.
+
+    Args:
+        name: Grid name (key under "reward_grid" in analyses.json).
+        manifest_path: Path to the manifest JSON file.
+        experiments_dir: Base directory containing experiment folders.
+
+    Returns:
+        Ordered dict `scenario_label -> {agent_label -> (AnalysisRun, agent_name)}`
+        preserving manifest order for both scenarios and agent columns.
+
+    Raises:
+        FileNotFoundError: If manifest or run files are missing.
+        KeyError: If grid name or a specified agent is not found.
+    """
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Manifest not found: {manifest_path}")
+
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    grids = manifest.get("reward_grid", {})
+    if name not in grids:
+        raise KeyError(
+            f"Reward grid '{name}' not found. Available: {list(grids.keys())}"
+        )
+
+    grid: dict[str, dict[str, tuple[AnalysisRun, str]]] = {}
+    for scenario_label, agents in grids[name].items():
+        row: dict[str, tuple[AnalysisRun, str]] = {}
+        for agent_label, entry in agents.items():
+            rel_path = entry["path"]
+            agent = entry["agent"]
+            run_dir = experiments_dir / rel_path
+            context = (
+                f" (reward_grid='{name}', scenario='{scenario_label}', "
+                f"agent_label='{agent_label}')"
+            )
+            run = _load_run(run_dir, scenario_label, context)
+            if agent not in run.available_agents:
+                raise KeyError(
+                    f"Agent '{agent}' not found in {run_dir}{context}. "
+                    f"Available: {run.available_agents}"
+                )
+            row[agent_label] = (run, agent)
+        grid[scenario_label] = row
+
+    return grid
+
+
 def validate_manifest(
     manifest_path: Path = DEFAULT_MANIFEST_PATH,
     experiments_dir: Path = EXPERIMENTS_DIR,
@@ -306,6 +364,27 @@ def validate_manifest(
                         if not (run_dir / filename).exists():
                             warnings.append(
                                 f"{prefix} {filename} missing in {run_dir}")
+            continue
+
+        if analysis_name == "reward_grid":
+            for grid_name, scenarios in entries.items():
+                for scenario_label, agents in scenarios.items():
+                    for agent_label, entry in agents.items():
+                        rel_path = entry["path"]
+                        run_dir = experiments_dir / rel_path
+                        prefix = (
+                            f"[reward_grid/{grid_name}/{scenario_label}/"
+                            f"{agent_label}]"
+                        )
+                        if not run_dir.exists():
+                            warnings.append(
+                                f"{prefix} directory not found: {run_dir}")
+                            continue
+                        for filename in ("config.json", "summary.json",
+                                         "evaluation.json"):
+                            if not (run_dir / filename).exists():
+                                warnings.append(
+                                    f"{prefix} {filename} missing in {run_dir}")
             continue
 
         for label, rel_path in entries.items():

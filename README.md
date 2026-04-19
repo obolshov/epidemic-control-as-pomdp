@@ -244,6 +244,15 @@ python -m analysis.compare --list
 
 Prints a summary table (Reward, SE, Stringency, Peak Inf, Total Inf, Seed Std) for arbitrary experiment entries defined in `analyses.json["comparisons"]`. Each entry maps a display label to `{"path": "...", "agent": "..."}`, allowing you to compare results from completely different scenarios and runs side by side. If `agent` is omitted, all agents from the run are shown as separate rows.
 
+### Reward Grid (Scenarios × Agents)
+
+```bash
+python -m analysis.reward_grid <grid_name>
+python -m analysis.reward_grid --list
+```
+
+Prints a 2D table of `cross_seed_mean_reward ± SE` with scenarios as rows and agents as columns. Each cell is configured independently in `analyses.json["reward_grid"][<grid_name>]` as `scenario -> agent_label -> {"path": "...", "agent": "..."}`, so a single scenario can pull from a run with non-default hyperparameters (e.g. `ppo_recurrent` with `lstm_hidden_size=64` under `pomdp`) while the rest point at default runs. Missing cells render as `—`.
+
 ### Using the data loading library
 
 ```python
