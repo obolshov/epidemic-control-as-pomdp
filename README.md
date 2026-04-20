@@ -62,10 +62,9 @@ python main.py --scenario incompleteness_and_noise
 ```
 
 ### **pomdp** (POMDP Experiment 3)
-Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days).
+Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days).
 The agent receives observations from a random number of days in the past, simulating
-bureaucratic and laboratory reporting delays. Additionally, enacted interventions take
-10 days to come into effect. The most challenging and realistic scenario.
+bureaucratic and laboratory reporting delays. The most challenging and realistic scenario.
 ```bash
 python main.py --scenario pomdp
 ```

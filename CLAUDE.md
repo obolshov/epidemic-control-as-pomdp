@@ -23,10 +23,10 @@
 - **Resume training:** `--resume-from <scenario_folder>` loads weights from `experiments/{folder}/weights/` and continues training. Agents without matching weights train from scratch. New weights go to the new scenario folder. `config.json` records `resumed_from` for provenance.
 
 # Invariants: Observation Space
-- Base obs shape `(6,)`: `[S, E, I, R, prev_selected_idx, day_frac]`.
-- With `include_exposed=False`: shape `(5,)` → `[S+E, I, R, prev_selected_idx, day_frac]`. E is folded into S (not dropped) so `S_obs + I_obs + R_obs = N` and the agent cannot recover E via SEIR conservation.
+- Base obs shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`.
+- With `include_exposed=False`: shape `(5,)` → `[S+E, I, R, prev_action_idx, day_frac]`. E is folded into S (not dropped) so `S_obs + I_obs + R_obs = N` and the agent cannot recover E via SEIR conservation.
 - Obs bounds are **per-element**: high = `[N, N, N, N, 3.0, 1.0]` (6-el) or `[N, N, N, 3.0, 1.0]` (5-el). `S+E ≤ N` always, so `high[0] = N` stays valid under folding.
-- `MultiplicativeNoiseWrapper`: `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_selected_idx` and `day_frac` pass through unchanged.
+- `MultiplicativeNoiseWrapper`: `len(noise_stds) == obs_size - 2` (compartments only). Trailing `prev_action_idx` and `day_frac` pass through unchanged.
 - Wrapper chain: `EpidemicObservationWrapper → UnderReportingWrapper → MultiplicativeNoiseWrapper → TemporalLagWrapper`.
 
 # Invariants: Temporal Resolution
@@ -38,4 +38,3 @@
   max_lag_steps = max(min_lag_steps, round(max_lag_days / action_interval))
   ```
   Always specify lag in **days** in scenarios. Never pass raw step counts.
-- **`action_delay`**: days in scenario params, converted to steps by `create_environment()`. Env uses FIFO queue to delay β only. `prev_selected_idx` in obs reflects the **selected** (announced) action — the agent always knows its own last decision. Reward split: `stringency_penalty` uses the **applied** action (physical cost of the enforced regime); `switching_penalty` uses consecutive **selected** actions (cost of inconsistent announcements).

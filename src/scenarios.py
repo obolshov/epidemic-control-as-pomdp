@@ -91,7 +91,7 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "pomdp": {
-        "description": "POMDP Experiment 3: Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days) + action delay (10 days)",
+        "description": "POMDP Experiment 3: Stochastic incomplete surveillance + AR(1) noise (ρ=0.7) + temporal lag (5–14 days)",
         "pomdp_params": {
             "include_exposed": False,
             "detection_rate": (0.15, 0.40),
@@ -99,7 +99,6 @@ PREDEFINED_SCENARIOS = {
             "noise_stds": [0.05, 0.30, 0.15],
             "noise_rho": 0.7,
             "lag": [5, 14],
-            "action_delay": 10,
         },
     },
     # --- Isolated distortion ablation scenarios ---
@@ -113,11 +112,10 @@ PREDEFINED_SCENARIOS = {
         },
     },
     "only_temporal": {
-        "description": "Ablation: temporal distortion only (E visible, lag 5–14 days, action delay 5 days)",
+        "description": "Ablation: temporal distortion only (E visible, lag 5–14 days)",
         "pomdp_params": {
             "include_exposed": True,
             "lag": [5, 14],
-            "action_delay": 10,
         },
     },
 }
