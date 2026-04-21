@@ -45,11 +45,16 @@ class Config:
     total_timesteps: int = 2_000_000  # Maximum timesteps for RL training
     num_training_seeds: int = 5  # Number of independent training seeds per agent
 
-    # Early stopping hyperparameters (via EvalCallback + StopTrainingOnNoModelImprovementWithDelta)
+    # Evaluation and early stopping hyperparameters
     # Stopping triggers when `best_mean_reward` fails to improve by at least `early_stop_min_delta`
     # for `early_stop_patience` consecutive evals after `early_stop_min_evals` warmup evals.
-    # Each eval = eval_freq timesteps (default 5000). Guaranteed min training = (min_evals + patience) * eval_freq.
-    early_stop_patience: int = 60       # Evals without significant improvement before stopping (300k steps)
-    early_stop_min_evals: int = 40      # Warmup evals before stopping can trigger (200k steps)
+    # Guaranteed min training = (min_evals + patience) * eval_freq.
+    eval_freq: int = 10_000             # Evaluate every N total timesteps
+    early_stop_patience: int = 60       # Evals without significant improvement before stopping (600k steps)
+    early_stop_min_evals: int = 40      # Warmup evals before stopping can trigger (400k steps)
     early_stop_min_delta: float = 0.02  # Min raw reward delta (vs last significant best) to count as improvement
     n_eval_episodes: int = 20           # Episodes per evaluation (higher = less noise in estimate)
+
+    # RecurrentPPO overrides: LSTM converges faster, so patience/min_evals are halved.
+    recurrent_early_stop_patience: int = 30   # 300k steps
+    recurrent_early_stop_min_evals: int = 20  # 200k steps

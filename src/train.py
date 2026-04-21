@@ -188,12 +188,13 @@ def create_training_callbacks(
     experiment_dir: "ExperimentDirectory",
     agent_name: str,
     seed: int,
-    n_envs: int = 1,
-    eval_freq: int = 5000,
-    n_eval_episodes: int = 10,
-    patience: int = 10,
-    min_evals: int = 5,
-    min_delta: float = 0.0,
+    *,
+    n_envs: int,
+    eval_freq: int,
+    n_eval_episodes: int,
+    patience: int,
+    min_evals: int,
+    min_delta: float,
 ) -> CallbackList:
     """Create callback stack for training with early stopping.
 
@@ -299,13 +300,15 @@ def train_ppo_agent(
         vecnormalize_path=source_vecnorm_path if resuming else None,
     )
 
-    # Create callbacks
+    # Create callbacks (recurrent agents use separate early-stop params)
+    is_recurrent = agent_name.startswith("ppo_recurrent")
     callbacks = create_training_callbacks(
         eval_env, experiment_dir, agent_name, seed,
         n_envs=config.n_envs,
+        eval_freq=config.eval_freq,
         n_eval_episodes=config.n_eval_episodes,
-        patience=config.early_stop_patience,
-        min_evals=config.early_stop_min_evals,
+        patience=config.recurrent_early_stop_patience if is_recurrent else config.early_stop_patience,
+        min_evals=config.recurrent_early_stop_min_evals if is_recurrent else config.early_stop_min_evals,
         min_delta=config.early_stop_min_delta,
     )
 
