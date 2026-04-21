@@ -393,9 +393,12 @@ def _save_episode_logs(
     agent_name: str,
     eval_seeds: List[int],
     episode_results: List[SimulationResult],
+    training_seed: Optional[int] = None,
 ) -> None:
-    """Save per-episode action logs to logs/{agent_name}/seed_{seed}.txt."""
+    """Save per-episode action logs to logs/{agent_name}/[train_{seed}/]seed_{seed}.txt."""
     agent_log_dir = experiment_dir.logs_dir / agent_name
+    if training_seed is not None:
+        agent_log_dir = agent_log_dir / f"train_{training_seed}"
     agent_log_dir.mkdir(parents=True, exist_ok=True)
 
     for seed, result in zip(eval_seeds, episode_results):
@@ -516,8 +519,8 @@ def run_evaluation(
         plot_single_aggregated(agg, save_path=str(plot_path))
 
         # Save per-episode logs
-        for ep_seeds, episode_results in rl_episode_results:
-            _save_episode_logs(experiment_dir, agent_name, ep_seeds, episode_results)
+        for train_seed, (ep_seeds, episode_results) in zip(training_seeds, rl_episode_results):
+            _save_episode_logs(experiment_dir, agent_name, ep_seeds, episode_results, training_seed=train_seed)
 
         print(
             f"  {agent_name}: reward = {np.mean(agg.seed_mean_rewards):.2f} "
