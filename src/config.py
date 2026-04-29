@@ -28,10 +28,10 @@ class Config:
     thresholds: List[float] = field(default_factory=lambda: [0.01, 0.04, 0.09])
 
     # Frame stacking for temporal awareness
-    n_stack: int = 20  # Number of consecutive observations to stack
+    n_stack: int = 30  # Number of consecutive observations to stack
 
     # Recurrent agent parameters (LSTM)
-    lstm_hidden_size: int = 32
+    lstm_hidden_size: int = 128
 
     # Training hyperparameters
     n_envs: int = 4  # Number of parallel environments for training
@@ -42,7 +42,7 @@ class Config:
     recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
 
     # Experiment scale
-    total_timesteps: int = 2_000_000  # Maximum timesteps for RL training
+    total_timesteps: int = 4_000_000  # Maximum timesteps for RL training
     num_training_seeds: int = 5  # Number of independent training seeds per agent
 
     # Evaluation and early stopping hyperparameters

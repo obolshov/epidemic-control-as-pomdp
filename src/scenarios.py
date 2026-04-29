@@ -20,22 +20,23 @@ TARGET_AGENTS = [
     "ppo_recurrent",
 ]
 
-# Maps base agent name → list of (suffix_key, config_getter, default_value).
-# Add entries here to encode new agent-level hyperparameters in the agent name.
+# Maps base agent name → list of (suffix_key, config_attr).
 # Non-default values are appended as "_key{value}" suffixes, allowing multiple
 # variants to coexist in the same scenario's weights directory.
-AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], Any]]] = {
+# Defaults are read from Config() at call time, so they stay in sync automatically.
+_DEFAULTS = Config()
+AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], str]]] = {
     "ppo_baseline": [
-        ("ent", lambda cfg: cfg.ent_coef, 0.2),
+        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
     ],
     "ppo_framestack": [
-        ("nstack", lambda cfg: cfg.n_stack, 20),
-        ("ent", lambda cfg: cfg.ent_coef, 0.2),
+        ("nstack", lambda cfg: cfg.n_stack, "n_stack"),
+        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
     ],
     "ppo_recurrent": [
-        ("lstm", lambda cfg: cfg.lstm_hidden_size, 32),
-        ("ent", lambda cfg: cfg.ent_coef, 0.2),
-        ("nsteps", lambda cfg: cfg.recurrent_n_steps, 256),
+        ("lstm", lambda cfg: cfg.lstm_hidden_size, "lstm_hidden_size"),
+        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
+        ("nsteps", lambda cfg: cfg.recurrent_n_steps, "recurrent_n_steps"),
     ],
 }
 
@@ -58,9 +59,9 @@ def get_agent_variant_name(agent_name: str, config: "Config") -> str:
     """
     params = AGENT_VARIANT_PARAMS.get(agent_name, [])
     parts = []
-    for key, getter, default in params:
+    for key, getter, attr_name in params:
         value = getter(config)
-        if value != default:
+        if value != getattr(_DEFAULTS, attr_name):
             parts.append(f"{key}{value:.4g}" if isinstance(value, float) else f"{key}{value}")
     return (agent_name + "_" + "_".join(parts)) if parts else agent_name
 

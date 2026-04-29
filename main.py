@@ -205,12 +205,12 @@ def main(
     lstm_hidden_size: Optional[int] = typer.Option(
         None,
         "--lstm-hidden-size",
-        help="LSTM hidden size for RecurrentPPO (default: 32).",
+        help="LSTM hidden size for RecurrentPPO (default: 128).",
     ),
     n_stack: Optional[int] = typer.Option(
         None,
         "--n-stack",
-        help="FrameStack depth for ppo_framestack (default: 20).",
+        help="FrameStack depth for ppo_framestack (default: 30).",
     ),
     ent_coef: Optional[float] = typer.Option(
         None,
