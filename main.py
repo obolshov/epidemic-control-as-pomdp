@@ -189,13 +189,13 @@ def main(
         None,
         "--timesteps",
         "-t",
-        help="Maximum timesteps for RL training (default: 1_000_000; early stopping may stop sooner)",
+        help="Maximum timesteps for RL training (default: 3_000_000; early stopping may stop sooner)",
     ),
     num_seeds: Optional[int] = typer.Option(
         None,
         "--num-seeds",
         "-n",
-        help="Number of independent training seeds per agent (default: 5)",
+        help="Number of independent training seeds per agent (default: 10)",
     ),
     deterministic: bool = typer.Option(
         False,
