@@ -252,6 +252,15 @@ python -m analysis.reward_grid --list
 
 Prints a 2D table of `cross_seed_mean_reward ± SE` with scenarios as rows and agents as columns. Each cell is configured independently in `analyses.json["reward_grid"][<grid_name>]` as `scenario -> agent_label -> {"path": "...", "agent": "..."}`, so a single scenario can pull from a run with non-default hyperparameters (e.g. `ppo_recurrent` with `lstm_hidden_size=64` under `pomdp`) while the rest point at default runs. Missing cells render as `—`.
 
+### Training Diagnostics
+
+```bash
+python -m analysis.training_summary pomdp_t3000000/default
+python -m analysis.training_summary pomdp_t3000000/default --agents ppo_baseline ppo_recurrent
+```
+
+Per-seed training summary for RL agents: best eval reward, training step at which it was achieved, final training step, and whether early stopping triggered. Reads `evaluations.npz` files directly — no manifest entry needed. The argument is a path relative to `experiments/`.
+
 ### Using the data loading library
 
 ```python
