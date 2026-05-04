@@ -21,6 +21,7 @@
 - `analyses.json` (project root) maps analysis names → experiment paths. Manually maintained.
 - `analysis/data.py`: `load_analysis(name)` → `dict[str, AnalysisRun]` with config + summary + evaluation.
 - Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`, `python -m analysis.reward_grid <grid_name>` (reward-only 2D table across scenarios × agents; grid config in `analyses.json["reward_grid"]`).
+- **Training diagnostics:** `python -m analysis.training_summary <experiment_path>` — per-seed best eval reward, best step, final step, early stopping status. Reads `evaluations.npz` directly (no manifest needed). Example: `python -m analysis.training_summary pomdp_t3000000/default`.
 - **Resume training:** `--resume-from <scenario_folder>` loads weights from `experiments/{folder}/weights/` and continues training. Agents without matching weights train from scratch. New weights go to the new scenario folder. `config.json` records `resumed_from` for provenance.
 
 # Invariants: Observation Space
