@@ -35,8 +35,6 @@ class Config:
 
     # Training hyperparameters
     n_envs: int = 4  # Number of parallel environments for training
-    learning_rate: float = 3e-4  # Peak lr for all RL agents (with linear schedule)
-    lr_decay_steps: int = 2_000_000  # LR decays to 10% of peak over this many steps, then holds
     ent_coef: float = 0.2  # Entropy bonus for all RL agents
     recurrent_n_steps: int = 256  # Rollout length per env for RecurrentPPO
     recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO

@@ -3,7 +3,7 @@
 - **RL Framework:** Stable Baselines 3 (PPO, RecurrentPPO), Gymnasium.
 - **Research question:** How do memory mechanisms (FrameStack vs LSTM) compare under increasing partial observability (MDP → POMDP)?
 - **Key boundary:** `src/config.py` owns SEIR/reward/RL hyperparameters. POMDP observation parameters (`include_exposed`, `detection_rate`, `noise_stds`, `lag`) belong in `src/scenarios.py` — never in `Config`.
-- **LR schedule invariant:** `lr_decay_steps` controls LR decay horizon (steps to reach 10% of peak), independent of `total_timesteps`. Changing `total_timesteps` must NOT change LR at any given training step. See `docs/17`.
+- **Constant LR:** All RL agents use constant `learning_rate` (SB3 default). No LR schedule — eliminates coupling between LR and `total_timesteps` (see `docs/17` for history).
 
 # Rules
 - **No backward compatibility.** When changing behavior, replace the old code path entirely. No `if-else` fallbacks preserving old logic.
