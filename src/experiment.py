@@ -245,6 +245,7 @@ class ExperimentDirectory:
                 "cross_seed_se_total_stringency": cross_seed_se(agg.seed_mean_stringency),
                 "n_seeds": agg.n_seeds,
                 "n_episodes_per_seed": agg.n_episodes // agg.n_seeds,
+                "per_seed_mean_rewards": [float(x) for x in agg.seed_mean_rewards],
             }
 
         summary_data = {
