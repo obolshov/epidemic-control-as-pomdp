@@ -23,6 +23,34 @@ from src.utils import plot_learning_curve
 from src.wrappers import create_environment
 
 
+def linear_schedule(
+    initial_value: float,
+    total_timesteps: int,
+    lr_decay_steps: int,
+) -> Callable[[float], float]:
+    """Linear learning rate schedule decoupled from training budget.
+
+    LR decays linearly from initial_value to 10% of initial_value over
+    lr_decay_steps, then holds at the floor. This makes the LR at any
+    given training step independent of total_timesteps.
+
+    Args:
+        initial_value: Peak learning rate.
+        total_timesteps: Training budget passed to model.learn() — used only
+            to convert SB3's progress_remaining back to absolute steps.
+        lr_decay_steps: Number of steps over which LR decays to the floor.
+    """
+    min_lr = initial_value * 0.1
+
+    def func(progress_remaining: float) -> float:
+        current_step = (1.0 - progress_remaining) * total_timesteps
+        if current_step >= lr_decay_steps:
+            return min_lr
+        return initial_value * (1.0 - current_step / lr_decay_steps)
+
+    return func
+
+
 def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
     """Load a saved PPO or RecurrentPPO model based on agent name.
 
@@ -250,7 +278,8 @@ def train_ppo_agent(
             f"Training config: n_steps={config.recurrent_n_steps}, "
             f"batch_size={config.recurrent_batch_size}, "
             f"n_epochs={config.recurrent_n_epochs}, "
-            f"ent_coef={config.ent_coef}"
+            f"ent_coef={config.ent_coef}, "
+            f"lr={config.learning_rate}"
         )
 
         policy_kwargs = {
@@ -267,6 +296,7 @@ def train_ppo_agent(
             batch_size=config.recurrent_batch_size,
             n_epochs=config.recurrent_n_epochs,
             ent_coef=config.ent_coef,
+            learning_rate=linear_schedule(config.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
     else:
@@ -276,6 +306,7 @@ def train_ppo_agent(
             verbose=1,
             seed=seed,
             ent_coef=config.ent_coef,
+            learning_rate=linear_schedule(config.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
 
