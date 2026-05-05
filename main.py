@@ -54,6 +54,7 @@ def _build_experiment_config(
     ent_coef: Optional[float] = None,
     recurrent_n_steps: Optional[int] = None,
     run_name: Optional[str] = None,
+    experiment_name: Optional[str] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig from a predefined scenario.
 
@@ -93,7 +94,7 @@ def _build_experiment_config(
     return ExperimentConfig(
         base_config=base_config,
         pomdp_params=scenario_config["pomdp_params"],
-        scenario_name=scenario + det_suffix + f"_t{base_config.total_timesteps}",
+        scenario_name=experiment_name or (scenario + det_suffix + f"_t{base_config.total_timesteps}"),
         target_agents=[get_agent_variant_name(a, base_config) for a in scenario_config["target_agents"]],
         training_seeds=training_seeds,
         run_name=run_name,
@@ -227,6 +228,11 @@ def main(
         "--run-name",
         help="Custom subfolder name for the run (default: auto-generated timestamp).",
     ),
+    experiment_name: Optional[str] = typer.Option(
+        None,
+        "--experiment-name",
+        help="Custom experiment folder name (default: auto-generated from scenario and timesteps).",
+    ),
     resume_from: Optional[str] = typer.Option(
         None,
         "--resume-from",
@@ -257,6 +263,7 @@ def main(
         ent_coef=ent_coef,
         recurrent_n_steps=recurrent_n_steps,
         run_name=run_name,
+        experiment_name=experiment_name,
     )
     if resume_from is not None:
         exp_config.resumed_from = resume_from
