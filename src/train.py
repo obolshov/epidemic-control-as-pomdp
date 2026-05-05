@@ -434,9 +434,11 @@ def prepare_rl_agents(
                     model = _load_model(str(weight_path), agent_name)
                     models.append(model)
                 else:
-                    raise FileNotFoundError(
-                        f"Weights for {agent_name} (seed={seed}) not found at {weight_path}"
+                    print(
+                        f"WARNING: Weights not found for {agent_name} (seed={seed}), "
+                        f"skipping remaining seeds."
                     )
+                    break
             else:
                 print(f"\nTraining {agent_name} (seed={seed})...")
                 model, initial_timesteps = train_ppo_agent(
@@ -462,7 +464,8 @@ def prepare_rl_agents(
                         timestep_offset=initial_timesteps,
                     )
 
-        models_by_agent[agent_name] = models
+        if models:
+            models_by_agent[agent_name] = models
 
     return models_by_agent
 

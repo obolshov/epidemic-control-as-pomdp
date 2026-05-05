@@ -273,6 +273,15 @@ def main(
     print(f"Training seeds: {exp_config.training_seeds}")
     experiment_dir.save_config()
 
+    agents_to_train = [
+        name for name in exp_config.target_agents
+        if name.startswith("ppo_") and not (
+            "all" in agents_to_skip
+            or any(name == s or name.startswith(s + "_") for s in agents_to_skip)
+        )
+    ]
+    experiment_dir.check_training_conflicts(agents_to_train)
+
     rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip, resume_from_weights_dir)
     aggregated_results, per_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
 

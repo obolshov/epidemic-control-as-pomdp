@@ -165,13 +165,35 @@ class ExperimentDirectory:
         folder = self.config.run_name or self.config.timestamp
         experiment_dir = scenario_dir / folder
 
-        if self.config.run_name and experiment_dir.exists():
-            raise ValueError(
-                f"Run directory already exists: {experiment_dir}\n"
-                f"Choose a different --run-name or remove the existing directory."
-            )
         experiment_dir.mkdir(parents=True, exist_ok=True)
         return experiment_dir
+
+    def check_training_conflicts(self, agents_to_train: list[str]) -> None:
+        """Check that agents about to be trained have no existing logs in this run.
+
+        Scans tensorboard directory for directories matching each agent name.
+        Reports ALL conflicts at once before training starts.
+
+        Args:
+            agents_to_train: RL agent names that will be trained (not skipped).
+
+        Raises:
+            ValueError: If any agent already has tensorboard logs in this run.
+        """
+        if not agents_to_train or not self.tensorboard_dir.exists():
+            return
+
+        conflicts = []
+        for agent_name in agents_to_train:
+            if any(self.tensorboard_dir.glob(f"{agent_name}_seed*")):
+                conflicts.append(agent_name)
+
+        if conflicts:
+            raise ValueError(
+                f"Agents already have training logs in {self.root}:\n"
+                f"  {', '.join(conflicts)}\n"
+                f"Use --skip-training for these agents or choose a different --run-name."
+            )
 
     def save_config(self) -> None:
         """Save experiment configuration to config.json."""
