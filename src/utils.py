@@ -196,7 +196,6 @@ def plot_learning_curve(
     log_folder: str,
     title: str = "Learning Curve",
     save_path: Optional[str] = None,
-    timestep_offset: int = 0,
 ) -> None:
     """Plot learning curves from SB3 training logs.
 
@@ -204,11 +203,10 @@ def plot_learning_curve(
         log_folder: Path to folder containing monitor logs.
         title: Title for the plot.
         save_path: Base path for saving plots.
-        timestep_offset: Timestep offset for resumed training (added to X-axis).
     """
     try:
         data_frame = results_plotter.load_results(log_folder)
-        x = np.cumsum(data_frame.l.values) + timestep_offset
+        x = np.cumsum(data_frame.l.values)
         y = data_frame.r.values
 
         plt.figure(figsize=(10, 6))

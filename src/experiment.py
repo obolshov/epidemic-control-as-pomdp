@@ -74,7 +74,6 @@ class ExperimentConfig:
     eval_seeds: List[int] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     run_name: Optional[str] = None
-    resumed_from: Optional[str] = None
 
     @property
     def total_timesteps(self) -> int:
@@ -106,7 +105,6 @@ class ExperimentConfig:
             "num_eval_episodes": self.num_eval_episodes,
             "training_seeds": self.training_seeds,
             "eval_seeds": self.eval_seeds,
-            "resumed_from": self.resumed_from,
         }
 
 
