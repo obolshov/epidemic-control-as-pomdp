@@ -46,7 +46,7 @@ def linear_schedule(
         current_step = (1.0 - progress_remaining) * total_timesteps
         if current_step >= lr_decay_steps:
             return min_lr
-        return initial_value * (1.0 - current_step / lr_decay_steps)
+        return min_lr + (initial_value - min_lr) * (1.0 - current_step / lr_decay_steps)
 
     return func
 
