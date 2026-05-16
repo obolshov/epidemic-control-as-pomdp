@@ -28,20 +28,20 @@ from src.utils import plot_all_results, plot_evaluation_curves
 app = typer.Typer(help="Epidemic Control as POMDP - Experiment Runner")
 
 
-def _parse_skip_training(skip_training: Optional[str]) -> set:
-    """Parse --skip-training CLI argument into a set of agent names.
+def _parse_agent_list(raw: Optional[str]) -> set:
+    """Parse comma-separated agent list CLI argument.
 
     Args:
-        skip_training: Raw CLI string (comma-separated names, "all", or None).
+        raw: Raw CLI string (comma-separated names, "all", or None).
 
     Returns:
-        Set of agent names to skip, or {"all"} to skip all, or empty set.
+        Set of agent names, or {"all"}, or empty set.
     """
-    if skip_training is None:
+    if raw is None:
         return set()
-    if skip_training.lower() == "all" or skip_training == "":
+    if raw.lower() == "all" or raw == "":
         return {"all"}
-    return set(agent.strip() for agent in skip_training.split(","))
+    return set(agent.strip() for agent in raw.split(","))
 
 
 def _build_experiment_config(
@@ -186,6 +186,11 @@ def main(
         "--skip-training",
         help="Skip training for specified agents (comma-separated) or 'all'.",
     ),
+    train_only: Optional[str] = typer.Option(
+        None,
+        "--train-only",
+        help="Train only specified agents (comma-separated). Mutually exclusive with --skip-training.",
+    ),
     total_timesteps: Optional[int] = typer.Option(
         None,
         "--timesteps",
@@ -235,7 +240,13 @@ def main(
     ),
 ):
     """Run epidemic control experiment with multi-seed training and evaluation."""
-    agents_to_skip = _parse_skip_training(skip_training)
+    agents_to_skip = _parse_agent_list(skip_training)
+    agents_to_train_only = _parse_agent_list(train_only)
+
+    if agents_to_skip and agents_to_train_only:
+        raise typer.BadParameter("--skip-training and --train-only are mutually exclusive.")
+    if "all" in agents_to_train_only:
+        raise typer.BadParameter("--train-only 'all' is not supported (training all is the default).")
 
     exp_config = _build_experiment_config(
         scenario,
@@ -254,6 +265,13 @@ def main(
     print(f"Results will be saved to: {experiment_dir.root}")
     print(f"Training seeds: {exp_config.training_seeds}")
     experiment_dir.save_config()
+
+    if agents_to_train_only:
+        agents_to_skip = {
+            n for n in exp_config.target_agents
+            if is_rl_agent(n)
+            and not any(n == s or n.startswith(s + "_") for s in agents_to_train_only)
+        }
 
     agents_to_train = [
         name for name in exp_config.target_agents

@@ -91,6 +91,7 @@ python main.py --help
 Key options:
 - `--scenario, -s` **(required)**: Predefined scenario. Available: `mdp`, `incompleteness`, `incompleteness_and_noise`, `pomdp`, `only_noise`, `only_temporal`
 - `--skip-training`: Skip training for agents (comma-separated list or `all`)
+- `--train-only`: Train only specified agents (comma-separated). Mutually exclusive with `--skip-training`
 - `--timesteps, -t`: Training timesteps per seed (default: 3 000 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 10)
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
@@ -104,6 +105,7 @@ Key options:
 - By default, trains all RL agents from scratch
 - Use `--skip-training all` to load existing weights for all agents (agents without weights are excluded from evaluation)
 - Use `--skip-training ppo_baseline,ppo_recurrent` to skip specific agents — accepts base names, matches variants (e.g. `ppo_baseline` matches `ppo_baseline_ent0.05`). Agents without weights are skipped with a warning instead of failing.
+- Use `--train-only dqn` to train only specified agents and skip the rest — same prefix-matching as `--skip-training`
 
 ## Output Structure
 
@@ -228,8 +230,8 @@ To run an ablation without retraining baseline/recurrent for each variant:
 python main.py --scenario incompleteness_and_noise --n-stack 5 -t 300000 --num-seeds 5
 
 # Subsequent runs: only train the new framestack variant
-python main.py --scenario incompleteness_and_noise --n-stack 10 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
-python main.py --scenario incompleteness_and_noise --n-stack 20 -t 300000 --num-seeds 5 --skip-training ppo_baseline,ppo_recurrent
+python main.py --scenario incompleteness_and_noise --n-stack 10 -t 300000 --num-seeds 5 --train-only ppo_framestack
+python main.py --scenario incompleteness_and_noise --n-stack 20 -t 300000 --num-seeds 5 --train-only ppo_framestack
 ```
 All variants share `experiments/incompleteness_and_noise_t300000/weights/`, so baseline and recurrent are trained only once.
 
@@ -293,6 +295,9 @@ python main.py --scenario mdp --skip-training all
 
 # Train only new agents, skip ppo_baseline
 python main.py --scenario mdp --skip-training ppo_baseline
+
+# Train only DQN (equivalent to skipping all others)
+python main.py --scenario mdp --train-only dqn
 
 # POMDP: full distortions including temporal lag
 python main.py --scenario pomdp
