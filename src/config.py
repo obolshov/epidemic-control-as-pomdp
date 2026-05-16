@@ -59,3 +59,14 @@ class Config:
     # RecurrentPPO overrides: LSTM converges faster, so patience/min_evals are halved.
     recurrent_early_stop_patience: int = 30   # 300k steps
     recurrent_early_stop_min_evals: int = 20  # 200k steps
+
+    # DQN hyperparameters
+    dqn_learning_rate: float = 1e-4
+    dqn_buffer_size: int = 1_000_000
+    dqn_learning_starts: int = 10_000
+    dqn_batch_size: int = 64
+    dqn_exploration_fraction: float = 0.1
+    dqn_exploration_final_eps: float = 0.05
+    dqn_target_update_interval: int = 10_000
+    dqn_early_stop_patience: int = 60
+    dqn_early_stop_min_evals: int = 40

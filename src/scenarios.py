@@ -18,6 +18,7 @@ TARGET_AGENTS = [
     "ppo_baseline",
     "ppo_framestack",
     "ppo_recurrent",
+    "dqn",
 ]
 
 # Maps base agent name → list of (suffix_key, config_attr).
@@ -39,6 +40,14 @@ AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], str]]
         ("nsteps", lambda cfg: cfg.recurrent_n_steps, "recurrent_n_steps"),
     ],
 }
+
+
+RL_AGENT_PREFIXES = ("ppo_", "dqn")
+
+
+def is_rl_agent(name: str) -> bool:
+    """Check if agent name represents a trainable RL agent (not a baseline)."""
+    return any(name.startswith(p) for p in RL_AGENT_PREFIXES)
 
 
 def get_agent_variant_name(agent_name: str, config: "Config") -> str:

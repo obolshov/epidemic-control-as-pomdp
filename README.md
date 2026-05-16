@@ -71,7 +71,7 @@ python main.py --scenario pomdp
 
 ## Agents
 
-Seven agents evaluated in each experiment:
+Eight agents evaluated in each experiment:
 
 - **no_action**: Always applies NO intervention — upper bound on infections, zero cost
 - **severe**: Always applies SEVERE lockdown — lower bound on infections, maximum cost
@@ -80,6 +80,7 @@ Seven agents evaluated in each experiment:
 - **PPO (Baseline)**: Trained with standard PPO (single-step observations)
 - **PPO (FrameStack)**: Uses stacked observations for temporal awareness (sees last 10 decision points)
 - **PPO (Recurrent)**: LSTM-based policy that compresses temporal history into hidden state
+- **DQN**: Value-based baseline (the most common off-the-shelf algorithm in epidemic control literature). Uses epsilon-greedy exploration with replay buffer, n_envs=1.
 
 ## CLI Options
 

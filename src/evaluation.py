@@ -13,7 +13,7 @@ import numpy as np
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from stable_baselines3 import PPO
+from stable_baselines3 import DQN, PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecFrameStack, VecMonitor, VecNormalize
 from sb3_contrib import RecurrentPPO
 
@@ -263,7 +263,7 @@ def evaluate_agent(
 
 
 def evaluate_all_seeds(
-    models: List[Union[PPO, RecurrentPPO]],
+    models: List[Union[DQN, PPO, RecurrentPPO]],
     seeds: List[int],
     config: Config,
     pomdp_params: Dict[str, Any],
@@ -409,7 +409,7 @@ def _save_episode_logs(
 def run_evaluation(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
-    rl_models: Dict[str, List[Union[PPO, RecurrentPPO]]],
+    rl_models: Dict[str, List[Union[DQN, PPO, RecurrentPPO]]],
 ) -> tuple[Dict[str, AggregatedResult], Dict[str, Any]]:
     """Run cross-seed evaluation for all agents (baselines and RL).
 

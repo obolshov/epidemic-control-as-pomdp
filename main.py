@@ -18,6 +18,7 @@ from src.experiment import ExperimentConfig, ExperimentDirectory, generate_seeds
 from src.scenarios import (
     get_scenario,
     get_agent_variant_name,
+    is_rl_agent,
     list_scenarios,
 )
 from src.train import prepare_rl_agents
@@ -256,7 +257,7 @@ def main(
 
     agents_to_train = [
         name for name in exp_config.target_agents
-        if name.startswith("ppo_") and not (
+        if is_rl_agent(name) and not (
             "all" in agents_to_skip
             or any(name == s or name.startswith(s + "_") for s in agents_to_skip)
         )

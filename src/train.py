@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import gymnasium as gym
-from stable_baselines3 import PPO
+from stable_baselines3 import DQN, PPO
 from stable_baselines3.common.callbacks import (
     CallbackList,
     EvalCallback,
@@ -19,6 +19,7 @@ from sb3_contrib import RecurrentPPO
 from src.callbacks import StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.experiment import ExperimentConfig, ExperimentDirectory
+from src.scenarios import is_rl_agent
 from src.utils import plot_learning_curve
 from src.wrappers import create_environment
 
@@ -51,8 +52,8 @@ def linear_schedule(
     return func
 
 
-def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
-    """Load a saved PPO or RecurrentPPO model based on agent name.
+def _load_model(path: str, agent_name: str) -> Union[DQN, PPO, RecurrentPPO]:
+    """Load a saved model based on agent name.
 
     Args:
         path: Path to model file (.zip extension optional).
@@ -61,8 +62,11 @@ def _load_model(path: str, agent_name: str) -> Union[PPO, RecurrentPPO]:
     Returns:
         Loaded model.
     """
-    cls = RecurrentPPO if agent_name.startswith("ppo_recurrent") else PPO
-    return cls.load(path)
+    if agent_name.startswith("dqn"):
+        return DQN.load(path)
+    if agent_name.startswith("ppo_recurrent"):
+        return RecurrentPPO.load(path)
+    return PPO.load(path)
 
 
 
@@ -346,11 +350,121 @@ def train_ppo_agent(
     return model
 
 
+def train_dqn_agent(
+    config: Config,
+    experiment_dir: "ExperimentDirectory",
+    agent_name: str,
+    total_timesteps: int,
+    seed: int = 42,
+    pomdp_params: Optional[Dict[str, Any]] = None,
+) -> DQN:
+    """Train a DQN agent with VecNormalize, callbacks, and early stopping.
+
+    Uses n_envs=1 (standard for off-policy). No VecFrameStack.
+
+    Args:
+        config: Configuration for the environment and DQN hyperparameters.
+        experiment_dir: ExperimentDirectory for saving outputs.
+        agent_name: Name of the agent (e.g., "dqn").
+        total_timesteps: Maximum number of timesteps to train.
+        seed: Random seed for reproducibility.
+        pomdp_params: POMDP parameters for applying wrappers.
+
+    Returns:
+        Trained DQN model.
+    """
+    if pomdp_params is None:
+        pomdp_params = {}
+
+    n_envs = 1
+
+    monitor_dir = experiment_dir.tensorboard_dir / f"{agent_name}_seed{seed}"
+    monitor_dir.mkdir(parents=True, exist_ok=True)
+
+    env = create_vec_env(
+        config, pomdp_params, seed, n_envs, monitor_dir, agent_name,
+    )
+
+    eval_env = create_eval_env(
+        config, pomdp_params, seed, agent_name,
+    )
+
+    callbacks = create_training_callbacks(
+        eval_env, experiment_dir, agent_name, seed,
+        n_envs=n_envs,
+        eval_freq=config.eval_freq,
+        n_eval_episodes=config.n_eval_episodes,
+        patience=config.dqn_early_stop_patience,
+        min_evals=config.dqn_early_stop_min_evals,
+        min_delta=config.early_stop_min_delta,
+    )
+
+    model = DQN(
+        "MlpPolicy",
+        env,
+        verbose=1,
+        seed=seed,
+        learning_rate=config.dqn_learning_rate,
+        buffer_size=config.dqn_buffer_size,
+        learning_starts=config.dqn_learning_starts,
+        batch_size=config.dqn_batch_size,
+        tau=1.0,
+        gamma=0.99,
+        train_freq=4,
+        target_update_interval=config.dqn_target_update_interval,
+        exploration_fraction=config.dqn_exploration_fraction,
+        exploration_initial_eps=1.0,
+        exploration_final_eps=config.dqn_exploration_final_eps,
+        tensorboard_log=str(experiment_dir.tensorboard_dir),
+    )
+
+    print(f"Training {agent_name} (seed={seed}) for up to {total_timesteps} timesteps...")
+    print(
+        f"DQN config: buffer_size={config.dqn_buffer_size}, "
+        f"learning_starts={config.dqn_learning_starts}, "
+        f"batch_size={config.dqn_batch_size}, "
+        f"exploration_fraction={config.dqn_exploration_fraction}, "
+        f"lr={config.dqn_learning_rate}"
+    )
+
+    model.learn(
+        total_timesteps=total_timesteps,
+        callback=callbacks,
+        tb_log_name=f"{agent_name}_seed{seed}",
+        progress_bar=False,
+    )
+    print("Training finished.")
+
+    # Save VecNormalize statistics
+    vecnorm_path = experiment_dir.weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
+    vec_normalize = _find_vec_normalize(env)
+    if vec_normalize is not None:
+        vec_normalize.save(str(vecnorm_path))
+        print(f"VecNormalize stats saved to {vecnorm_path}")
+
+    # Load best model from EvalCallback (if it saved one)
+    best_model_dir = experiment_dir.weights_dir / f"best_{agent_name}_seed{seed}"
+    best_model_path = best_model_dir / "best_model.zip"
+    if best_model_path.exists():
+        print(f"Loading best model from {best_model_path}")
+        model = _load_model(str(best_model_path), agent_name)
+
+    # Save final/best model to standard weight path
+    weight_path = experiment_dir.get_weight_path(agent_name, seed)
+    model.save(str(weight_path))
+    print(f"Model weights saved to {weight_path}")
+
+    eval_env.close()
+    env.close()
+
+    return model
+
+
 def prepare_rl_agents(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
     agents_to_skip: set,
-) -> Dict[str, List[Union[PPO, RecurrentPPO]]]:
+) -> Dict[str, List[Union[DQN, PPO, RecurrentPPO]]]:
     """Train or load RL agents across multiple seeds.
 
     Args:
@@ -363,7 +477,7 @@ def prepare_rl_agents(
     """
     rl_agent_names = [
         name for name in exp_config.target_agents
-        if name.startswith("ppo_")
+        if is_rl_agent(name)
     ]
 
     if not rl_agent_names:
@@ -375,7 +489,7 @@ def prepare_rl_agents(
     print("PREPARING RL AGENTS")
     print("=" * 80)
 
-    models_by_agent: Dict[str, List[Union[PPO, RecurrentPPO]]] = {}
+    models_by_agent: Dict[str, List[Union[DQN, PPO, RecurrentPPO]]] = {}
 
     for agent_name in rl_agent_names:
         should_skip = skip_all or any(
@@ -398,7 +512,8 @@ def prepare_rl_agents(
                     break
             else:
                 print(f"\nTraining {agent_name} (seed={seed})...")
-                model = train_ppo_agent(
+                train_fn = train_dqn_agent if agent_name.startswith("dqn") else train_ppo_agent
+                model = train_fn(
                     config=exp_config.base_config,
                     experiment_dir=experiment_dir,
                     agent_name=agent_name,
