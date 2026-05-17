@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -16,7 +17,7 @@ from stable_baselines3.common.vec_env import (
 )
 from sb3_contrib import RecurrentPPO
 
-from src.callbacks import StopTrainingOnNoModelImprovementWithDelta
+from src.callbacks import SaveVecNormalizeOnBestCallback, StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.experiment import ExperimentConfig, ExperimentDirectory
 from src.scenarios import is_rl_agent
@@ -208,11 +209,16 @@ def create_training_callbacks(
     eval_log_dir = experiment_dir.logs_dir / f"{agent_name}_seed{seed}_eval"
     eval_log_dir.mkdir(parents=True, exist_ok=True)
 
+    save_vecnorm_callback = SaveVecNormalizeOnBestCallback(
+        save_path=str(best_model_dir / "vecnormalize.pkl"),
+    )
+
     # EvalCallback's eval_freq counts per-environment steps, so divide by n_envs
     adjusted_eval_freq = max(1, eval_freq // n_envs)
 
     eval_callback = EvalCallback(
         eval_env,
+        callback_on_new_best=save_vecnorm_callback,
         callback_after_eval=stop_callback,
         n_eval_episodes=n_eval_episodes,
         eval_freq=adjusted_eval_freq,
@@ -323,27 +329,32 @@ def train_ppo_agent(
     )
     print("Training finished.")
 
-    # Save VecNormalize statistics
     vecnorm_path = experiment_dir.weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
-    # Find the VecNormalize layer in the env stack
-    vec_normalize = _find_vec_normalize(env)
-    if vec_normalize is not None:
-        vec_normalize.save(str(vecnorm_path))
-        print(f"VecNormalize stats saved to {vecnorm_path}")
-
-    # Load best model from EvalCallback (if it saved one)
     best_model_dir = experiment_dir.weights_dir / f"best_{agent_name}_seed{seed}"
     best_model_path = best_model_dir / "best_model.zip"
+    best_vecnorm_path = best_model_dir / "vecnormalize.pkl"
+
     if best_model_path.exists():
         print(f"Loading best model from {best_model_path}")
         model = _load_model(str(best_model_path), agent_name)
+        if best_vecnorm_path.exists():
+            shutil.copy(str(best_vecnorm_path), str(vecnorm_path))
+            print(f"VecNormalize stats saved to {vecnorm_path} (from best checkpoint)")
+        else:
+            vec_normalize = _find_vec_normalize(env)
+            if vec_normalize is not None:
+                vec_normalize.save(str(vecnorm_path))
+                print(f"VecNormalize stats saved to {vecnorm_path} (end-of-training fallback)")
+    else:
+        vec_normalize = _find_vec_normalize(env)
+        if vec_normalize is not None:
+            vec_normalize.save(str(vecnorm_path))
+            print(f"VecNormalize stats saved to {vecnorm_path}")
 
-    # Save final/best model to standard weight path
     weight_path = experiment_dir.get_weight_path(agent_name, seed)
     model.save(str(weight_path))
     print(f"Model weights saved to {weight_path}")
 
-    # Cleanup
     eval_env.close()
     env.close()
 
@@ -435,21 +446,28 @@ def train_dqn_agent(
     )
     print("Training finished.")
 
-    # Save VecNormalize statistics
     vecnorm_path = experiment_dir.weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
-    vec_normalize = _find_vec_normalize(env)
-    if vec_normalize is not None:
-        vec_normalize.save(str(vecnorm_path))
-        print(f"VecNormalize stats saved to {vecnorm_path}")
-
-    # Load best model from EvalCallback (if it saved one)
     best_model_dir = experiment_dir.weights_dir / f"best_{agent_name}_seed{seed}"
     best_model_path = best_model_dir / "best_model.zip"
+    best_vecnorm_path = best_model_dir / "vecnormalize.pkl"
+
     if best_model_path.exists():
         print(f"Loading best model from {best_model_path}")
         model = _load_model(str(best_model_path), agent_name)
+        if best_vecnorm_path.exists():
+            shutil.copy(str(best_vecnorm_path), str(vecnorm_path))
+            print(f"VecNormalize stats saved to {vecnorm_path} (from best checkpoint)")
+        else:
+            vec_normalize = _find_vec_normalize(env)
+            if vec_normalize is not None:
+                vec_normalize.save(str(vecnorm_path))
+                print(f"VecNormalize stats saved to {vecnorm_path} (end-of-training fallback)")
+    else:
+        vec_normalize = _find_vec_normalize(env)
+        if vec_normalize is not None:
+            vec_normalize.save(str(vecnorm_path))
+            print(f"VecNormalize stats saved to {vecnorm_path}")
 
-    # Save final/best model to standard weight path
     weight_path = experiment_dir.get_weight_path(agent_name, seed)
     model.save(str(weight_path))
     print(f"Model weights saved to {weight_path}")

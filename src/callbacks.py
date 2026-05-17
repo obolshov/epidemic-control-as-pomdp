@@ -4,6 +4,35 @@ from typing import ClassVar
 
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+from stable_baselines3.common.vec_env import VecNormalize
+
+
+class SaveVecNormalizeOnBestCallback(BaseCallback):
+    """Save VecNormalize stats whenever EvalCallback finds a new best model.
+
+    Attach as ``callback_on_new_best`` to :class:`EvalCallback` so that the
+    saved VecNormalize stats match the best model checkpoint (not end-of-training).
+
+    Args:
+        save_path: File path for the VecNormalize pickle.
+        verbose: Verbosity level.
+    """
+
+    def __init__(self, save_path: str, verbose: int = 0):
+        super().__init__(verbose)
+        self.save_path = save_path
+
+    def _on_step(self) -> bool:
+        env = self.model.get_env()
+        current = env
+        while current is not None:
+            if isinstance(current, VecNormalize):
+                current.save(self.save_path)
+                if self.verbose >= 1:
+                    print(f"VecNormalize stats saved alongside best model: {self.save_path}")
+                return True
+            current = getattr(current, "venv", None)
+        return True
 
 
 class StopTrainingOnNoModelImprovementWithDelta(BaseCallback):
