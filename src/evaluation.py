@@ -23,7 +23,8 @@ from src.config import Config
 from src.env import EpidemicEnv
 from src.results import AggregatedResult, SimulationResult, cross_seed_se
 from src.utils import log_results, plot_single_aggregated
-from src.wrappers import create_environment
+from src.scenarios import is_off_policy
+from src.wrappers import FixedNormalizeWrapper, create_environment
 
 
 def create_eval_vec_env(
@@ -46,6 +47,8 @@ def create_eval_vec_env(
         Evaluation VecEnv ready for inference.
     """
     env = create_environment(config, pomdp_params, seed=seed)
+    if is_off_policy(agent_name):
+        env = FixedNormalizeWrapper(env)
     env.reset(seed=seed)
     venv = DummyVecEnv([lambda: env])
     venv = VecMonitor(venv)
@@ -209,7 +212,7 @@ def evaluate_agent(
     Returns:
         Tuple of (AggregatedResult, list of per-episode SimulationResults).
     """
-    is_rl = isinstance(agent, (PPO, RecurrentPPO))
+    is_rl = isinstance(agent, (DQN, PPO, RecurrentPPO))
 
     all_results: List[SimulationResult] = []
 

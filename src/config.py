@@ -61,12 +61,15 @@ class Config:
     recurrent_early_stop_min_evals: int = 20  # 200k steps
 
     # DQN hyperparameters
-    dqn_learning_rate: float = 1e-4
+    dqn_learning_rate: float = 3e-4
     dqn_buffer_size: int = 1_000_000
     dqn_learning_starts: int = 10_000
-    dqn_batch_size: int = 64
-    dqn_exploration_fraction: float = 0.1
-    dqn_exploration_final_eps: float = 0.05
-    dqn_target_update_interval: int = 10_000
+    dqn_batch_size: int = 256
+    dqn_exploration_fraction: float = 0.3
+    dqn_exploration_final_eps: float = 0.15
+    dqn_target_update_interval: int = 1
+    dqn_tau: float = 0.005  # 1.0 = hard update; <1 = Polyak averaging (e.g. 0.005)
+    dqn_gradient_steps: int = 1
+    dqn_net_arch: List[int] = field(default_factory=lambda: [256, 256])
     dqn_early_stop_patience: int = 60
     dqn_early_stop_min_evals: int = 40

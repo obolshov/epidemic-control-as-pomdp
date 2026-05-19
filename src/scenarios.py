@@ -50,6 +50,11 @@ def is_rl_agent(name: str) -> bool:
     return any(name.startswith(p) for p in RL_AGENT_PREFIXES)
 
 
+def is_off_policy(name: str) -> bool:
+    """Check if agent uses an off-policy algorithm (needs fixed normalization)."""
+    return name.startswith("dqn")
+
+
 def get_agent_variant_name(agent_name: str, config: "Config") -> str:
     """Return agent name with non-default hyperparameter suffixes appended.
 

@@ -394,6 +394,28 @@ class TemporalLagWrapper(gym.ObservationWrapper):
         return super().reset(**kwargs)
 
 
+class FixedNormalizeWrapper(gym.ObservationWrapper):
+    """Divide observations element-wise by obs_space.high for [0,1] normalization.
+
+    Time-invariant alternative to VecNormalize for off-policy algorithms
+    (DQN) where running statistics corrupt the replay buffer.
+    """
+
+    def __init__(self, env: gym.Env) -> None:
+        super().__init__(env)
+        high = env.observation_space.high.copy()
+        high[high == 0] = 1.0
+        self._scale = high
+        self.observation_space = spaces.Box(
+            low=env.observation_space.low / self._scale,
+            high=env.observation_space.high / self._scale,
+            dtype=env.observation_space.dtype,
+        )
+
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        return obs / self._scale
+
+
 def create_environment(config: Config, pomdp_params: Dict[str, Any], seed: int = 42) -> gym.Env:
     """
     Create environment with appropriate POMDP wrappers.

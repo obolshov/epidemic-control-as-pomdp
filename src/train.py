@@ -20,9 +20,9 @@ from sb3_contrib import RecurrentPPO
 from src.callbacks import SaveVecNormalizeOnBestCallback, StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.experiment import ExperimentConfig, ExperimentDirectory
-from src.scenarios import is_rl_agent
+from src.scenarios import is_off_policy, is_rl_agent
 from src.utils import plot_learning_curve
-from src.wrappers import create_environment
+from src.wrappers import FixedNormalizeWrapper, create_environment
 
 
 def linear_schedule(
@@ -78,6 +78,7 @@ def make_env(
     pomdp_params: Dict[str, Any],
     seed: int,
     rank: int,
+    fixed_normalize: bool = False,
 ) -> Callable[[], gym.Env]:
     """Factory function for creating environments with unique seeds.
 
@@ -86,6 +87,7 @@ def make_env(
         pomdp_params: POMDP wrapper parameters.
         seed: Base random seed.
         rank: Environment index (added to seed for uniqueness).
+        fixed_normalize: If True, apply FixedNormalizeWrapper (for off-policy algorithms).
 
     Returns:
         Callable that creates a seeded environment.
@@ -93,6 +95,8 @@ def make_env(
 
     def _init() -> gym.Env:
         env = create_environment(config, pomdp_params, seed=seed + rank)
+        if fixed_normalize:
+            env = FixedNormalizeWrapper(env)
         env.reset(seed=seed + rank)
         return env
 
@@ -122,11 +126,13 @@ def create_vec_env(
     Returns:
         Vectorized environment with normalization (and optional frame stacking).
     """
+    is_dqn = is_off_policy(agent_name)
     env = DummyVecEnv(
-        [make_env(config, pomdp_params, seed, rank=i) for i in range(n_envs)]
+        [make_env(config, pomdp_params, seed, rank=i, fixed_normalize=is_dqn)
+         for i in range(n_envs)]
     )
     env = VecMonitor(env, filename=str(monitor_dir))
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, gamma=0.99)
+    env = VecNormalize(env, norm_obs=not is_dqn, norm_reward=not is_dqn, gamma=0.99)
 
     if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
@@ -155,9 +161,10 @@ def create_eval_env(
     Returns:
         Evaluation VecEnv with VecNormalize (stats synced during training).
     """
-    env = DummyVecEnv([make_env(config, pomdp_params, seed + 1000, rank=0)])
+    is_dqn = is_off_policy(agent_name)
+    env = DummyVecEnv([make_env(config, pomdp_params, seed + 1000, rank=0, fixed_normalize=is_dqn)])
     env = VecMonitor(env)
-    env = VecNormalize(env, norm_obs=True, norm_reward=False, gamma=0.99)
+    env = VecNormalize(env, norm_obs=not is_dqn, norm_reward=False, gamma=0.99)
 
     if agent_name.startswith("ppo_framestack"):
         env = VecFrameStack(env, n_stack=config.n_stack)
@@ -410,16 +417,20 @@ def train_dqn_agent(
         min_delta=config.early_stop_min_delta,
     )
 
+    policy_kwargs = {"net_arch": config.dqn_net_arch}
+
     model = DQN(
         "MlpPolicy",
         env,
         verbose=1,
         seed=seed,
+        policy_kwargs=policy_kwargs,
         learning_rate=config.dqn_learning_rate,
         buffer_size=config.dqn_buffer_size,
         learning_starts=config.dqn_learning_starts,
         batch_size=config.dqn_batch_size,
-        tau=1.0,
+        tau=config.dqn_tau,
+        gradient_steps=config.dqn_gradient_steps,
         gamma=0.99,
         train_freq=4,
         target_update_interval=config.dqn_target_update_interval,
@@ -431,7 +442,9 @@ def train_dqn_agent(
 
     print(f"Training {agent_name} (seed={seed}) for up to {total_timesteps} timesteps...")
     print(
-        f"DQN config: buffer_size={config.dqn_buffer_size}, "
+        f"DQN config: net_arch={config.dqn_net_arch}, "
+        f"tau={config.dqn_tau}, "
+        f"buffer_size={config.dqn_buffer_size}, "
         f"learning_starts={config.dqn_learning_starts}, "
         f"batch_size={config.dqn_batch_size}, "
         f"exploration_fraction={config.dqn_exploration_fraction}, "
