@@ -11,3 +11,5 @@ sb3-contrib
 tensorboard
 torch
 typer
+optuna
+optuna-dashboard

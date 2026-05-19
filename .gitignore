@@ -216,3 +216,6 @@ analyses.json
 docs/
 
 .claude/settings.local.json
+
+# Optuna databases
+optuna_*.db
