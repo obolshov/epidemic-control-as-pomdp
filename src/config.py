@@ -38,6 +38,15 @@ class Config:
     learning_rate: float = 3e-4  # Peak lr for all RL agents (with linear schedule)
     lr_decay_steps: int = 2_000_000  # LR decays to 10% of peak over this many steps, then holds
     ent_coef: float = 0.2  # Entropy bonus for all RL agents
+
+    # PPO baseline/framestack hyperparameters
+    ppo_n_steps: int = 2048
+    ppo_batch_size: int = 64
+    ppo_gamma: float = 0.99
+    ppo_clip_range: float = 0.2
+    ppo_net_arch: List[int] = field(default_factory=lambda: [64, 64])
+
+    # RecurrentPPO hyperparameters
     recurrent_n_steps: int = 256  # Rollout length per env for RecurrentPPO
     recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO
     recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
