@@ -55,6 +55,7 @@ def _build_experiment_config(
     recurrent_n_steps: Optional[int] = None,
     run_name: Optional[str] = None,
     experiment_name: Optional[str] = None,
+    include_agents: Optional[set] = None,
 ) -> ExperimentConfig:
     """Build ExperimentConfig from a predefined scenario.
 
@@ -91,11 +92,14 @@ def _build_experiment_config(
 
     print(f"Running predefined scenario: {scenario}")
     scenario_config = get_scenario(scenario)
+    agents = scenario_config["target_agents"]
+    if include_agents:
+        agents = agents + [a for a in include_agents if a not in agents]
     return ExperimentConfig(
         base_config=base_config,
         pomdp_params=scenario_config["pomdp_params"],
         scenario_name=experiment_name or (scenario + det_suffix + f"_t{base_config.total_timesteps}"),
-        target_agents=[get_agent_variant_name(a, base_config) for a in scenario_config["target_agents"]],
+        target_agents=[get_agent_variant_name(a, base_config) for a in agents],
         training_seeds=training_seeds,
         run_name=run_name,
     )
@@ -238,10 +242,16 @@ def main(
         "--experiment-name",
         help="Custom experiment folder name (default: auto-generated from scenario and timesteps).",
     ),
+    include: Optional[str] = typer.Option(
+        None,
+        "--include",
+        help="Extra agents to add to the default set (comma-separated, e.g. 'dqn').",
+    ),
 ):
     """Run epidemic control experiment with multi-seed training and evaluation."""
     agents_to_skip = _parse_agent_list(skip_training)
     agents_to_train_only = _parse_agent_list(train_only)
+    agents_to_include = _parse_agent_list(include)
 
     if agents_to_skip and agents_to_train_only:
         raise typer.BadParameter("--skip-training and --train-only are mutually exclusive.")
@@ -259,6 +269,7 @@ def main(
         recurrent_n_steps=recurrent_n_steps,
         run_name=run_name,
         experiment_name=experiment_name,
+        include_agents=agents_to_include or None,
     )
 
     experiment_dir = ExperimentDirectory(exp_config)

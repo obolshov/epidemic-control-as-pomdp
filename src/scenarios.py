@@ -18,7 +18,6 @@ TARGET_AGENTS = [
     "ppo_baseline",
     "ppo_framestack",
     "ppo_recurrent",
-    "dqn",
 ]
 
 # Maps base agent name → list of (suffix_key, config_attr).
