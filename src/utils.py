@@ -39,9 +39,7 @@ def _plot_aggregated_seir(ax, agg: AggregatedResult, title: Optional[str] = None
 
     for comp, color in colors.items():
         mean = getattr(agg, f"{comp}_mean")
-        std = getattr(agg, f"{comp}_std")
         ax.plot(agg.t, mean, color=color, label=labels[comp], linewidth=2)
-        ax.fill_between(agg.t, mean - std, mean + std, color=color, alpha=0.2)
 
     if title:
         ax.set_title(title, fontsize=12, fontweight="bold")
