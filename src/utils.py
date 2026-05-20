@@ -1,3 +1,4 @@
+import json
 from math import ceil
 import os
 from typing import Dict, List, Optional
@@ -140,54 +141,50 @@ def plot_single_aggregated(
 
 
 def log_results(result: SimulationResult, log_path: str) -> None:
-    """Logs simulation results to text files with table format.
+    """Saves per-step simulation results as JSON.
 
     Args:
         result: SimulationResult to log.
-        log_path: Full path to save log file.
+        log_path: Full path to save JSON file.
     """
     dir_path = os.path.dirname(log_path)
     if dir_path:
         os.makedirs(dir_path, exist_ok=True)
 
+    steps = []
+    for day, action, reward, rc in zip(
+        result.timesteps,
+        result.actions,
+        result.rewards,
+        result.reward_components,
+    ):
+        day_idx = min(int(day), len(result.S) - 1) if len(result.S) > 0 else 0
+        steps.append({
+            "day": int(day),
+            "S": float(result.S[day_idx]),
+            "E": float(result.E[day_idx]),
+            "I": float(result.I[day_idx]),
+            "R": float(result.R[day_idx]),
+            "reward": float(reward),
+            "reward_infection": float(rc["reward_infection"]),
+            "reward_stringency": float(rc["reward_stringency"]),
+            "reward_switching": float(rc["reward_switching"]),
+            "action": action.name,
+        })
+
+    data = {
+        "agent_name": result.agent_name,
+        "steps": steps,
+        "summary": {
+            "peak_infected": float(result.peak_infected),
+            "total_infected": float(result.total_infected),
+            "total_stringency": float(result.total_stringency),
+            "total_reward": float(result.total_reward),
+        },
+    }
+
     with open(log_path, "w", encoding="utf-8") as f:
-        f.write(f"Simulation Log: {result.agent_name}\n")
-        f.write("=" * 141 + "\n\n")
-
-        header = (
-            f"{'Day':<8} {'S':<14} {'E':<14} {'I':<14} {'R':<14} "
-            f"{'Reward':<12} {'R_inf':<12} {'R_str':<12} {'R_sw':<12} {'Action':<15}\n"
-        )
-        f.write(header)
-        f.write("-" * 141 + "\n")
-
-        for i, (day, action, reward, rc) in enumerate(
-            zip(
-                result.timesteps,
-                result.actions,
-                result.rewards,
-                result.reward_components,
-            )
-        ):
-            day_idx = min(int(day), len(result.S) - 1) if len(result.S) > 0 else 0
-            S = result.S[day_idx]
-            E = result.E[day_idx]
-            I = result.I[day_idx]
-            R = result.R[day_idx]
-            row = (
-                f"{day:<8} {S:<14.2f} {E:<14.2f} {I:<14.2f} {R:<14.2f} "
-                f"{reward:<12.4f} {rc['reward_infection']:<12.4f} "
-                f"{rc['reward_stringency']:<12.4f} {rc['reward_switching']:<12.4f} "
-                f"{action.name:<15}\n"
-            )
-            f.write(row)
-
-        f.write("\n" + "=" * 141 + "\n")
-        f.write("Summary Statistics:\n")
-        f.write(f"  Peak Infected: {result.peak_infected:.2f}\n")
-        f.write(f"  Total Infected: {result.total_infected:.2f}\n")
-        f.write(f"  Total Stringency: {result.total_stringency:.2f}\n")
-        f.write(f"  Total Reward: {result.total_reward:.4f}\n")
+        json.dump(data, f, indent=2)
 
 
 def plot_learning_curve(

@@ -398,14 +398,14 @@ def _save_episode_logs(
     episode_results: List[SimulationResult],
     training_seed: Optional[int] = None,
 ) -> None:
-    """Save per-episode action logs to logs/{agent_name}/[train_{seed}/]seed_{seed}.txt."""
+    """Save per-episode action logs to logs/{agent_name}/[train_{seed}/]seed_{seed}.json."""
     agent_log_dir = experiment_dir.logs_dir / agent_name
     if training_seed is not None:
         agent_log_dir = agent_log_dir / f"train_{training_seed}"
     agent_log_dir.mkdir(parents=True, exist_ok=True)
 
     for seed, result in zip(eval_seeds, episode_results):
-        log_path = agent_log_dir / f"seed_{seed}.txt"
+        log_path = agent_log_dir / f"seed_{seed}.json"
         log_results(result, log_path=str(log_path))
 
 
