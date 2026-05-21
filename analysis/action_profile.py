@@ -153,10 +153,14 @@ def main() -> None:
     if not run_dir.exists():
         raise FileNotFoundError(f"Experiment directory not found: {run_dir}")
 
+    with open(run_dir / "config.json") as f:
+        config = json.load(f)
     with open(run_dir / "evaluation.json") as f:
         evaluation = json.load(f)
     with open(run_dir / "summary.json") as f:
         summary = json.load(f)
+
+    scenario_name = config["scenario_name"]
 
     agent_names = args.agents or [
         name for name in evaluation if name.startswith("ppo_")
@@ -193,7 +197,7 @@ def main() -> None:
 
     output_dir = Path("analysis_output")
     output_dir.mkdir(exist_ok=True)
-    save_path = str(output_dir / "action_profile.png")
+    save_path = str(output_dir / f"action_profile_{scenario_name}.png")
 
     plot_action_profiles(profiles, save_path=save_path)
     print(f"\nPlot saved to {save_path}")
