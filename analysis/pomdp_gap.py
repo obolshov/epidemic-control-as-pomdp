@@ -17,18 +17,18 @@ from analysis.data import AnalysisRun, load_analysis
 from src.utils import _save_or_show
 
 SCENARIO_ORDER = ["mdp", "incompleteness", "incompleteness_and_noise", "pomdp"]
-SCENARIO_LABELS = ["MDP", "+ Incompleteness", "+ Noise", "POMDP"]
+SCENARIO_LABELS = ["MDP", "+ Incompleteness", "+ Noise", "+ Temporal"]
 
 AGENTS = ["ppo_baseline", "ppo_framestack", "ppo_recurrent"]
 AGENT_LABELS = {
-    "ppo_baseline": "PPO (no memory)",
-    "ppo_framestack": "PPO + FrameStack",
-    "ppo_recurrent": "RecurrentPPO",
+    "ppo_baseline": "Memoryless",
+    "ppo_framestack": "FrameStack",
+    "ppo_recurrent": "Recurrent",
 }
 
 METRICS = [
     ("cross_seed_mean_reward", "cross_seed_se_reward", "Total Reward"),
-    ("cross_seed_mean_total_infected", "cross_seed_se_total_infected", "Total Infected"),
+    ("cross_seed_mean_peak_infected", "cross_seed_se_peak_infected", "Peak Infected"),
     ("cross_seed_mean_total_stringency", "cross_seed_se_total_stringency", "Total Stringency"),
 ]
 
@@ -75,7 +75,7 @@ def plot_pomdp_gap(
     axes[0].legend(loc="best")
     axes[-1].set_xticks(x)
     axes[-1].set_xticklabels(SCENARIO_LABELS)
-    axes[-1].set_xlabel("Scenario (increasing partial observability →)")
+    axes[-1].set_xlabel("Distortion (cumulative →)")
 
     fig.suptitle("POMDP Gap: Agent Performance vs. Observability", fontsize=14)
     plt.tight_layout()

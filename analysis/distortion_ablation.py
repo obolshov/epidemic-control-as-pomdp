@@ -25,9 +25,9 @@ ABLATION_LABELS = ["Incompleteness", "Noise", "Temporal"]
 
 AGENTS = ["ppo_baseline", "ppo_framestack", "ppo_recurrent"]
 AGENT_LABELS = {
-    "ppo_baseline": "PPO (no memory)",
-    "ppo_framestack": "PPO + FrameStack",
-    "ppo_recurrent": "RecurrentPPO",
+    "ppo_baseline": "Memoryless",
+    "ppo_framestack": "FrameStack",
+    "ppo_recurrent": "Recurrent",
 }
 
 

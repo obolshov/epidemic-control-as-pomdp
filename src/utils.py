@@ -10,6 +10,34 @@ from stable_baselines3.common import results_plotter
 
 from .results import AggregatedResult, SimulationResult, cross_seed_se
 
+_DISPLAY_NAMES = {
+    "ppo_baseline": "Memoryless",
+    "ppo_framestack": "FrameStack",
+    "ppo_recurrent": "Recurrent",
+    "no_action": "No Action",
+    "severe": "Severe",
+    "random": "Random",
+    "threshold": "Threshold",
+    "dqn": "DQN",
+}
+
+
+def display_name(agent_key: str) -> str:
+    """Map internal agent key to human-readable display name.
+
+    Args:
+        agent_key: Internal agent identifier (e.g. "ppo_framestack_nstack30").
+
+    Returns:
+        Display name for plots and legends.
+    """
+    if agent_key in _DISPLAY_NAMES:
+        return _DISPLAY_NAMES[agent_key]
+    for prefix, label in _DISPLAY_NAMES.items():
+        if agent_key.startswith(prefix):
+            return label
+    return agent_key
+
 
 def _save_or_show(save_path: Optional[str]) -> None:
     """Save the current matplotlib figure to file, or show interactively.
@@ -116,7 +144,7 @@ def plot_all_results(
                 axes.append(fig.add_subplot(gs[1, col_start: col_start + 2]))
 
     for idx, (agent_name, agg) in enumerate(results.items()):
-        _plot_aggregated_seir(axes[idx], agg, title=agent_name)
+        _plot_aggregated_seir(axes[idx], agg, title=display_name(agent_name))
 
     plt.tight_layout()
     _save_or_show(save_path)
@@ -133,7 +161,7 @@ def plot_single_aggregated(
         save_path: Optional path to save the plot.
     """
     if title is None:
-        title = agg.agent_name
+        title = display_name(agg.agent_name)
 
     fig, ax = plt.subplots(figsize=(10, 6))
     _plot_aggregated_seir(ax, agg, title)
@@ -267,7 +295,7 @@ def plot_evaluation_curves(
 
         color = colors[idx % len(colors)]
         n_seeds = stacked.shape[0]
-        label = f"{agent_name} (n={n_seeds} seeds)"
+        label = f"{display_name(agent_name)} (n={n_seeds} seeds)"
         ax.plot(timesteps, mean_curve, linewidth=2, label=label, color=color)
         ax.fill_between(
             timesteps,
