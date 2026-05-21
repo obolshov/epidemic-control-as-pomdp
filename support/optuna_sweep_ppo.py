@@ -29,7 +29,6 @@ def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None
     config.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     config.ent_coef = trial.suggest_float("ent_coef", 0.005, 0.5, log=True)
     config.ppo_gamma = trial.suggest_float("gamma", 0.95, 0.999)
-    config.ppo_clip_range = trial.suggest_float("clip_range", 0.1, 0.4)
 
     if agent_name == "ppo_recurrent":
         config.lstm_hidden_size = trial.suggest_categorical("lstm_hidden_size", [32, 64, 128, 256])
@@ -146,7 +145,6 @@ def _print_config_overrides(params: Dict, agent_name: str) -> None:
     print(f"learning_rate: float = {params['learning_rate']:.6f}")
     print(f"ent_coef: float = {params['ent_coef']:.4f}")
     print(f"ppo_gamma: float = {params['gamma']:.4f}")
-    print(f"ppo_clip_range: float = {params['clip_range']:.4f}")
 
     if agent_name == "ppo_recurrent":
         print(f"lstm_hidden_size: int = {params['lstm_hidden_size']}")
