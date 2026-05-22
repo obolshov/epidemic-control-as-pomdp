@@ -1,5 +1,6 @@
 """Shared utilities for Optuna hyperparameter sweeps."""
 
+from pathlib import Path
 from typing import ClassVar
 
 import optuna
@@ -31,6 +32,9 @@ class TrialReportCallback(BaseCallback):
 
 def create_optuna_study(study_name: str) -> optuna.Study:
     """Create a standardized Optuna study with TPE sampler and median pruner."""
+    db_dir = Path(__file__).parent / "db"
+    db_dir.mkdir(exist_ok=True)
+    storage = f"sqlite:///{db_dir / f'{study_name}.db'}"
     return optuna.create_study(
         study_name=study_name,
         direction="maximize",
@@ -39,6 +43,6 @@ def create_optuna_study(study_name: str) -> optuna.Study:
             n_startup_trials=5,
             n_warmup_steps=20,
         ),
-        storage=f"sqlite:///optuna_{study_name}.db",
+        storage=storage,
         load_if_exists=True,
     )

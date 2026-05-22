@@ -1,8 +1,8 @@
 """Optuna hyperparameter sweep for PPO agents (baseline, framestack, recurrent).
 
 Usage:
-    python -m support.optuna_sweep_ppo --agent ppo_baseline --scenario pomdp --n-trials 30
-    python -m support.optuna_sweep_ppo --agent ppo_recurrent --scenario mdp --n-trials 3 -t 100000
+    python -m support.optuna.sweep_ppo --agent ppo_baseline --scenario pomdp --n-trials 30
+    python -m support.optuna.sweep_ppo --agent ppo_recurrent --scenario mdp --n-trials 3 -t 100000
 """
 
 import argparse
@@ -19,7 +19,7 @@ from src.callbacks import StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.scenarios import get_scenario
 from src.train import create_eval_env, create_vec_env, linear_schedule
-from support.optuna_utils import NET_ARCH_MAP, TrialReportCallback, create_optuna_study
+from support.optuna.utils import NET_ARCH_MAP, TrialReportCallback, create_optuna_study
 
 VALID_AGENTS = ("ppo_baseline", "ppo_framestack", "ppo_recurrent")
 
@@ -28,7 +28,7 @@ def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None
     """Suggest hyperparameters for the given agent and apply them to config."""
     config.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     config.ent_coef = trial.suggest_float("ent_coef", 0.005, 0.5, log=True)
-    config.ppo_gamma = trial.suggest_float("gamma", 0.95, 0.999)
+    config.ppo_gamma = trial.suggest_float("gamma", 0.90, 0.999)
 
     if agent_name == "ppo_recurrent":
         config.lstm_hidden_size = trial.suggest_categorical("lstm_hidden_size", [32, 64, 128, 256])

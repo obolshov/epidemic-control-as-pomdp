@@ -70,6 +70,7 @@ class Config:
     recurrent_early_stop_min_evals: int = 20  # 200k steps
 
     # DQN hyperparameters
+    dqn_gamma: float = 0.99
     dqn_learning_rate: float = 3e-4
     dqn_buffer_size: int = 1_000_000
     dqn_learning_starts: int = 10_000

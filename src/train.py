@@ -438,7 +438,7 @@ def train_dqn_agent(
         batch_size=config.dqn_batch_size,
         tau=config.dqn_tau,
         gradient_steps=config.dqn_gradient_steps,
-        gamma=0.99,
+        gamma=config.dqn_gamma,
         train_freq=4,
         target_update_interval=config.dqn_target_update_interval,
         exploration_fraction=config.dqn_exploration_fraction,

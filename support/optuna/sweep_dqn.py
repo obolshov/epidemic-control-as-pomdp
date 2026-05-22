@@ -1,8 +1,8 @@
 """Optuna hyperparameter sweep for DQN agent.
 
 Usage:
-    python -m support.optuna_sweep_dqn --scenario pomdp --n-trials 30
-    python -m support.optuna_sweep_dqn --scenario pomdp --n-trials 3 -t 100000  # quick test
+    python -m support.optuna.sweep_dqn --scenario pomdp --n-trials 30
+    python -m support.optuna.sweep_dqn --scenario pomdp --n-trials 3 -t 100000  # quick test
 """
 
 import argparse
@@ -17,7 +17,7 @@ from src.callbacks import StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
 from src.scenarios import get_scenario
 from src.train import create_eval_env, create_vec_env
-from support.optuna_utils import NET_ARCH_MAP, TrialReportCallback, create_optuna_study
+from support.optuna.utils import NET_ARCH_MAP, TrialReportCallback, create_optuna_study
 
 
 def objective(
@@ -32,6 +32,7 @@ def objective(
 
     config = Config()
 
+    config.dqn_gamma = trial.suggest_float("gamma", 0.90, 0.999)
     config.dqn_learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     config.dqn_batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
     config.dqn_exploration_fraction = trial.suggest_float("exploration_fraction", 0.1, 0.5)
@@ -81,7 +82,7 @@ def objective(
             batch_size=config.dqn_batch_size,
             tau=config.dqn_tau,
             gradient_steps=config.dqn_gradient_steps,
-            gamma=0.99,
+            gamma=config.dqn_gamma,
             train_freq=4,
             target_update_interval=config.dqn_target_update_interval,
             exploration_fraction=config.dqn_exploration_fraction,

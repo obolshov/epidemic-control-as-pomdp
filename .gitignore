@@ -217,5 +217,5 @@ docs/
 
 .claude/settings.local.json
 
-# Optuna databases
-optuna_*.db
+# Optuna sweep databases
+support/optuna/db/
