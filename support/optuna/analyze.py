@@ -151,6 +151,7 @@ def print_top_trials(top: pd.DataFrame) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze Optuna sweep CSV results")
     parser.add_argument("csv", help="Path to Optuna CSV export")
+    parser.add_argument("--exclude", type=int, nargs="+", default=[], help="Trial numbers to exclude")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Select top N trials (default: 10)")
     group.add_argument("--within-abs", type=float, default=None, help="Trials within N absolute of best")
@@ -167,6 +168,8 @@ def main() -> None:
     if not csv_path.exists():
         csv_path = EXPORTS_DIR / args.csv
     df = load_trials(str(csv_path))
+    if args.exclude:
+        df = df[~df["Number"].isin(args.exclude)]
     if len(df) == 0:
         print("No completed trials found.")
         sys.exit(1)
