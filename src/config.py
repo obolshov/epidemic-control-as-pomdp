@@ -3,22 +3,35 @@ from typing import List
 
 
 @dataclass
-class PPOConfig:
-    """PPO baseline and framestack hyperparameters."""
+class PPOBaselineConfig:
+    """PPO baseline (no memory) hyperparameters."""
 
-    learning_rate: float = 1e-4
-    gamma: float = 0.99
+    learning_rate: float = 1e-3
+    gamma: float = 0.95
     n_steps: int = 1024
     batch_size: int = 256
-    clip_range: float = 0.2
     ent_coef: float = 0.3
-    net_arch: List[int] = field(default_factory=lambda: [128, 128])
+    net_arch: List[int] = field(default_factory=lambda: [64, 64])
     early_stop_patience: int = 60
     early_stop_min_evals: int = 40
 
 
 @dataclass
-class RecurrentPPOConfig:
+class PPOFrameStackConfig:
+    """PPO with FrameStack hyperparameters."""
+
+    learning_rate: float = 1e-4
+    gamma: float = 0.99
+    n_steps: int = 1024
+    batch_size: int = 256
+    ent_coef: float = 0.3
+    net_arch: List[int] = field(default_factory=lambda: [64, 64])
+    early_stop_patience: int = 60
+    early_stop_min_evals: int = 40
+
+
+@dataclass
+class PPORecurrentConfig:
     """RecurrentPPO (LSTM) hyperparameters."""
 
     learning_rate: float = 1e-4
@@ -26,7 +39,6 @@ class RecurrentPPOConfig:
     n_steps: int = 64
     batch_size: int = 64
     n_epochs: int = 3
-    clip_range: float = 0.2
     ent_coef: float = 0.3
     lstm_hidden_size: int = 128
     early_stop_patience: int = 30
@@ -58,7 +70,7 @@ class Config:
 
     SEIR model, reward, evaluation, and scale parameters are top-level.
     Agent-specific RL hyperparameters live in nested dataclasses:
-    ``ppo``, ``recurrent``, ``dqn``.
+    ``ppo_baseline``, ``ppo_framestack``, ``ppo_recurrent``, ``dqn``.
     """
 
     # Population and epidemic parameters
@@ -101,6 +113,7 @@ class Config:
     num_training_seeds: int = 10  # Number of independent training seeds per agent
 
     # Agent-specific hyperparameters
-    ppo: PPOConfig = field(default_factory=PPOConfig)
-    recurrent: RecurrentPPOConfig = field(default_factory=RecurrentPPOConfig)
+    ppo_baseline: PPOBaselineConfig = field(default_factory=PPOBaselineConfig)
+    ppo_framestack: PPOFrameStackConfig = field(default_factory=PPOFrameStackConfig)
+    ppo_recurrent: PPORecurrentConfig = field(default_factory=PPORecurrentConfig)
     dqn: DQNConfig = field(default_factory=DQNConfig)

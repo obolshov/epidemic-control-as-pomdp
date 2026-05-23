@@ -275,9 +275,14 @@ def train_ppo_agent(
         config, pomdp_params, seed, agent_name,
     )
 
-    # Create callbacks (recurrent agents use separate early-stop params)
+    # Create callbacks (each agent type has its own early-stop params)
     is_recurrent = agent_name.startswith("ppo_recurrent")
-    agent_config = config.recurrent if is_recurrent else config.ppo
+    if is_recurrent:
+        agent_config = config.ppo_recurrent
+    elif agent_name.startswith("ppo_framestack"):
+        agent_config = config.ppo_framestack
+    else:
+        agent_config = config.ppo_baseline
     callbacks = create_training_callbacks(
         eval_env, experiment_dir, agent_name, seed,
         n_envs=config.n_envs,
@@ -290,7 +295,7 @@ def train_ppo_agent(
 
     # Create model
     if is_recurrent:
-        rc = config.recurrent
+        rc = config.ppo_recurrent
         print(f"Using RecurrentPPO with MlpLstmPolicy")
         print(f"LSTM config: hidden_size={rc.lstm_hidden_size}")
         print(
@@ -311,25 +316,23 @@ def train_ppo_agent(
             batch_size=rc.batch_size,
             n_epochs=rc.n_epochs,
             gamma=rc.gamma,
-            clip_range=rc.clip_range,
             ent_coef=rc.ent_coef,
             learning_rate=linear_schedule(rc.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
     else:
-        ppo = config.ppo
+        ac = agent_config
         model = PPO(
             "MlpPolicy",
             env,
             verbose=1,
             seed=seed,
-            policy_kwargs={"net_arch": ppo.net_arch},
-            n_steps=ppo.n_steps,
-            batch_size=ppo.batch_size,
-            gamma=ppo.gamma,
-            clip_range=ppo.clip_range,
-            ent_coef=ppo.ent_coef,
-            learning_rate=linear_schedule(ppo.learning_rate, total_timesteps, config.lr_decay_steps),
+            policy_kwargs={"net_arch": ac.net_arch},
+            n_steps=ac.n_steps,
+            batch_size=ac.batch_size,
+            gamma=ac.gamma,
+            ent_coef=ac.ent_coef,
+            learning_rate=linear_schedule(ac.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
 

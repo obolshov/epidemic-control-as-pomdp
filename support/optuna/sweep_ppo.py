@@ -27,7 +27,7 @@ VALID_AGENTS = ("ppo_baseline", "ppo_framestack", "ppo_recurrent")
 def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None:
     """Suggest hyperparameters for the given agent and apply them to config."""
     if agent_name == "ppo_recurrent":
-        rc = config.recurrent
+        rc = config.ppo_recurrent
         rc.ent_coef = trial.suggest_float("ent_coef", 0.005, 0.5, log=True)
         rc.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
         rc.gamma = trial.suggest_float("gamma", 0.90, 0.999)
@@ -36,14 +36,14 @@ def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None
         rc.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
         rc.n_epochs = trial.suggest_categorical("n_epochs", [3, 5, 10])
     else:
-        ppo = config.ppo
-        ppo.ent_coef = trial.suggest_float("ent_coef", 0.005, 0.5, log=True)
-        ppo.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-        ppo.gamma = trial.suggest_float("gamma", 0.90, 0.999)
-        ppo.n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048, 4096])
-        ppo.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
+        ac = config.ppo_framestack if agent_name == "ppo_framestack" else config.ppo_baseline
+        ac.ent_coef = trial.suggest_float("ent_coef", 0.005, 0.5, log=True)
+        ac.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
+        ac.gamma = trial.suggest_float("gamma", 0.90, 0.999)
+        ac.n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048, 4096])
+        ac.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
         net_arch_key = trial.suggest_categorical("net_arch", list(NET_ARCH_MAP.keys()))
-        ppo.net_arch = NET_ARCH_MAP[net_arch_key][:]
+        ac.net_arch = NET_ARCH_MAP[net_arch_key][:]
 
         if agent_name == "ppo_framestack":
             config.n_stack = trial.suggest_categorical("n_stack", [5, 10, 15, 20, 30, 40, 50])
@@ -73,7 +73,12 @@ def objective(
         eval_env = create_eval_env(config, pomdp_params, seed, agent_name=agent_name)
 
         is_recurrent = agent_name == "ppo_recurrent"
-        agent_config = config.recurrent if is_recurrent else config.ppo
+        if is_recurrent:
+            agent_config = config.ppo_recurrent
+        elif agent_name == "ppo_framestack":
+            agent_config = config.ppo_framestack
+        else:
+            agent_config = config.ppo_baseline
         patience = agent_config.early_stop_patience
         min_evals = agent_config.early_stop_min_evals
 
@@ -98,7 +103,7 @@ def objective(
         )
 
         if agent_name == "ppo_recurrent":
-            rc = config.recurrent
+            rc = config.ppo_recurrent
             model = RecurrentPPO(
                 "MlpLstmPolicy",
                 env,
@@ -109,24 +114,22 @@ def objective(
                 batch_size=rc.batch_size,
                 n_epochs=rc.n_epochs,
                 gamma=rc.gamma,
-                clip_range=rc.clip_range,
                 ent_coef=rc.ent_coef,
                 learning_rate=linear_schedule(rc.learning_rate, timesteps, config.lr_decay_steps),
             )
         else:
-            ppo = config.ppo
+            ac = agent_config
             model = PPO(
                 "MlpPolicy",
                 env,
                 verbose=0,
                 seed=seed,
-                policy_kwargs={"net_arch": ppo.net_arch},
-                n_steps=ppo.n_steps,
-                batch_size=ppo.batch_size,
-                gamma=ppo.gamma,
-                clip_range=ppo.clip_range,
-                ent_coef=ppo.ent_coef,
-                learning_rate=linear_schedule(ppo.learning_rate, timesteps, config.lr_decay_steps),
+                policy_kwargs={"net_arch": ac.net_arch},
+                n_steps=ac.n_steps,
+                batch_size=ac.batch_size,
+                gamma=ac.gamma,
+                ent_coef=ac.ent_coef,
+                learning_rate=linear_schedule(ac.learning_rate, timesteps, config.lr_decay_steps),
             )
 
         try:
@@ -146,8 +149,14 @@ def objective(
 
 def _print_config_overrides(params: Dict, agent_name: str) -> None:
     """Print best hyperparameters as config.py field overrides."""
+    config_names = {
+        "ppo_recurrent": "PPORecurrentConfig",
+        "ppo_framestack": "PPOFrameStackConfig",
+        "ppo_baseline": "PPOBaselineConfig",
+    }
+    print(f"\n# {config_names[agent_name]} overrides:")
+
     if agent_name == "ppo_recurrent":
-        print(f"\n# RecurrentPPOConfig overrides:")
         print(f"ent_coef: float = {params['ent_coef']:.4f}")
         print(f"learning_rate: float = {params['learning_rate']:.6f}")
         print(f"gamma: float = {params['gamma']:.4f}")
@@ -156,7 +165,6 @@ def _print_config_overrides(params: Dict, agent_name: str) -> None:
         print(f"batch_size: int = {params['batch_size']}")
         print(f"n_epochs: int = {params['n_epochs']}")
     else:
-        print(f"\n# PPOConfig overrides:")
         print(f"ent_coef: float = {params['ent_coef']:.4f}")
         print(f"learning_rate: float = {params['learning_rate']:.6f}")
         print(f"gamma: float = {params['gamma']:.4f}")
