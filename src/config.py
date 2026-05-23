@@ -3,7 +3,64 @@ from typing import List
 
 
 @dataclass
+class PPOConfig:
+    """PPO baseline and framestack hyperparameters."""
+
+    learning_rate: float = 1e-4
+    gamma: float = 0.99
+    n_steps: int = 1024
+    batch_size: int = 256
+    clip_range: float = 0.2
+    ent_coef: float = 0.3
+    net_arch: List[int] = field(default_factory=lambda: [128, 128])
+    early_stop_patience: int = 60
+    early_stop_min_evals: int = 40
+
+
+@dataclass
+class RecurrentPPOConfig:
+    """RecurrentPPO (LSTM) hyperparameters."""
+
+    learning_rate: float = 1e-4
+    gamma: float = 0.95
+    n_steps: int = 64
+    batch_size: int = 64
+    n_epochs: int = 3
+    clip_range: float = 0.2
+    ent_coef: float = 0.3
+    lstm_hidden_size: int = 128
+    early_stop_patience: int = 30
+    early_stop_min_evals: int = 20
+
+
+@dataclass
+class DQNConfig:
+    """DQN hyperparameters."""
+
+    learning_rate: float = 3e-4
+    gamma: float = 0.99
+    buffer_size: int = 1_000_000
+    learning_starts: int = 10_000
+    batch_size: int = 32
+    exploration_fraction: float = 0.3
+    exploration_final_eps: float = 0.2
+    target_update_interval: int = 1
+    tau: float = 0.03
+    gradient_steps: int = 2
+    net_arch: List[int] = field(default_factory=lambda: [64, 64])
+    early_stop_patience: int = 60
+    early_stop_min_evals: int = 40
+
+
+@dataclass
 class Config:
+    """Master configuration for epidemic control experiments.
+
+    SEIR model, reward, evaluation, and scale parameters are top-level.
+    Agent-specific RL hyperparameters live in nested dataclasses:
+    ``ppo``, ``recurrent``, ``dqn``.
+    """
+
     # Population and epidemic parameters
     N: int = 200_000 # Total population size
     E0: int = 200 # Initial number of exposed individuals
@@ -30,56 +87,20 @@ class Config:
     # Frame stacking for temporal awareness
     n_stack: int = 30  # Number of consecutive observations to stack
 
-    # Recurrent agent parameters (LSTM)
-    lstm_hidden_size: int = 128
-
-    # Training hyperparameters
+    # Shared training parameters
     n_envs: int = 4  # Number of parallel environments for training
-    learning_rate: float = 3e-4  # Peak lr for all RL agents (with linear schedule)
     lr_decay_steps: int = 2_000_000  # LR decays to 10% of peak over this many steps, then holds
-    ent_coef: float = 0.2  # Entropy bonus for all RL agents
 
-    # PPO baseline/framestack hyperparameters
-    ppo_n_steps: int = 2048
-    ppo_batch_size: int = 64
-    ppo_gamma: float = 0.99
-    ppo_clip_range: float = 0.2
-    ppo_net_arch: List[int] = field(default_factory=lambda: [64, 64])
-
-    # RecurrentPPO hyperparameters
-    recurrent_n_steps: int = 256  # Rollout length per env for RecurrentPPO
-    recurrent_batch_size: int = 64  # Mini-batch size for RecurrentPPO
-    recurrent_n_epochs: int = 5  # Optimization epochs per rollout for RecurrentPPO
+    # Evaluation and early stopping (shared threshold)
+    eval_freq: int = 10_000             # Evaluate every N total timesteps
+    n_eval_episodes: int = 20           # Episodes per evaluation (higher = less noise in estimate)
+    early_stop_min_delta: float = 0.02  # Min raw reward delta (vs last significant best) to count as improvement
 
     # Experiment scale
     total_timesteps: int = 3_000_000  # Maximum timesteps for RL training
     num_training_seeds: int = 10  # Number of independent training seeds per agent
 
-    # Evaluation and early stopping hyperparameters
-    # Stopping triggers when `best_mean_reward` fails to improve by at least `early_stop_min_delta`
-    # for `early_stop_patience` consecutive evals after `early_stop_min_evals` warmup evals.
-    # Guaranteed min training = (min_evals + patience) * eval_freq.
-    eval_freq: int = 10_000             # Evaluate every N total timesteps
-    early_stop_patience: int = 60       # Evals without significant improvement before stopping (600k steps)
-    early_stop_min_evals: int = 40      # Warmup evals before stopping can trigger (400k steps)
-    early_stop_min_delta: float = 0.02  # Min raw reward delta (vs last significant best) to count as improvement
-    n_eval_episodes: int = 20           # Episodes per evaluation (higher = less noise in estimate)
-
-    # RecurrentPPO overrides: LSTM converges faster, so patience/min_evals are halved.
-    recurrent_early_stop_patience: int = 30   # 300k steps
-    recurrent_early_stop_min_evals: int = 20  # 200k steps
-
-    # DQN hyperparameters
-    dqn_gamma: float = 0.99
-    dqn_learning_rate: float = 3e-4
-    dqn_buffer_size: int = 1_000_000
-    dqn_learning_starts: int = 10_000
-    dqn_batch_size: int = 32
-    dqn_exploration_fraction: float = 0.3
-    dqn_exploration_final_eps: float = 0.2
-    dqn_target_update_interval: int = 1
-    dqn_tau: float = 0.03  # 1.0 = hard update; <1 = Polyak averaging
-    dqn_gradient_steps: int = 2
-    dqn_net_arch: List[int] = field(default_factory=lambda: [64, 64])
-    dqn_early_stop_patience: int = 60
-    dqn_early_stop_min_evals: int = 40
+    # Agent-specific hyperparameters
+    ppo: PPOConfig = field(default_factory=PPOConfig)
+    recurrent: RecurrentPPOConfig = field(default_factory=RecurrentPPOConfig)
+    dqn: DQNConfig = field(default_factory=DQNConfig)

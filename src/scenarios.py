@@ -5,7 +5,7 @@ This module defines standard POMDP scenarios and utilities for creating custom s
 Each scenario specifies POMDP parameters. Target agents are defined globally.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 from src.config import Config
 
@@ -20,23 +20,14 @@ TARGET_AGENTS = [
     "ppo_recurrent",
 ]
 
-# Maps base agent name → list of (suffix_key, config_attr).
+# Maps base agent name → list of (suffix_key, getter).
 # Non-default values are appended as "_key{value}" suffixes, allowing multiple
 # variants to coexist in the same scenario's weights directory.
 # Defaults are read from Config() at call time, so they stay in sync automatically.
 _DEFAULTS = Config()
-AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any], str]]] = {
-    "ppo_baseline": [
-        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
-    ],
+AGENT_VARIANT_PARAMS: Dict[str, List[Tuple[str, Callable[["Config"], Any]]]] = {
     "ppo_framestack": [
-        ("nstack", lambda cfg: cfg.n_stack, "n_stack"),
-        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
-    ],
-    "ppo_recurrent": [
-        ("lstm", lambda cfg: cfg.lstm_hidden_size, "lstm_hidden_size"),
-        ("ent", lambda cfg: cfg.ent_coef, "ent_coef"),
-        ("nsteps", lambda cfg: cfg.recurrent_n_steps, "recurrent_n_steps"),
+        ("nstack", lambda cfg: cfg.n_stack),
     ],
 }
 
@@ -72,9 +63,9 @@ def get_agent_variant_name(agent_name: str, config: "Config") -> str:
     """
     params = AGENT_VARIANT_PARAMS.get(agent_name, [])
     parts = []
-    for key, getter, attr_name in params:
+    for key, getter in params:
         value = getter(config)
-        if value != getattr(_DEFAULTS, attr_name):
+        if value != getter(_DEFAULTS):
             parts.append(f"{key}{value:.4g}" if isinstance(value, float) else f"{key}{value}")
     return (agent_name + "_" + "_".join(parts)) if parts else agent_name
 

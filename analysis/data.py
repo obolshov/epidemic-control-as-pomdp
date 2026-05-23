@@ -50,10 +50,6 @@ class AnalysisRun:
         return self.config["base_config"]["n_stack"]
 
     @property
-    def lstm_hidden_size(self) -> int:
-        return self.config["base_config"]["lstm_hidden_size"]
-
-    @property
     def total_timesteps(self) -> int:
         return self.config["base_config"].get("total_timesteps",
                self.config.get("total_timesteps", 0))
@@ -121,7 +117,7 @@ class AnalysisRun:
             agent_name: Agent identifier.
 
         Returns:
-            Flat dict with label, agent, metrics, n_stack, lstm_hidden_size.
+            Flat dict with label, agent, metrics, n_stack.
         """
         row: dict[str, Any] = {
             "label": self.label,
@@ -129,7 +125,6 @@ class AnalysisRun:
         }
         row.update(self.agent_metrics(agent_name))
         row["n_stack"] = self.n_stack
-        row["lstm_hidden_size"] = self.lstm_hidden_size
         return row
 
 

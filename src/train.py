@@ -277,60 +277,59 @@ def train_ppo_agent(
 
     # Create callbacks (recurrent agents use separate early-stop params)
     is_recurrent = agent_name.startswith("ppo_recurrent")
+    agent_config = config.recurrent if is_recurrent else config.ppo
     callbacks = create_training_callbacks(
         eval_env, experiment_dir, agent_name, seed,
         n_envs=config.n_envs,
         eval_freq=config.eval_freq,
         n_eval_episodes=config.n_eval_episodes,
-        patience=config.recurrent_early_stop_patience if is_recurrent else config.early_stop_patience,
-        min_evals=config.recurrent_early_stop_min_evals if is_recurrent else config.early_stop_min_evals,
+        patience=agent_config.early_stop_patience,
+        min_evals=agent_config.early_stop_min_evals,
         min_delta=config.early_stop_min_delta,
     )
 
     # Create model
-    if agent_name.startswith("ppo_recurrent"):
+    if is_recurrent:
+        rc = config.recurrent
         print(f"Using RecurrentPPO with MlpLstmPolicy")
-        print(f"LSTM config: hidden_size={config.lstm_hidden_size}")
+        print(f"LSTM config: hidden_size={rc.lstm_hidden_size}")
         print(
-            f"Training config: n_steps={config.recurrent_n_steps}, "
-            f"batch_size={config.recurrent_batch_size}, "
-            f"n_epochs={config.recurrent_n_epochs}, "
-            f"ent_coef={config.ent_coef}, "
-            f"lr={config.learning_rate}"
+            f"Training config: n_steps={rc.n_steps}, "
+            f"batch_size={rc.batch_size}, "
+            f"n_epochs={rc.n_epochs}, "
+            f"ent_coef={rc.ent_coef}, "
+            f"lr={rc.learning_rate}"
         )
-
-        policy_kwargs = {
-            "lstm_hidden_size": config.lstm_hidden_size,
-        }
 
         model = RecurrentPPO(
             "MlpLstmPolicy",
             env,
             verbose=1,
             seed=seed,
-            policy_kwargs=policy_kwargs,
-            n_steps=config.recurrent_n_steps,
-            batch_size=config.recurrent_batch_size,
-            n_epochs=config.recurrent_n_epochs,
-            gamma=config.ppo_gamma,
-            clip_range=config.ppo_clip_range,
-            ent_coef=config.ent_coef,
-            learning_rate=linear_schedule(config.learning_rate, total_timesteps, config.lr_decay_steps),
+            policy_kwargs={"lstm_hidden_size": rc.lstm_hidden_size},
+            n_steps=rc.n_steps,
+            batch_size=rc.batch_size,
+            n_epochs=rc.n_epochs,
+            gamma=rc.gamma,
+            clip_range=rc.clip_range,
+            ent_coef=rc.ent_coef,
+            learning_rate=linear_schedule(rc.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
     else:
+        ppo = config.ppo
         model = PPO(
             "MlpPolicy",
             env,
             verbose=1,
             seed=seed,
-            policy_kwargs={"net_arch": config.ppo_net_arch},
-            n_steps=config.ppo_n_steps,
-            batch_size=config.ppo_batch_size,
-            gamma=config.ppo_gamma,
-            clip_range=config.ppo_clip_range,
-            ent_coef=config.ent_coef,
-            learning_rate=linear_schedule(config.learning_rate, total_timesteps, config.lr_decay_steps),
+            policy_kwargs={"net_arch": ppo.net_arch},
+            n_steps=ppo.n_steps,
+            batch_size=ppo.batch_size,
+            gamma=ppo.gamma,
+            clip_range=ppo.clip_range,
+            ent_coef=ppo.ent_coef,
+            learning_rate=linear_schedule(ppo.learning_rate, total_timesteps, config.lr_decay_steps),
             tensorboard_log=str(experiment_dir.tensorboard_dir),
         )
 
@@ -414,48 +413,47 @@ def train_dqn_agent(
         config, pomdp_params, seed, agent_name,
     )
 
+    dqn = config.dqn
     callbacks = create_training_callbacks(
         eval_env, experiment_dir, agent_name, seed,
         n_envs=n_envs,
         eval_freq=config.eval_freq,
         n_eval_episodes=config.n_eval_episodes,
-        patience=config.dqn_early_stop_patience,
-        min_evals=config.dqn_early_stop_min_evals,
+        patience=dqn.early_stop_patience,
+        min_evals=dqn.early_stop_min_evals,
         min_delta=config.early_stop_min_delta,
     )
-
-    policy_kwargs = {"net_arch": config.dqn_net_arch}
 
     model = DQN(
         "MlpPolicy",
         env,
         verbose=1,
         seed=seed,
-        policy_kwargs=policy_kwargs,
-        learning_rate=config.dqn_learning_rate,
-        buffer_size=config.dqn_buffer_size,
-        learning_starts=config.dqn_learning_starts,
-        batch_size=config.dqn_batch_size,
-        tau=config.dqn_tau,
-        gradient_steps=config.dqn_gradient_steps,
-        gamma=config.dqn_gamma,
+        policy_kwargs={"net_arch": dqn.net_arch},
+        learning_rate=dqn.learning_rate,
+        buffer_size=dqn.buffer_size,
+        learning_starts=dqn.learning_starts,
+        batch_size=dqn.batch_size,
+        tau=dqn.tau,
+        gradient_steps=dqn.gradient_steps,
+        gamma=dqn.gamma,
         train_freq=4,
-        target_update_interval=config.dqn_target_update_interval,
-        exploration_fraction=config.dqn_exploration_fraction,
+        target_update_interval=dqn.target_update_interval,
+        exploration_fraction=dqn.exploration_fraction,
         exploration_initial_eps=1.0,
-        exploration_final_eps=config.dqn_exploration_final_eps,
+        exploration_final_eps=dqn.exploration_final_eps,
         tensorboard_log=str(experiment_dir.tensorboard_dir),
     )
 
     print(f"Training {agent_name} (seed={seed}) for up to {total_timesteps} timesteps...")
     print(
-        f"DQN config: net_arch={config.dqn_net_arch}, "
-        f"tau={config.dqn_tau}, "
-        f"buffer_size={config.dqn_buffer_size}, "
-        f"learning_starts={config.dqn_learning_starts}, "
-        f"batch_size={config.dqn_batch_size}, "
-        f"exploration_fraction={config.dqn_exploration_fraction}, "
-        f"lr={config.dqn_learning_rate}"
+        f"DQN config: net_arch={dqn.net_arch}, "
+        f"tau={dqn.tau}, "
+        f"buffer_size={dqn.buffer_size}, "
+        f"learning_starts={dqn.learning_starts}, "
+        f"batch_size={dqn.batch_size}, "
+        f"exploration_fraction={dqn.exploration_fraction}, "
+        f"lr={dqn.learning_rate}"
     )
 
     model.learn(

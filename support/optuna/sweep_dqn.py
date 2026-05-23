@@ -31,16 +31,17 @@ def objective(
     pomdp_params = scenario_config["pomdp_params"]
 
     config = Config()
+    dqn = config.dqn
 
-    config.dqn_gamma = trial.suggest_float("gamma", 0.90, 0.999)
-    config.dqn_learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    config.dqn_batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
-    config.dqn_exploration_fraction = trial.suggest_float("exploration_fraction", 0.1, 0.5)
-    config.dqn_exploration_final_eps = trial.suggest_float("exploration_final_eps", 0.01, 0.3)
-    config.dqn_tau = trial.suggest_float("tau", 0.001, 0.05, log=True)
-    config.dqn_gradient_steps = trial.suggest_categorical("gradient_steps", [1, 2, 4])
+    dqn.gamma = trial.suggest_float("gamma", 0.90, 0.999)
+    dqn.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
+    dqn.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
+    dqn.exploration_fraction = trial.suggest_float("exploration_fraction", 0.1, 0.5)
+    dqn.exploration_final_eps = trial.suggest_float("exploration_final_eps", 0.01, 0.3)
+    dqn.tau = trial.suggest_float("tau", 0.001, 0.05, log=True)
+    dqn.gradient_steps = trial.suggest_categorical("gradient_steps", [1, 2, 4])
     net_arch_key = trial.suggest_categorical("net_arch", list(NET_ARCH_MAP.keys()))
-    config.dqn_net_arch = NET_ARCH_MAP[net_arch_key][:]
+    dqn.net_arch = NET_ARCH_MAP[net_arch_key][:]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         monitor_dir = Path(tmpdir) / "monitor"
@@ -50,8 +51,8 @@ def objective(
         eval_env = create_eval_env(config, pomdp_params, seed, agent_name="dqn")
 
         stop_callback = StopTrainingOnNoModelImprovementWithDelta(
-            max_no_improvement_evals=config.dqn_early_stop_patience,
-            min_evals=config.dqn_early_stop_min_evals,
+            max_no_improvement_evals=dqn.early_stop_patience,
+            min_evals=dqn.early_stop_min_evals,
             min_delta=config.early_stop_min_delta,
             verbose=0,
         )
@@ -75,19 +76,19 @@ def objective(
             env,
             verbose=0,
             seed=seed,
-            policy_kwargs={"net_arch": config.dqn_net_arch},
-            learning_rate=config.dqn_learning_rate,
-            buffer_size=config.dqn_buffer_size,
-            learning_starts=config.dqn_learning_starts,
-            batch_size=config.dqn_batch_size,
-            tau=config.dqn_tau,
-            gradient_steps=config.dqn_gradient_steps,
-            gamma=config.dqn_gamma,
+            policy_kwargs={"net_arch": dqn.net_arch},
+            learning_rate=dqn.learning_rate,
+            buffer_size=dqn.buffer_size,
+            learning_starts=dqn.learning_starts,
+            batch_size=dqn.batch_size,
+            tau=dqn.tau,
+            gradient_steps=dqn.gradient_steps,
+            gamma=dqn.gamma,
             train_freq=4,
-            target_update_interval=config.dqn_target_update_interval,
-            exploration_fraction=config.dqn_exploration_fraction,
+            target_update_interval=dqn.target_update_interval,
+            exploration_fraction=dqn.exploration_fraction,
             exploration_initial_eps=1.0,
-            exploration_final_eps=config.dqn_exploration_final_eps,
+            exploration_final_eps=dqn.exploration_final_eps,
         )
 
         try:
@@ -134,14 +135,14 @@ def main() -> None:
         print(f"  {key}: {value}")
 
     p = study.best_trial.params
-    print(f"\n# Config overrides for best DQN params:")
-    print(f"dqn_learning_rate: float = {p['learning_rate']:.6f}")
-    print(f"dqn_batch_size: int = {p['batch_size']}")
-    print(f"dqn_exploration_fraction: float = {p['exploration_fraction']:.4f}")
-    print(f"dqn_exploration_final_eps: float = {p['exploration_final_eps']:.4f}")
-    print(f"dqn_tau: float = {p['tau']:.6f}")
-    print(f"dqn_gradient_steps: int = {p['gradient_steps']}")
-    print(f"dqn_net_arch: List[int] = field(default_factory=lambda: {NET_ARCH_MAP[p['net_arch']]})")
+    print(f"\n# DQNConfig overrides:")
+    print(f"learning_rate: float = {p['learning_rate']:.6f}")
+    print(f"batch_size: int = {p['batch_size']}")
+    print(f"exploration_fraction: float = {p['exploration_fraction']:.4f}")
+    print(f"exploration_final_eps: float = {p['exploration_final_eps']:.4f}")
+    print(f"tau: float = {p['tau']:.6f}")
+    print(f"gradient_steps: int = {p['gradient_steps']}")
+    print(f"net_arch: List[int] = field(default_factory=lambda: {NET_ARCH_MAP[p['net_arch']]})")
 
 
 if __name__ == "__main__":

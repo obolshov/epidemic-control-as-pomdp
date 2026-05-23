@@ -95,10 +95,7 @@ Key options:
 - `--timesteps, -t`: Training timesteps per seed (default: 3 000 000)
 - `--num-seeds, -n`: Number of independent training seeds (default: 10)
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
-- `--lstm-hidden-size`: LSTM hidden size for RecurrentPPO (default: 128). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_lstm64`), so variants coexist in the same weights directory.
 - `--n-stack`: FrameStack depth for ppo_framestack (default: 30). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
-- `--ent-coef`: Entropy bonus for all RL agents (default: 0.2). Non-default values are encoded in the agent name (e.g. `ppo_baseline_ent0.05`).
-- `--recurrent-n-steps`: Rollout length per env for RecurrentPPO (default: 256). Non-default values are encoded in the agent name (e.g. `ppo_recurrent_nsteps512`).
 - `--experiment-name`: Custom experiment folder name (default: auto-generated from scenario and timesteps, e.g. `pomdp_t3000000`). Useful when the auto-generated name is too verbose or you want a semantic label for the top-level folder.
 - `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). Supports incremental runs: reusing an existing folder is allowed as long as agents being trained don't already have logs there.
 **Training behavior:**
