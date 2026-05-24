@@ -6,11 +6,11 @@ from typing import List
 class PPOBaselineConfig:
     """PPO baseline (no memory) hyperparameters."""
 
-    learning_rate: float = 1e-3
-    gamma: float = 0.95
-    n_steps: int = 1024
-    batch_size: int = 256
-    ent_coef: float = 0.3
+    learning_rate: float = 3e-4
+    gamma: float = 0.99
+    n_steps: int = 2048
+    batch_size: int = 64
+    ent_coef: float = 0.2
     net_arch: List[int] = field(default_factory=lambda: [64, 64])
     early_stop_patience: int = 60
     early_stop_min_evals: int = 40
@@ -20,11 +20,11 @@ class PPOBaselineConfig:
 class PPOFrameStackConfig:
     """PPO with FrameStack hyperparameters."""
 
-    learning_rate: float = 1e-4
+    learning_rate: float = 3e-4
     gamma: float = 0.99
-    n_steps: int = 1024
-    batch_size: int = 256
-    ent_coef: float = 0.3
+    n_steps: int = 2048
+    batch_size: int = 64
+    ent_coef: float = 0.2
     net_arch: List[int] = field(default_factory=lambda: [64, 64])
     early_stop_patience: int = 60
     early_stop_min_evals: int = 40
@@ -34,12 +34,12 @@ class PPOFrameStackConfig:
 class PPORecurrentConfig:
     """RecurrentPPO (LSTM) hyperparameters."""
 
-    learning_rate: float = 1e-4
-    gamma: float = 0.95
-    n_steps: int = 64
+    learning_rate: float = 3e-4
+    gamma: float = 0.99
+    n_steps: int = 256
     batch_size: int = 64
-    n_epochs: int = 3
-    ent_coef: float = 0.3
+    n_epochs: int = 5
+    ent_coef: float = 0.2
     lstm_hidden_size: int = 128
     early_stop_patience: int = 30
     early_stop_min_evals: int = 20
