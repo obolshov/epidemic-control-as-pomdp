@@ -8,7 +8,7 @@
 # Rules
 - **No backward compatibility.** When changing behavior, replace the old code path entirely. No `if-else` fallbacks preserving old logic.
 - **Never delete `experiments/` data.** Timestamped results are not reproducible cheaply (~25 min per full run).
-- **Always activate venv** (`source venv/Scripts/activate`) before running Python.
+- **Use venv Python directly:** `venv/Scripts/python.exe` (not `source venv/Scripts/activate`).
 - **Smoke tests:** use `--scenario <name> -t 1000 --num-seeds 2`. Scenario folder includes timesteps (`mdp_t1000`), so no collision with real experiment weights.
 - **Before committing**, check whether `README.md` or `CLAUDE.md` need updating. Include doc changes in the same commit.
 - **Google-style docstrings** for classes and major functions. Document input/output shapes for tensors/arrays.

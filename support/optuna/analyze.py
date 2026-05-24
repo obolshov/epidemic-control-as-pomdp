@@ -1,9 +1,12 @@
-"""Analyze Optuna sweep CSV exports — parameter ranges in top trials.
+"""Analyze Optuna sweep results — parameter ranges and top trials.
+
+Reads directly from the shared SQLite DB via Optuna API.
 
 Usage:
-    python -m support.optuna.analyze results.csv
-    python -m support.optuna.analyze results.csv --top 10
-    python -m support.optuna.analyze results.csv --within-abs 0.15
+    python -m support.optuna.analyze --study ppo_baseline
+    python -m support.optuna.analyze --study ppo_baseline --top 10
+    python -m support.optuna.analyze --study dqn --within-abs 0.15
+    python -m support.optuna.analyze --study ppo_baseline --export-csv out.csv
 """
 
 import argparse
@@ -12,18 +15,44 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import optuna
 import pandas as pd
 
-EXPORTS_DIR = Path(__file__).parent / "exports"
+from support.optuna.utils import DB_PATH
 
 
-def load_trials(path: str) -> pd.DataFrame:
-    """Load CSV, keep COMPLETE and PRUNED trials, drop all-NaN param columns."""
-    df = pd.read_csv(path)
-    df.columns = [c.replace("Param ", "") if c.startswith("Param ") else c for c in df.columns]
-    trials = df[df["State"].isin(("COMPLETE", "PRUNED"))].copy()
-    trials = trials.dropna(axis=1, how="all")
-    return trials
+def load_study(study_name: str) -> optuna.Study:
+    """Load a study from the shared DB."""
+    return optuna.load_study(study_name=study_name, storage=f"sqlite:///{DB_PATH}")
+
+
+def _trials_to_dataframe(study: optuna.Study) -> pd.DataFrame:
+    """Convert study trials to a DataFrame with params and per-seed rewards."""
+    rows = []
+    for trial in study.trials:
+        if trial.state not in (optuna.trial.TrialState.COMPLETE, optuna.trial.TrialState.PRUNED):
+            continue
+        row = {
+            "Number": trial.number,
+            "State": trial.state.name,
+            "Value": trial.value,
+        }
+        row.update(trial.params)
+
+        seed_rewards = {k: v for k, v in trial.user_attrs.items() if k.startswith("reward_seed_")}
+        if seed_rewards:
+            vals = list(seed_rewards.values())
+            row["seed_std"] = float(np.std(vals, ddof=1))
+            row["seeds"] = vals
+
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    seed_cols = [c for c in ("seed_std", "seeds") if c in df.columns]
+    param_df = df.drop(columns=seed_cols, errors="ignore").dropna(axis=1, how="all")
+    for c in seed_cols:
+        param_df[c] = df[c]
+    return param_df
 
 
 def select_top(df: pd.DataFrame, method: str, value: float) -> pd.DataFrame:
@@ -38,7 +67,8 @@ def select_top(df: pd.DataFrame, method: str, value: float) -> pd.DataFrame:
 
 
 def _param_cols(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in ("Number", "State", "Value")]
+    skip = {"Number", "State", "Value", "seed_std", "seeds"}
+    return [c for c in df.columns if c not in skip]
 
 
 def _fmt(v: float) -> str:
@@ -48,7 +78,6 @@ def _fmt(v: float) -> str:
 
 
 def _fmt_val(v) -> str:
-    """Format a single parameter value from CSV (float, int, or string)."""
     if isinstance(v, str):
         return v
     if isinstance(v, float) and not v.is_integer():
@@ -123,14 +152,26 @@ def print_param_table(top: pd.DataFrame, full: pd.DataFrame) -> None:
 def print_top_trials(top: pd.DataFrame) -> None:
     """Print individual top trials as a formatted table."""
     params = _param_cols(top)
+    has_seeds = "seed_std" in top.columns
 
     formatted: dict[str, list[str]] = {"#": [], "Value": []}
+    if has_seeds:
+        formatted["seed_std"] = []
+        formatted["seeds"] = []
     for c in params:
         formatted[c] = []
 
     for _, row in top.iterrows():
         formatted["#"].append(str(int(row["Number"])))
         formatted["Value"].append(f"{row['Value']:.4f}")
+        if has_seeds:
+            std = row.get("seed_std")
+            formatted["seed_std"].append(f"{std:.4f}" if pd.notna(std) else "")
+            seeds = row.get("seeds")
+            if isinstance(seeds, list):
+                formatted["seeds"].append("[" + ", ".join(f"{s:.3f}" for s in seeds) + "]")
+            else:
+                formatted["seeds"].append("")
         for c in params:
             v = row[c]
             if pd.isna(v):
@@ -149,13 +190,34 @@ def print_top_trials(top: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze Optuna sweep CSV results")
-    parser.add_argument("csv", help="Path to Optuna CSV export")
+    parser = argparse.ArgumentParser(description="Analyze Optuna sweep results")
+    parser.add_argument("--study", required=True, help="Study name (e.g. ppo_baseline, dqn)")
     parser.add_argument("--exclude", type=int, nargs="+", default=[], help="Trial numbers to exclude")
+    parser.add_argument("--export-csv", type=str, default=None, help="Export study to CSV file")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Select top N trials (default: 10)")
     group.add_argument("--within-abs", type=float, default=None, help="Trials within N absolute of best")
     args = parser.parse_args()
+
+    if not DB_PATH.exists():
+        print(f"No database found at {DB_PATH}")
+        sys.exit(1)
+
+    study = load_study(args.study)
+    df = _trials_to_dataframe(study)
+
+    if args.exclude:
+        df = df[~df["Number"].isin(args.exclude)]
+
+    if args.export_csv:
+        export_path = Path(args.export_csv)
+        df.to_csv(export_path, index=False)
+        print(f"Exported {len(df)} trials to {export_path}")
+        return
+
+    if len(df) == 0:
+        print("No completed trials found.")
+        sys.exit(1)
 
     if args.top is not None:
         method, value, label = "top", args.top, f"top {args.top}"
@@ -164,22 +226,21 @@ def main() -> None:
     else:
         method, value, label = "top", 10, "top 10"
 
-    csv_path = Path(args.csv)
-    if not csv_path.exists():
-        csv_path = EXPORTS_DIR / args.csv
-    df = load_trials(str(csv_path))
-    if args.exclude:
-        df = df[~df["Number"].isin(args.exclude)]
-    if len(df) == 0:
-        print("No completed trials found.")
-        sys.exit(1)
-
     top = select_top(df, method, value)
 
-    print(f"\nCompleted trials: {len(df)}")
+    complete_count = len(df[df["State"] == "COMPLETE"])
+    pruned_count = len(df[df["State"] == "PRUNED"])
+    print(f"\nStudy: {args.study}")
+    print(f"Trials: {len(df)} total ({complete_count} complete, {pruned_count} pruned)")
     print(f"Selected ({label}): {len(top)}")
     print(f"Reward range (selected): [{top['Value'].min():.4f}, {top['Value'].max():.4f}]")
     print(f"Reward range (all):      [{df['Value'].min():.4f}, {df['Value'].max():.4f}]")
+
+    if "seed_std" in top.columns:
+        valid_std = top["seed_std"].dropna()
+        if len(valid_std) > 0:
+            print(f"Seed std (selected):     [{valid_std.min():.4f}, {valid_std.max():.4f}]  mean={valid_std.mean():.4f}")
+
     print(f"\nParameter ranges:")
     print("  Edge flags: << LOW / >> HIGH = median near search boundary (continuous)")
     print("              << MIN / >> MAX  = mode at boundary (categorical)\n")

@@ -6,6 +6,9 @@ from typing import ClassVar
 import optuna
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
+DB_PATH = Path(__file__).parent / "db" / "sweeps.db"
+CROSS_SEED_BASE = 100_000
+
 NET_ARCH_MAP = {
     "64_64": [64, 64],
     "128_128": [128, 128],
@@ -31,10 +34,12 @@ class TrialReportCallback(BaseCallback):
 
 
 def create_optuna_study(study_name: str) -> optuna.Study:
-    """Create a standardized Optuna study with TPE sampler and median pruner."""
-    db_dir = Path(__file__).parent / "db"
-    db_dir.mkdir(exist_ok=True)
-    storage = f"sqlite:///{db_dir / f'{study_name}.db'}"
+    """Create a standardized Optuna study with TPE sampler and median pruner.
+
+    All studies share a single SQLite DB (one study per agent type).
+    """
+    DB_PATH.parent.mkdir(exist_ok=True)
+    storage = f"sqlite:///{DB_PATH}"
     return optuna.create_study(
         study_name=study_name,
         direction="maximize",
