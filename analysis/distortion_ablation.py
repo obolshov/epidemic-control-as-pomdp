@@ -14,8 +14,8 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
+from analysis import style
 from analysis.data import AnalysisRun, load_analysis
-from src.utils import _save_or_show
 
 ANALYSIS_NAME = "distortion_ablation"
 
@@ -78,7 +78,8 @@ def plot_distortion_ablation(
             abl_reward = runs[ablation].agent_metrics(agent)["cross_seed_mean_reward"]
             delta[i, j] = abl_reward - mdp_reward
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    style.apply_style()
+    fig, ax = plt.subplots(figsize=(style.FIG_WIDTH, 4))
 
     # Symmetric color scale centered at 0
     abs_max = max(abs(delta.min()), abs(delta.max()), 0.05)
@@ -93,7 +94,8 @@ def plot_distortion_ablation(
             color = "white" if norm_val < 0.35 or norm_val > 0.85 else "black"
             ax.text(
                 j, i, f"{delta[i, j]:+.2f}",
-                ha="center", va="center", color=color, fontsize=11,
+                ha="center", va="center", color=color,
+                fontsize=style.ANNOTATION_FONTSIZE,
             )
 
     ax.set_xticks(range(len(ABLATION_ORDER)))
@@ -106,7 +108,7 @@ def plot_distortion_ablation(
 
     ax.set_title("Distortion Ablation: Performance Drop by Distortion Type")
     plt.tight_layout()
-    _save_or_show(save_path)
+    style.save_figure(save_path)
 
 
 if __name__ == "__main__":
@@ -118,6 +120,6 @@ if __name__ == "__main__":
     print_summary_table(runs)
     print()
 
-    save_path = str(output_dir / "distortion_ablation.png")
+    save_path = str(output_dir / "distortion_ablation.pdf")
     plot_distortion_ablation(runs, save_path=save_path)
     print(f"Heatmap saved to {save_path}")

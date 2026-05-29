@@ -29,6 +29,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 
+from analysis import style
 from analysis.data import EXPERIMENTS_DIR
 from src.config import (
     Config,
@@ -47,13 +48,6 @@ SEIR_LABELS = {
     "I": "Infected (I)",
     "R": "Recovered (R)",
 }
-
-# Publication styling
-TITLE_FONTSIZE = 40
-TICK_FONTSIZE = 32
-AXIS_LABEL_FONTSIZE = 46
-LEGEND_FONTSIZE = 38
-LINEWIDTH = 7.0
 
 
 def _config_from_dict(base_config: dict) -> Config:
@@ -164,14 +158,16 @@ def _make_axes(num_agents: int):
     """
     if num_agents <= 5:
         fig, ax_array = plt.subplots(
-            1, num_agents, figsize=(7 * num_agents, 6), layout="constrained"
+            1, num_agents,
+            figsize=(style.SEIR_PANEL_WIDTH * num_agents, style.SEIR_PANEL_HEIGHT),
+            layout="constrained",
         )
         axes = [ax_array] if num_agents == 1 else list(ax_array)
         return fig, axes, {0}
 
     ncols = ceil(num_agents / 2)
     second_row_count = num_agents - ncols
-    figsize = (7 * ncols, 12)
+    figsize = (style.SEIR_PANEL_WIDTH * ncols, style.SEIR_TWO_ROW_HEIGHT)
 
     if second_row_count == ncols:
         fig, ax_array = plt.subplots(2, ncols, figsize=figsize, layout="constrained")
@@ -201,56 +197,57 @@ def plot_seir_grid(
     days: int,
     save_path_base: Path,
 ) -> None:
-    """Render the publication SEIR grid and save it as PNG and PDF.
+    """Render the publication SEIR grid and save it as PDF.
 
     Args:
         curves: Ordered mapping agent_name -> AggregatedResult (panel order preserved).
         population: Total population N, sets the shared y-axis limit.
         days: Total simulation length in days, sets the shared x-axis limit.
-        save_path_base: Output path without extension; ``.png`` and ``.pdf``
-            are written.
+        save_path_base: Output path without extension; ``.pdf`` is written.
     """
     fig, axes, left_panels = _make_axes(len(curves))
     # Extra vertical gap between the two panel rows so the bottom row's titles
     # clear the top row's x-axis ticks (constrained_layout default is ~0.02).
-    fig.get_layout_engine().set(hspace=0.14)
+    fig.get_layout_engine().set(hspace=style.SEIR_ROW_HSPACE)
 
     for idx, (agent, c) in enumerate(curves.items()):
         ax = axes[idx]
         for comp in ("S", "E", "I", "R"):
-            ax.plot(c.t, getattr(c, f"{comp}_mean"), color=SEIR_COLORS[comp], linewidth=LINEWIDTH)
+            ax.plot(
+                c.t, getattr(c, f"{comp}_mean"),
+                color=SEIR_COLORS[comp], linewidth=style.SEIR_LINEWIDTH,
+            )
 
-        ax.set_title(display_name(agent), fontsize=TITLE_FONTSIZE, fontweight="bold")
+        ax.set_title(display_name(agent), fontsize=style.SEIR_TITLE_FONTSIZE, fontweight="bold")
         ax.set_xlim(0, days)
         ax.set_ylim(0, population * 1.02)
         ax.grid(True, alpha=0.3)
-        ax.tick_params(axis="both", labelsize=TICK_FONTSIZE)
+        ax.tick_params(axis="both", labelsize=style.SEIR_TICK_FONTSIZE)
 
         if idx in left_panels:
             ax.yaxis.set_major_formatter(FuncFormatter(_thousands))
         else:
             ax.tick_params(labelleft=False)
 
-    handles = [Line2D([0], [0], color=SEIR_COLORS[c], linewidth=10) for c in ("S", "E", "I", "R")]
+    handles = [
+        Line2D([0], [0], color=SEIR_COLORS[c], linewidth=style.SEIR_LEGEND_HANDLE_LINEWIDTH)
+        for c in ("S", "E", "I", "R")
+    ]
     labels = [SEIR_LABELS[c] for c in ("S", "E", "I", "R")]
 
     # constrained_layout (set in _make_axes) places the shared axis labels
     # without overlapping panels. The legend sits just below the figure; the
     # bbox_inches="tight" save expands the canvas to include it.
-    fig.supxlabel("Time (days)", fontsize=AXIS_LABEL_FONTSIZE)
-    fig.supylabel("Number of people", fontsize=AXIS_LABEL_FONTSIZE)
+    fig.supxlabel("Time (days)", fontsize=style.SEIR_AXIS_LABEL_FONTSIZE)
+    fig.supylabel("Number of people", fontsize=style.SEIR_AXIS_LABEL_FONTSIZE)
     fig.legend(
         handles, labels,
-        loc="upper center", ncol=4, fontsize=LEGEND_FONTSIZE,
+        loc="upper center", ncol=4, fontsize=style.SEIR_LEGEND_FONTSIZE,
         frameon=False, bbox_to_anchor=(0.5, -0.01),
     )
 
-    png_path = save_path_base.with_suffix(".png")
-    pdf_path = save_path_base.with_suffix(".pdf")
-    plt.savefig(png_path, dpi=300, bbox_inches="tight")
-    plt.savefig(pdf_path, bbox_inches="tight")
-    plt.close(fig)
-    print(f"\nSaved:\n  {png_path}\n  {pdf_path}")
+    style.save_figure(save_path_base)
+    print(f"\nSaved:\n  {save_path_base.with_suffix('.pdf')}")
 
 
 def main() -> None:

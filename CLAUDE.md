@@ -22,6 +22,7 @@
 - `analysis/data.py`: `load_analysis(name)` → `dict[str, AnalysisRun]` with config + summary + evaluation.
 - Analysis scripts: `python -m analysis.pomdp_gap`, `python -m analysis.significance_tests`, `python -m analysis.framestack_ablation`, `python -m analysis.distortion_ablation`, `python -m analysis.reward_grid <grid_name>` (reward-only 2D table across scenarios × agents; grid config in `analyses.json["reward_grid"]`).
 - **Training diagnostics:** `python -m analysis.training_summary <experiment_path>` — per-seed best eval reward, best step, final step, early stopping status. Reads `evaluations.npz` directly (no manifest needed). Example: `python -m analysis.training_summary pomdp_t3000000/default`.
+- **Publication figures:** `analysis/` plot scripts route styling through `analysis/style.py` — call `apply_style()`, save via `save_figure()` (PDF), use `FIG_WIDTH`; don't hardcode figsize/fontsize/savefig. (`seir` is the exception: its own larger `SEIR_*` scale, no `apply_style()`.)
 
 # Invariants: Observation Space
 - Base obs shape `(6,)`: `[S, E, I, R, prev_action_idx, day_frac]`.

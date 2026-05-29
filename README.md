@@ -195,7 +195,7 @@ Checks that all manifest entries point to existing directories with `config.json
 python -m analysis.pomdp_gap
 ```
 
-Produces `analysis_output/pomdp_gap_plot.png` — a 3-panel figure (Reward, Total Infected, Total Stringency) with error bars.
+Produces `analysis_output/pomdp_gap_plot.pdf` — a 3-panel figure (Reward, Total Infected, Total Stringency) with error bars.
 
 ### Statistical Significance Tests
 
@@ -211,7 +211,7 @@ Wilcoxon signed-rank tests with Holm-Bonferroni correction for pairwise agent co
 python -m analysis.distortion_ablation
 ```
 
-Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.png`) showing how much each isolated distortion type (incompleteness, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for the isolated distortion scenarios (`incompleteness`, `only_noise`, `only_temporal`) plus `mdp`; map these to analysis keys in `analyses.json` under `distortion_ablation`.
+Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation.pdf`) showing how much each isolated distortion type (incompleteness, noise, temporal) degrades each agent's reward relative to the MDP baseline. Requires experiments for the isolated distortion scenarios (`incompleteness`, `only_noise`, `only_temporal`) plus `mdp`; map these to analysis keys in `analyses.json` under `distortion_ablation`.
 
 ### FrameStack Window Size Ablation
 
@@ -219,7 +219,7 @@ Prints a summary table and saves a heatmap (`analysis_output/distortion_ablation
 python -m analysis.framestack_ablation
 ```
 
-Prints a summary table of all n_stack metrics, saves a line plot of reward vs. `n_stack` with RecurrentPPO and PPO baseline reference lines (`analysis_output/framestack_ablation.png`), and plots training learning curves for selected window sizes (`analysis_output/framestack_learning_curves.png`).
+Prints a summary table of all n_stack metrics, saves a line plot of reward vs. `n_stack` with RecurrentPPO and PPO baseline reference lines (`analysis_output/framestack_ablation.pdf`), and plots training learning curves for selected window sizes (`analysis_output/framestack_learning_curves.png`).
 
 To run an ablation without retraining baseline/recurrent for each variant:
 ```bash
@@ -266,7 +266,7 @@ python -m analysis.seir pomdp_t3000000/default
 python -m analysis.seir pomdp_t3000000/default --agents no_action ppo_framestack
 ```
 
-Publication-styled version of the multi-agent SEIR comparison grid (one panel per agent, 4+3 layout), saved as `analysis_output/seir_<scenario>.png` and `.pdf`. Drops the per-panel metrics box and per-panel legends in favour of one shared legend, larger fonts, thicker lines, and a shared y-scale with abbreviated tick labels. Every agent's mean curves are reconstructed by re-evaluation from `config.json` (baselines re-run with their original eval-seed groups; RL agents reloaded from their saved best checkpoints in `<scenario>/weights/`), so all panels share the same daily resolution and reproduce the original figure exactly. Re-evaluating the RL agents loads every seed's model, so the script takes a few minutes. The argument is a path relative to `experiments/`.
+Publication-styled version of the multi-agent SEIR comparison grid (one panel per agent, 4+3 layout), saved as `analysis_output/seir_<scenario>.pdf`. Drops the per-panel metrics box and per-panel legends in favour of one shared legend, larger fonts, thicker lines, and a shared y-scale with abbreviated tick labels. Every agent's mean curves are reconstructed by re-evaluation from `config.json` (baselines re-run with their original eval-seed groups; RL agents reloaded from their saved best checkpoints in `<scenario>/weights/`), so all panels share the same daily resolution and reproduce the original figure exactly. Re-evaluating the RL agents loads every seed's model, so the script takes a few minutes. The argument is a path relative to `experiments/`.
 
 ### Using the data loading library
 

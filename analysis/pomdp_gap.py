@@ -13,8 +13,8 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 
+from analysis import style
 from analysis.data import AnalysisRun, load_analysis
-from src.utils import _save_or_show
 
 SCENARIO_ORDER = ["mdp", "incompleteness", "incompleteness_and_noise", "pomdp"]
 SCENARIO_LABELS = ["MDP", "+ Incompleteness", "+ Noise", "+ Temporal"]
@@ -43,11 +43,12 @@ def plot_pomdp_gap(
         runs: Ordered dict from load_analysis("pomdp_gap").
         save_path: Path to save the figure. If None, displays interactively.
     """
+    style.apply_style()
     colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
     agent_colors = {agent: colors[i] for i, agent in enumerate(AGENTS)}
     x = list(range(len(SCENARIO_ORDER)))
 
-    fig, axes = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
+    fig, axes = plt.subplots(3, 1, sharex=True, figsize=(style.FIG_WIDTH, 10))
 
     for panel_idx, (mean_key, se_key, ylabel) in enumerate(METRICS):
         ax = axes[panel_idx]
@@ -77,10 +78,10 @@ def plot_pomdp_gap(
     axes[-1].set_xticklabels(SCENARIO_LABELS)
     axes[-1].set_xlabel("Distortion (cumulative →)")
 
-    fig.suptitle("POMDP Gap: Agent Performance vs. Observability", fontsize=14)
+    fig.suptitle("POMDP Gap: Agent Performance vs. Observability")
     plt.tight_layout()
 
-    _save_or_show(save_path)
+    style.save_figure(save_path)
 
 
 if __name__ == "__main__":
@@ -89,5 +90,5 @@ if __name__ == "__main__":
 
     runs = load_analysis("pomdp_gap")
 
-    plot_pomdp_gap(runs, save_path=str(output_dir / "pomdp_gap_plot.png"))
-    print(f"Plot saved to {output_dir / 'pomdp_gap_plot.png'}")
+    plot_pomdp_gap(runs, save_path=str(output_dir / "pomdp_gap_plot.pdf"))
+    print(f"Plot saved to {output_dir / 'pomdp_gap_plot.pdf'}")

@@ -17,9 +17,9 @@ from typing import Optional
 import numpy as np
 import matplotlib.pyplot as plt
 
+from analysis import style
 from analysis.data import EXPERIMENTS_DIR
 from src.env import InterventionAction
-from src.utils import _save_or_show
 
 ACTION_INDEX = {a.name: i for i, a in enumerate(InterventionAction)}
 
@@ -106,10 +106,11 @@ def plot_action_profiles(
         profiles: Dict of agent_name -> (days, action_indices).
         save_path: Path to save figure. If None, displays interactively.
     """
+    style.apply_style()
     n_agents = len(profiles)
     fig, axes = plt.subplots(
         n_agents, 1,
-        figsize=(10, 2.0 * n_agents + 0.5),
+        figsize=(style.FIG_WIDTH, 2.0 * n_agents + 0.5),
         sharex=True,
         squeeze=False,
     )
@@ -120,19 +121,19 @@ def plot_action_profiles(
         ax = axes[idx, 0]
         color = colors[idx % len(colors)]
 
-        ax.step(days, actions, where="post", color=color, linewidth=1.5)
+        ax.step(days, actions, where="post", color=color)
         ax.fill_between(days, actions, step="post", color=color, alpha=0.2)
 
-        ax.set_title(DISPLAY_NAMES.get(agent_name, agent_name), fontsize=11)
+        ax.set_title(DISPLAY_NAMES.get(agent_name, agent_name))
         ax.set_yticks([0, 1, 2, 3])
-        ax.set_yticklabels(["NO", "MILD", "MODERATE", "SEVERE"], fontsize=9)
+        ax.set_yticklabels(["NO", "MILD", "MODERATE", "SEVERE"])
         ax.set_ylim(-0.3, 3.3)
         ax.grid(True, alpha=0.3)
 
     axes[-1, 0].set_xlabel("Day")
-    fig.suptitle("Action Profile (representative episode)", fontsize=11)
+    fig.suptitle("Action Profile (representative episode)")
     plt.tight_layout()
-    _save_or_show(save_path)
+    style.save_figure(save_path)
 
 
 def main() -> None:
@@ -197,7 +198,7 @@ def main() -> None:
 
     output_dir = Path("analysis_output")
     output_dir.mkdir(exist_ok=True)
-    save_path = str(output_dir / f"action_profile_{scenario_name}.png")
+    save_path = str(output_dir / f"action_profile_{scenario_name}.pdf")
 
     plot_action_profiles(profiles, save_path=save_path)
     print(f"\nPlot saved to {save_path}")

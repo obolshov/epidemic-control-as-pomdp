@@ -19,8 +19,8 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
+from analysis import style
 from analysis.data import AnalysisRun, load_analysis
-from src.utils import _save_or_show
 
 ANALYSIS_NAME = "framestack_ablation"
 REFERENCE_AGENT = "ppo_recurrent"
@@ -141,7 +141,8 @@ def plot_framestack_ablation(
     )["cross_seed_mean_reward"]
 
     # Plot
-    fig, ax = plt.subplots(figsize=(8, 5))
+    style.apply_style()
+    fig, ax = plt.subplots(figsize=(style.FIG_WIDTH, 5))
 
     ax.axhline(
         baseline_mean, linestyle="--", color="C0", alpha=0.8,
@@ -164,7 +165,7 @@ def plot_framestack_ablation(
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    _save_or_show(save_path)
+    style.save_figure(save_path)
 
 
 if __name__ == "__main__":
@@ -176,6 +177,6 @@ if __name__ == "__main__":
     print_summary_table(runs)
     print()
 
-    save_path = str(output_dir / "framestack_ablation.png")
+    save_path = str(output_dir / "framestack_ablation.pdf")
     plot_framestack_ablation(runs, save_path=save_path)
     print(f"Ablation plot saved to {save_path}")
