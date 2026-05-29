@@ -259,6 +259,15 @@ python -m analysis.training_summary pomdp_t3000000/default --agents ppo_baseline
 
 Per-seed training summary for RL agents: best eval reward, training step at which it was achieved, final training step, and whether early stopping triggered. Reads `evaluations.npz` files directly — no manifest entry needed. The argument is a path relative to `experiments/`.
 
+### Publication SEIR Figure
+
+```bash
+python -m analysis.seir pomdp_t3000000/default
+python -m analysis.seir pomdp_t3000000/default --agents no_action ppo_framestack
+```
+
+Publication-styled version of the multi-agent SEIR comparison grid (one panel per agent, 4+3 layout), saved as `analysis_output/seir_<scenario>.png` and `.pdf`. Drops the per-panel metrics box and per-panel legends in favour of one shared legend, larger fonts, thicker lines, and a shared y-scale with abbreviated tick labels. Every agent's mean curves are reconstructed by re-evaluation from `config.json` (baselines re-run with their original eval-seed groups; RL agents reloaded from their saved best checkpoints in `<scenario>/weights/`), so all panels share the same daily resolution and reproduce the original figure exactly. Re-evaluating the RL agents loads every seed's model, so the script takes a few minutes. The argument is a path relative to `experiments/`.
+
 ### Using the data loading library
 
 ```python
