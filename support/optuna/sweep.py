@@ -47,7 +47,6 @@ def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None
         rc.lstm_hidden_size = trial.suggest_categorical("lstm_hidden_size", [32, 64, 128])
         rc.n_steps = trial.suggest_categorical("n_steps", [64, 128, 256, 512])
         rc.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
-        rc.n_epochs = trial.suggest_categorical("n_epochs", [3, 5, 10])
     elif agent_name == "dqn":
         dqn = config.dqn
         dqn.gamma = trial.suggest_float("gamma", 0.90, 0.999)
@@ -268,7 +267,6 @@ def _print_config_overrides(params: Dict, agent_name: str) -> None:
         print(f"lstm_hidden_size: int = {params['lstm_hidden_size']}")
         print(f"n_steps: int = {params['n_steps']}")
         print(f"batch_size: int = {params['batch_size']}")
-        print(f"n_epochs: int = {params['n_epochs']}")
     elif agent_name == "dqn":
         print(f"learning_rate: float = {params['learning_rate']:.6f}")
         print(f"gamma: float = {params['gamma']:.4f}")
