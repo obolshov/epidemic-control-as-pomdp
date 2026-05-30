@@ -97,9 +97,12 @@ Key options:
 - `--deterministic`: Use deterministic ODE dynamics instead of stochastic Binomial transitions (adds `_det` suffix to scenario name)
 - `--n-stack`: FrameStack depth for ppo_framestack (default: 30). Non-default values are encoded in the agent name (e.g. `ppo_framestack_nstack5`), so variants coexist in the same weights directory.
 - `--experiment-name`: Custom experiment folder name (default: auto-generated from scenario and timesteps, e.g. `pomdp_t3000000`). Useful when the auto-generated name is too verbose or you want a semantic label for the top-level folder.
-- `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). Supports incremental runs: reusing an existing folder is allowed as long as agents being trained don't already have logs there.
+- `--run-name`: Custom name for the results subfolder (default: auto-generated timestamp). Useful for labelling runs semantically (e.g. `--run-name baseline_v2`). A common workflow is one folder per scenario (e.g. `--run-name default`) re-used across runs.
+- `--resume`: Train only seeds whose weights are missing and load the rest. Lets you extend an existing run (e.g. grow 5 seeds to 10 with `-n 10 --resume`) without retraining. Mutually exclusive with `--overwrite`.
+- `--overwrite`: Retrain every seed from scratch, overwriting existing weights. Mutually exclusive with `--resume`.
 **Training behavior:**
-- By default, trains all RL agents from scratch
+- By default, trains all RL agents from scratch. If any agent being trained already has saved weights for some of its seeds, the run aborts with an error — pass `--resume` (train missing seeds only) or `--overwrite` (retrain all) to proceed.
+- A seed counts as trained only when both its weight file and VecNormalize stats exist; `--resume` retrains any seed missing either.
 - Use `--skip-training all` to load existing weights for all agents (agents without weights are excluded from evaluation)
 - Use `--skip-training ppo_baseline,ppo_recurrent` to skip specific agents — accepts base names, matches variants (e.g. `ppo_baseline` matches `ppo_baseline_ent0.05`). Agents without weights are skipped with a warning instead of failing.
 - Use `--train-only dqn` to train only specified agents and skip the rest — same prefix-matching as `--skip-training`

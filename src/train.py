@@ -19,7 +19,7 @@ from sb3_contrib import RecurrentPPO
 
 from src.callbacks import SaveVecNormalizeOnBestCallback, StopTrainingOnNoModelImprovementWithDelta
 from src.config import Config
-from src.experiment import ExperimentConfig, ExperimentDirectory
+from src.experiment import ExperimentConfig, ExperimentDirectory, TrainingMode
 from src.scenarios import is_off_policy, is_rl_agent
 from src.utils import plot_learning_curve
 from src.wrappers import FixedNormalizeWrapper, create_environment
@@ -503,6 +503,7 @@ def prepare_rl_agents(
     exp_config: ExperimentConfig,
     experiment_dir: ExperimentDirectory,
     agents_to_skip: set,
+    mode: TrainingMode = "normal",
 ) -> Dict[str, List[Union[DQN, PPO, RecurrentPPO]]]:
     """Train or load RL agents across multiple seeds.
 
@@ -510,9 +511,13 @@ def prepare_rl_agents(
         exp_config: Experiment configuration.
         experiment_dir: Experiment directory for saving/loading.
         agents_to_skip: Set of agent names to skip training (or {"all"} to skip all).
+        mode: Training mode for agents that ARE trained. "normal" trains every
+            seed; "resume" loads seeds with existing weights and trains the rest;
+            "overwrite" retrains every seed. Skipped agents ignore this and load.
 
     Returns:
-        Dict mapping agent_name -> list of models (one per seed).
+        Dict mapping agent_name -> list of models (one per seed). For agents that
+        are trained (not skipped), the list is full and ordered by training seed.
     """
     rl_agent_names = [
         name for name in exp_config.target_agents
@@ -549,6 +554,13 @@ def prepare_rl_agents(
                         f"skipping remaining seeds."
                     )
                     break
+            elif mode == "resume" and experiment_dir.is_seed_trained(agent_name, seed):
+                weight_path = experiment_dir.get_weight_path(agent_name, seed)
+                print(
+                    f"\nResuming: loading existing {agent_name} (seed={seed}) "
+                    f"from {weight_path}..."
+                )
+                models.append(_load_model(str(weight_path), agent_name))
             else:
                 print(f"\nTraining {agent_name} (seed={seed})...")
                 train_fn = train_dqn_agent if agent_name.startswith("dqn") else train_ppo_agent

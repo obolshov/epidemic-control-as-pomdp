@@ -14,7 +14,7 @@ from src.results import cross_seed_se
 from src.config import Config
 from src.results import AggregatedResult
 from src.evaluation import run_evaluation
-from src.experiment import ExperimentConfig, ExperimentDirectory, generate_seeds
+from src.experiment import ExperimentConfig, ExperimentDirectory, TrainingMode, generate_seeds
 from src.scenarios import (
     get_scenario,
     get_agent_variant_name,
@@ -42,6 +42,28 @@ def _parse_agent_list(raw: Optional[str]) -> set:
     if raw.lower() == "all" or raw == "":
         return {"all"}
     return set(agent.strip() for agent in raw.split(","))
+
+
+def _resolve_training_mode(resume: bool, overwrite: bool) -> TrainingMode:
+    """Resolve the training mode from the --resume / --overwrite flags.
+
+    Args:
+        resume: Train only seeds without existing weights; load the rest.
+        overwrite: Retrain all seeds from scratch, overwriting existing weights.
+
+    Returns:
+        One of "normal", "resume", "overwrite".
+
+    Raises:
+        typer.BadParameter: If both flags are set.
+    """
+    if resume and overwrite:
+        raise typer.BadParameter("--resume and --overwrite are mutually exclusive.")
+    if resume:
+        return "resume"
+    if overwrite:
+        return "overwrite"
+    return "normal"
 
 
 def _build_experiment_config(
@@ -220,6 +242,18 @@ def main(
         "--include",
         help="Extra agents to add to the default set (comma-separated, e.g. 'dqn').",
     ),
+    resume: bool = typer.Option(
+        False,
+        "--resume",
+        help="Train only seeds without existing weights; load the rest. "
+             "Mutually exclusive with --overwrite.",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Retrain all seeds from scratch, overwriting existing weights. "
+             "Mutually exclusive with --resume.",
+    ),
 ):
     """Run epidemic control experiment with multi-seed training and evaluation."""
     agents_to_skip = _parse_agent_list(skip_training)
@@ -230,6 +264,7 @@ def main(
         raise typer.BadParameter("--skip-training and --train-only are mutually exclusive.")
     if "all" in agents_to_train_only:
         raise typer.BadParameter("--train-only 'all' is not supported (training all is the default).")
+    training_mode = _resolve_training_mode(resume, overwrite)
 
     exp_config = _build_experiment_config(
         scenario,
@@ -261,9 +296,9 @@ def main(
             or any(name == s or name.startswith(s + "_") for s in agents_to_skip)
         )
     ]
-    experiment_dir.check_training_conflicts(agents_to_train)
+    experiment_dir.check_training_conflicts(agents_to_train, exp_config.training_seeds, training_mode)
 
-    rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip)
+    rl_models = prepare_rl_agents(exp_config, experiment_dir, agents_to_skip, training_mode)
     aggregated_results, per_seed_stats = run_evaluation(exp_config, experiment_dir, rl_models)
 
     _create_plots(exp_config, experiment_dir, aggregated_results, rl_models)

@@ -12,12 +12,18 @@ import json
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Literal, Optional
 
 import numpy as np
 
 from src.config import Config
 from src.results import cross_seed_se
+
+
+# Training mode for agents being trained: train every seed ("normal"), train
+# only seeds whose weights are missing ("resume"), or retrain every seed
+# ("overwrite"). Single source of truth for the valid values.
+TrainingMode = Literal["normal", "resume", "overwrite"]
 
 
 def generate_seeds(num_seeds: int) -> List[int]:
@@ -166,31 +172,43 @@ class ExperimentDirectory:
         experiment_dir.mkdir(parents=True, exist_ok=True)
         return experiment_dir
 
-    def check_training_conflicts(self, agents_to_train: list[str]) -> None:
-        """Check that agents about to be trained have no existing logs in this run.
+    def check_training_conflicts(
+        self,
+        agents_to_train: list[str],
+        training_seeds: list[int],
+        mode: TrainingMode = "normal",
+    ) -> None:
+        """Guard against silently overwriting already-trained seed weights.
 
-        Scans tensorboard directory for directories matching each agent name.
-        Reports ALL conflicts at once before training starts.
+        In "normal" mode, raises if any agent about to be trained already has
+        saved weights for one or more of its seeds. "resume" and "overwrite"
+        opt out: resume loads existing seeds and trains the rest; overwrite
+        retrains everything.
 
         Args:
             agents_to_train: RL agent names that will be trained (not skipped).
+            training_seeds: Training seeds for this run.
+            mode: One of "normal", "resume", "overwrite".
 
         Raises:
-            ValueError: If any agent already has tensorboard logs in this run.
+            ValueError: In "normal" mode, if any to-be-trained seed already has weights.
         """
-        if not agents_to_train or not self.tensorboard_dir.exists():
+        if mode != "normal" or not agents_to_train:
             return
 
-        conflicts = []
+        conflicts = {}
         for agent_name in agents_to_train:
-            if any(self.tensorboard_dir.glob(f"{agent_name}_seed*")):
-                conflicts.append(agent_name)
+            trained = [s for s in training_seeds if self.is_seed_trained(agent_name, s)]
+            if trained:
+                conflicts[agent_name] = trained
 
         if conflicts:
+            lines = "\n".join(f"  {a}: seeds {seeds}" for a, seeds in conflicts.items())
             raise ValueError(
-                f"Agents already have training logs in {self.root}:\n"
-                f"  {', '.join(conflicts)}\n"
-                f"Use --skip-training for these agents or choose a different --run-name."
+                f"Agents already have trained weights in {self.weights_dir}:\n"
+                f"{lines}\n"
+                f"Use --resume to train only the missing seeds, "
+                f"or --overwrite to retrain all from scratch."
             )
 
     def save_config(self) -> None:
@@ -306,6 +324,25 @@ class ExperimentDirectory:
             Path to VecNormalize file.
         """
         return self.weights_dir / f"{agent_name}_seed{seed}_vecnormalize.pkl"
+
+    def is_seed_trained(self, agent_name: str, seed: int) -> bool:
+        """Check whether a seed has fully saved weights ready for evaluation.
+
+        A seed counts as trained only when BOTH the model weights and the
+        VecNormalize statistics exist — evaluation loads the latter separately,
+        and without it metrics are computed on un-normalized observations.
+
+        Args:
+            agent_name: Name of the agent.
+            seed: Training seed.
+
+        Returns:
+            True if both the weight and VecNormalize files exist.
+        """
+        return (
+            self.get_weight_path(agent_name, seed).exists()
+            and self.get_vecnormalize_path(agent_name, seed).exists()
+        )
 
     def get_plot_path(self, plot_name: str) -> Path:
         """
