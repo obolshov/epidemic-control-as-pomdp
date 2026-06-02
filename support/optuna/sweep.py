@@ -49,11 +49,11 @@ def suggest_params(trial: optuna.Trial, agent_name: str, config: Config) -> None
         rc.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
     elif agent_name == "dqn":
         dqn = config.dqn
-        dqn.gamma = trial.suggest_float("gamma", 0.90, 0.999)
+        dqn.gamma = trial.suggest_float("gamma", 0.95, 0.999)
         dqn.learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
         dqn.batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
         dqn.exploration_fraction = trial.suggest_float("exploration_fraction", 0.1, 0.5)
-        dqn.exploration_final_eps = trial.suggest_float("exploration_final_eps", 0.01, 0.3)
+        dqn.exploration_final_eps = trial.suggest_float("exploration_final_eps", 0.01, 0.2)
         dqn.tau = trial.suggest_float("tau", 0.001, 0.05, log=True)
         dqn.gradient_steps = trial.suggest_categorical("gradient_steps", [1, 2, 4])
         net_arch_key = trial.suggest_categorical("net_arch", list(NET_ARCH_MAP.keys()))
