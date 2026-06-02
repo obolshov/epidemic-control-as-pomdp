@@ -157,9 +157,9 @@ def plot_framestack_ablation(
         label=f"Recurrent ({recurrent_mean:.1f})",
     )
 
-    ax.set_xlabel("n_stack (window size in steps)")
-    ax.set_ylabel("Total Reward (mean ± SE)")
-    ax.set_title("FrameStack Window Size Ablation (POMDP scenario)")
+    ax.set_xlabel(r"Window size $K$")
+    ax.set_ylabel("Total Reward")
+    ax.set_title("FrameStack Window Analysis")
     ax.set_xticks(n_stacks)
     ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
