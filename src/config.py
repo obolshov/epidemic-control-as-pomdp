@@ -49,15 +49,15 @@ class PPORecurrentConfig:
 class DQNConfig:
     """DQN hyperparameters."""
 
-    learning_rate: float = 3e-4
+    learning_rate: float = 7e-4
     gamma: float = 0.99
     buffer_size: int = 1_000_000
     learning_starts: int = 10_000
-    batch_size: int = 32
-    exploration_fraction: float = 0.3
+    batch_size: int = 64
+    exploration_fraction: float = 0.1
     exploration_final_eps: float = 0.2
     target_update_interval: int = 1
-    tau: float = 0.03
+    tau: float = 0.01
     gradient_steps: int = 2
     net_arch: List[int] = field(default_factory=lambda: [64, 64])
     early_stop_patience: int = 60
