@@ -314,3 +314,7 @@ python main.py --scenario pomdp
 # Adjust training duration
 python main.py --scenario mdp --timesteps 100000
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
